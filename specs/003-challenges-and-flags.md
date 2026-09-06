@@ -1,6 +1,6 @@
 # Spec 003 — Challenges, Answers & Dynamic Scoring
 
-Status: **approved** (2026-09-06) — implementing
+Status: **done** (2026-09-06) — 351 backend tests, 41 frontend tests, verified end to end
 Phase: 1
 Covers: `Plan.md` → Challenge & Flag System (except hints, which are spec 004)
 Depends on: 001 (skeleton), 002 (identity, the `play` gate, audit log)

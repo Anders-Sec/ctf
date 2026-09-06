@@ -27,13 +27,23 @@ export default function AppLayout() {
           <NavLink to="/" className="font-semibold">
             CTF
           </NavLink>
+          {me?.capabilities.play && (
+            <NavLink to="/challenges" className="text-sm hover:underline">
+              Challenges
+            </NavLink>
+          )}
           <NavLink to="/party" className="text-sm hover:underline">
             Party
           </NavLink>
           {me?.capabilities.view_admin && (
-            <NavLink to="/admin/users" className="text-sm hover:underline">
-              Approvals
-            </NavLink>
+            <>
+              <NavLink to="/admin/challenges" className="text-sm hover:underline">
+                Manage
+              </NavLink>
+              <NavLink to="/admin/users" className="text-sm hover:underline">
+                Approvals
+              </NavLink>
+            </>
           )}
 
           {me && (

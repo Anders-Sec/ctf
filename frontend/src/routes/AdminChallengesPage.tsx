@@ -1,0 +1,458 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+
+import {
+  addAnswer,
+  createChallenge,
+  deleteAnswer,
+  getAdminChallenge,
+  listAdminCategories,
+  listAdminChallenges,
+  setChallengeState,
+  testAnswer,
+} from "../api/adminChallenges";
+import type { ChallengeState, MatchType } from "../api/challenges";
+import { useSession } from "../auth/session";
+import ErrorMessage from "../components/ErrorMessage";
+import Spinner from "../components/Spinner";
+
+const MATCH_TYPES: { value: MatchType; label: string; hint: string }[] = [
+  { value: "exact", label: "Exact", hint: "The answer, character for character" },
+  { value: "case_insensitive", label: "Ignore case", hint: "Same, but case does not matter" },
+  { value: "regex", label: "Pattern", hint: "A regular expression, anchored by default" },
+  { value: "numeric", label: "Number", hint: "1000, 1,000 and 1e3 all match" },
+  { value: "set", label: "Multi-part", hint: "Comma-separated, any order by default" },
+  { value: "any_of", label: "Alternatives", hint: "One accepted answer per line" },
+];
+
+const STATES: ChallengeState[] = ["draft", "hidden", "locked", "published"];
+
+export default function AdminChallengesPage() {
+  const { me } = useSession();
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const challenges = useQuery({
+    queryKey: ["admin", "challenges"],
+    queryFn: listAdminChallenges,
+  });
+
+  const canWrite = me?.capabilities.administer ?? false;
+
+  return (
+    <main className="mx-auto max-w-5xl p-6">
+      <header className="flex items-baseline justify-between">
+        <h1 className="text-3xl font-semibold tracking-tight">Challenges</h1>
+        <span className="text-muted">{challenges.data?.length ?? 0} total</span>
+      </header>
+
+      {!canWrite && (
+        <p className="mt-4 rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
+          You have read-only access. Only admins can change challenges.
+        </p>
+      )}
+
+      {canWrite && <CreateChallengeForm />}
+
+      {challenges.isPending ? (
+        <Spinner />
+      ) : (
+        <ul className="mt-6 flex flex-col gap-2">
+          {(challenges.data ?? []).map((challenge) => (
+            <li key={challenge.id} className="rounded-lg border border-stone bg-white/60">
+              <button
+                onClick={() => setSelected(selected === challenge.id ? null : challenge.id)}
+                className="flex w-full items-center gap-3 p-4 text-left"
+                aria-expanded={selected === challenge.id}
+              >
+                <span className="flex-1">
+                  <span className="font-medium">{challenge.title}</span>
+                  <span className="block text-sm text-muted">
+                    {challenge.category.name} · {challenge.current_value} pts ·{" "}
+                    {challenge.solve_count} solves
+                  </span>
+                </span>
+                <StateBadge state={challenge.state} effective={challenge.effective_state} />
+              </button>
+
+              {selected === challenge.id && (
+                <ChallengeEditor challengeId={challenge.id} canWrite={canWrite} />
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
+  );
+}
+
+function StateBadge({
+  state,
+  effective,
+}: {
+  state: ChallengeState;
+  effective: ChallengeState;
+}) {
+  // Both are shown when they disagree: a published challenge whose release time
+  // has not arrived is a situation an admin needs to see at a glance.
+  const differs = state !== effective;
+  return (
+    <span className="shrink-0 text-xs">
+      <span className="rounded bg-stone px-2 py-0.5">{state}</span>
+      {differs && <span className="ml-1 text-muted">→ now {effective}</span>}
+    </span>
+  );
+}
+
+function CreateChallengeForm() {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+
+  const categories = useQuery({ queryKey: ["categories"], queryFn: listAdminCategories });
+
+  const create = useMutation({
+    mutationFn: () =>
+      createChallenge({ title: title.trim(), slug: slug.trim(), category_id: categoryId }),
+    onSuccess: async () => {
+      setTitle("");
+      setSlug("");
+      setOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "challenges"] });
+    },
+  });
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-4 rounded bg-ink px-4 py-2 text-sm text-parchment"
+      >
+        New challenge
+      </button>
+    );
+  }
+
+  return (
+    <form
+      className="mt-4 rounded-lg border border-stone bg-white/60 p-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        create.mutate();
+      }}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-sm">
+          Title
+          <input
+            required
+            value={title}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              // Suggest a slug, but let it be overridden — it is a stable
+              // player-facing identifier, not a display name.
+              setSlug(
+                event.target.value
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, "-")
+                  .replace(/^-|-$/g, ""),
+              );
+            }}
+            className="mt-1 w-full rounded border border-stone px-3 py-2"
+          />
+        </label>
+        <label className="text-sm">
+          Slug
+          <input
+            required
+            pattern="[a-z0-9-]+"
+            value={slug}
+            onChange={(event) => setSlug(event.target.value)}
+            className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+          />
+        </label>
+        <label className="text-sm sm:col-span-2">
+          Category
+          <select
+            required
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            className="mt-1 w-full rounded border border-stone px-3 py-2"
+          >
+            <option value="">Choose one…</option>
+            {(categories.data ?? []).map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <p className="mt-3 text-xs text-muted">
+        Created as a draft. Nothing goes live until you publish it.
+      </p>
+
+      <div className="mt-3 flex gap-2">
+        <button
+          type="submit"
+          disabled={create.isPending}
+          className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+        >
+          Create
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="text-sm underline">
+          Cancel
+        </button>
+      </div>
+      <ErrorMessage error={create.error} />
+    </form>
+  );
+}
+
+function ChallengeEditor({
+  challengeId,
+  canWrite,
+}: {
+  challengeId: string;
+  canWrite: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const detail = useQuery({
+    queryKey: ["admin", "challenge", challengeId],
+    queryFn: () => getAdminChallenge(challengeId),
+  });
+
+  const reload = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["admin", "challenge", challengeId] });
+    await queryClient.invalidateQueries({ queryKey: ["admin", "challenges"] });
+  };
+
+  const changeState = useMutation({
+    mutationFn: (state: ChallengeState) => setChallengeState(challengeId, state),
+    onSuccess: reload,
+  });
+
+  if (detail.isPending) return <Spinner />;
+  if (detail.isError) return <ErrorMessage error={detail.error} />;
+
+  const challenge = detail.data;
+
+  return (
+    <div className="border-t border-stone p-4">
+      {canWrite && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted">State:</span>
+          {STATES.map((state) => (
+            <button
+              key={state}
+              onClick={() => changeState.mutate(state)}
+              disabled={changeState.isPending || challenge.state === state}
+              className={`rounded px-3 py-1 text-sm ${
+                challenge.state === state ? "bg-ink text-parchment" : "border border-stone"
+              }`}
+            >
+              {state}
+            </button>
+          ))}
+        </div>
+      )}
+      <ErrorMessage error={changeState.error} />
+
+      <dl className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+        <div>
+          <dt className="text-muted">Value now</dt>
+          <dd>{challenge.current_value}</dd>
+        </div>
+        <div>
+          <dt className="text-muted">Curve</dt>
+          <dd>
+            {challenge.initial_points} → {challenge.minimum_points} over{" "}
+            {challenge.decay_threshold}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted">Decays per</dt>
+          <dd>{challenge.decay_basis}</dd>
+        </div>
+        <div>
+          <dt className="text-muted">Attempts</dt>
+          <dd>{challenge.max_attempts ?? "unlimited"}</dd>
+        </div>
+      </dl>
+
+      <AnswerRules challenge={challenge} canWrite={canWrite} onChanged={reload} />
+    </div>
+  );
+}
+
+function AnswerRules({
+  challenge,
+  canWrite,
+  onChanged,
+}: {
+  challenge: { id: string; answers: { id: string; match_type: MatchType; value: string; label: string | null }[] };
+  canWrite: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [matchType, setMatchType] = useState<MatchType>("exact");
+  const [value, setValue] = useState("");
+  const [label, setLabel] = useState("");
+  const [candidate, setCandidate] = useState("");
+
+  const add = useMutation({
+    mutationFn: () =>
+      addAnswer(challenge.id, {
+        match_type: matchType,
+        value,
+        label: label.trim() || undefined,
+      }),
+    onSuccess: async () => {
+      setValue("");
+      setLabel("");
+      await onChanged();
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (answerId: string) => deleteAnswer(challenge.id, answerId),
+    onSuccess: onChanged,
+  });
+
+  const test = useMutation({ mutationFn: () => testAnswer(challenge.id, candidate) });
+
+  const hint = MATCH_TYPES.find((type) => type.value === matchType)?.hint;
+
+  return (
+    <section className="mt-5">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+        Accepted answers ({challenge.answers.length})
+      </h3>
+      <p className="mt-1 text-xs text-muted">A submission is correct if any one of these matches.</p>
+
+      <ul className="mt-3 flex flex-col gap-2">
+        {challenge.answers.map((answer) => (
+          <li
+            key={answer.id}
+            className="flex items-center gap-3 rounded border border-stone bg-parchment px-3 py-2"
+          >
+            <span className="rounded bg-stone px-2 py-0.5 text-xs">{answer.match_type}</span>
+            <code className="flex-1 truncate text-sm">{answer.value}</code>
+            {answer.label && <span className="text-xs text-muted">{answer.label}</span>}
+            {canWrite && (
+              <button
+                onClick={() => remove.mutate(answer.id)}
+                className="text-xs text-torch underline"
+              >
+                Remove
+              </button>
+            )}
+          </li>
+        ))}
+        {challenge.answers.length === 0 && (
+          <li className="text-sm text-torch">
+            No answers yet — nobody can solve this challenge.
+          </li>
+        )}
+      </ul>
+
+      {canWrite && (
+        <>
+          <form
+            className="mt-4 grid gap-2 sm:grid-cols-[10rem_1fr_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              add.mutate();
+            }}
+          >
+            <select
+              value={matchType}
+              onChange={(event) => setMatchType(event.target.value as MatchType)}
+              className="rounded border border-stone px-3 py-2 text-sm"
+              aria-label="Match type"
+            >
+              {MATCH_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+            <input
+              required
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              placeholder={hint}
+              aria-label="Answer value"
+              className="rounded border border-stone px-3 py-2 font-mono text-sm"
+            />
+            <button
+              type="submit"
+              disabled={add.isPending}
+              className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+            >
+              Add
+            </button>
+            <input
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="Note (optional) — e.g. accepts the British spelling"
+              aria-label="Answer note"
+              className="rounded border border-stone px-3 py-2 text-sm sm:col-span-3"
+            />
+          </form>
+          <ErrorMessage error={add.error ?? remove.error} />
+
+          <div className="mt-4 rounded border border-dashed border-stone p-3">
+            <h4 className="text-sm font-medium">Try an answer</h4>
+            <p className="mt-1 text-xs text-muted">
+              Checks against the rules above without recording anything. Test a pattern here
+              rather than discovering it mid-event.
+            </p>
+            <form
+              className="mt-2 flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                test.mutate();
+              }}
+            >
+              <input
+                value={candidate}
+                onChange={(event) => setCandidate(event.target.value)}
+                aria-label="Candidate answer"
+                className="flex-1 rounded border border-stone px-3 py-2 font-mono text-sm"
+                placeholder="What would a player type?"
+              />
+              <button
+                type="submit"
+                disabled={test.isPending || candidate === ""}
+                className="rounded border border-ink px-4 py-2 text-sm disabled:opacity-50"
+              >
+                Test
+              </button>
+            </form>
+
+            {test.data && (
+              <p role="status" className="mt-2 text-sm">
+                {test.data.correct ? (
+                  <span>
+                    Accepted
+                    {test.data.matched_label && ` by “${test.data.matched_label}”`}.
+                  </span>
+                ) : (
+                  <span className="text-torch">No rule matches that.</span>
+                )}
+                {test.data.errors.length > 0 && (
+                  <span className="mt-1 block text-xs text-torch">
+                    Rule problems: {test.data.errors.join("; ")}
+                  </span>
+                )}
+              </p>
+            )}
+            <ErrorMessage error={test.error} />
+          </div>
+        </>
+      )}
+    </section>
+  );
+}

@@ -58,7 +58,12 @@ export default function HomePage() {
 
       {capabilities.play && (
         <GateCard title="The dungeon is open">
-          <p>Challenges arrive in the next chapter of the build.</p>
+          <p>
+            <Link to="/challenges" className="underline">
+              Take on a challenge
+            </Link>{" "}
+            and start scoring.
+          </p>
         </GateCard>
       )}
 
