@@ -37,6 +37,10 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "f
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# One event loop for the whole session: session-scoped async fixtures hand
+# connections to tests, and asyncpg connections cannot cross event loops.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 
 [tool.uv]
 package = false

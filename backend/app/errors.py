@@ -107,7 +107,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         return error_response(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            422,  # Named constant renamed between Starlette versions; the number is stable.
             "validation_error",
             "The request body or parameters are invalid.",
             {"fields": _summarise_validation(exc)},

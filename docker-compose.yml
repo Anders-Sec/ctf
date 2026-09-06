@@ -10,7 +10,10 @@ services:
       POSTGRES_PASSWORD: ctf_local_dev
       POSTGRES_DB: ctf
     ports:
-      - "5432:5432"
+      # Host port 15432, not 5432: Windows reserves 5411-5510 for dynamic
+      # allocation (see `netsh int ipv4 show excludedportrange protocol=tcp`),
+      # so 5432 cannot be bound on a default Windows host.
+      - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

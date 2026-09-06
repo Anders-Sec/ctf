@@ -11,7 +11,7 @@ Prerequisites: Docker, [uv](https://docs.astral.sh/uv/), Node 20+.
 
 ```sh
 cp .env.example .env          # fill in as needed; never commit .env
-docker compose up -d          # postgres + redis
+docker compose up -d          # postgres on :15432, redis on :6379
 cd backend && uv run alembic upgrade head && uv run uvicorn app.main:app --reload
 cd frontend && npm install && npm run dev
 ```
