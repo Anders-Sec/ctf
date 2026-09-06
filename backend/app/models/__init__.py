@@ -24,6 +24,7 @@ from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.hint import Hint, HintUnlock
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.report import ChallengeReport, ReportStatus
+from app.models.signal import SignalDismissal
 from app.models.team import (
     Team,
     TeamJoinRequest,
@@ -49,6 +50,7 @@ __all__ = [
     "ReportStatus",
     "ScoreAdjustment",
     "ScoringMode",
+    "SignalDismissal",
     "Solve",
     "Submission",
     "EventConfig",

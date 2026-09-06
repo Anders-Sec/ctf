@@ -115,6 +115,23 @@ class Settings(BaseSettings):
     def s3_configured(self) -> bool:
         return bool(self.s3_endpoint_url and self.s3_access_key and self.s3_secret_key)
 
+    # --- Anti-cheat signals (spec 007) --------------------------------------
+    #: A value used by more players than this is a common guess, not sharing.
+    signal_shared_answer_max_players: int = 4
+    #: Short strings are guesses; long ones are shared.
+    signal_shared_answer_min_length: int = 8
+    #: How close behind another party's solve counts as suspicious.
+    signal_close_solve_seconds: int = 120
+    signal_first_try_ratio: float = 0.9
+    signal_first_try_min_solves: int = 5
+    #: How near the end of the event a join counts as late recruitment.
+    signal_late_recruit_hours: int = 2
+    signal_late_recruit_min_solves: int = 5
+    #: Off by default. Everyone at a work event shares a corporate NAT, so this
+    #: matches the whole field and reads as damning to someone who does not
+    #: know that.
+    signal_shared_ip_enabled: bool = False
+
     @model_validator(mode="after")
     def _check_production_secrets(self) -> "Settings":
         """A shared default signing key would let anyone mint an admin session."""
