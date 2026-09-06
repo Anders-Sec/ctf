@@ -148,19 +148,22 @@ submit until it returns. Everything else degrades gracefully (the scoreboard
 falls back to computing from Postgres). Flagging so nobody is surprised; if you
 would rather it fail open, tell us and we will add a grace window.
 
-**The AI endpoint is on the Windows host, not in the cluster.** LM Studio sits
-behind a WSL vEthernet address. Before the assistant work starts we need to
-confirm from inside the cluster:
+**The AI endpoint is outside the cluster.** LM Studio runs on a Windows host on
+the same LAN as the node — a static address on the node's own subnet, supplied
+out-of-band as the `ai-base-url` secret, so pods reach it by ordinary egress
+rather than anything tunnelled. No cluster-side networking work is expected.
+
+Two host-side prerequisites, and one check before the assistant work starts:
+
+- LM Studio bound to `0.0.0.0`, not `127.0.0.1`.
+- A Windows Firewall inbound rule for its port.
 
 ```sh
-kubectl -n ctf run nettest --rm -it --restart=Never --image=curlimages/curl -- \
-  curl -sS -m 5 http://<ai-host>:<ai-port>/v1/models -H "Authorization: Bearer <key>"
+kubectl -n ctf run nettest --rm -it --restart=Never --image=curlimages/curl -- curl -sS -m5 "$AI_BASE_URL/v1/models" -H "Authorization: Bearer $AI_API_KEY"
 ```
 
-That requires LM Studio bound to `0.0.0.0` rather than `127.0.0.1`, and a Windows
-Firewall rule. **The address also changes when WSL restarts** — over a multi-day
-event that will drop the assistant. A stable name or a fixed route would be worth
-having; if there is one, we will use it instead.
+If pod egress to the LAN is restricted, that is the one thing we would need
+opened.
 
 ---
 
@@ -191,8 +194,8 @@ ArgoCD Application once we hand over repo URL + `deploy/` path + image tags.
 3. **Is `ctf-nm.org` DNS + the Cloudflare token sorted?** Both are listed as
    blockers. Entra sign-in cannot be tested at all until the callback URL resolves
    over HTTPS.
-4. **Is a stable address available for the AI endpoint**, or do we design around
-   it moving when WSL restarts?
+4. **Is pod egress to the LAN open?** The AI endpoint is a static address on the
+   node's subnet; we only need to know nothing blocks pods reaching it.
 5. **Confirm this repo will be public** — we have kept it clean of secrets on
    that assumption, and it is why the AI base URL is a secret rather than a
    manifest value.
