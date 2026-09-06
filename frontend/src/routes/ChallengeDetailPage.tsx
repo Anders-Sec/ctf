@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { artifactUrl, getChallenge, submitAnswer } from "../api/challenges";
 import { ApiError } from "../api/client";
 import ErrorMessage from "../components/ErrorMessage";
+import HintList from "../components/HintList";
 import Spinner from "../components/Spinner";
 
 export default function ChallengeDetailPage() {
@@ -101,6 +102,8 @@ export default function ChallengeDetailPage() {
           </ul>
         </section>
       )}
+
+      <HintList challengeId={detail.id} hints={detail.hints} />
 
       <section className="mt-6">
         <form

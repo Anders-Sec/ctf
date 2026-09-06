@@ -42,10 +42,30 @@ export interface ChallengeListItem {
   release_at: string | null;
 }
 
+export interface Hint {
+  id: string;
+  title: string;
+  /** What unlocking costs right now — zero once the challenge is solved. */
+  cost: number;
+  unlocked: boolean;
+  /** False while a prerequisite is unbought or the reveal time has not come. */
+  available: boolean;
+  /** Null until unlocked. Withheld server-side, like a locked challenge's body. */
+  body: string | null;
+}
+
 export interface ChallengeDetail extends ChallengeListItem {
   /** Null while locked — the server withholds it rather than trusting us to hide it. */
   body: string | null;
   artifacts: Artifact[];
+  hints: Hint[];
+}
+
+export interface UnlockHintResult {
+  body: string;
+  cost_charged: number;
+  already_unlocked: boolean;
+  new_total: number;
 }
 
 export interface SubmitResult {
@@ -74,5 +94,7 @@ export const getChallenge = (id: string) => api.get<ChallengeDetail>(`/challenge
 export const submitAnswer = (id: string, answer: string) =>
   api.post<SubmitResult>(`/challenges/${id}/submit`, { answer });
 export const getMyScore = () => api.get<MyScore>("/me/score");
+export const unlockHint = (challengeId: string, hintId: string) =>
+  api.post<UnlockHintResult>(`/challenges/${challengeId}/hints/${hintId}/unlock`);
 export const artifactUrl = (challengeId: string, artifactId: string) =>
   `/api/challenges/${challengeId}/artifacts/${artifactId}`;

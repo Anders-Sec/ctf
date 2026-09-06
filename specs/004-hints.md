@@ -1,6 +1,6 @@
 # Spec 004 — Hints
 
-Status: **approved** (2026-09-06) — implementing
+Status: **done** (2026-09-06) — 375 backend tests, 50 frontend tests, verified end to end
 Phase: 1
 Covers: `Plan.md` → Challenge & Flag System (hint system)
 Depends on: 002 (identity, the `play` gate, audit log), 003 (challenges, scoring)
