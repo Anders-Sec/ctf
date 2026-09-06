@@ -93,9 +93,7 @@ class TestChallengeCrud:
         payload = {"title": "First", "slug": "taken", "category_id": str(category.id)}
 
         await client.post("/api/admin/challenges", json=payload)
-        second = await client.post(
-            "/api/admin/challenges", json={**payload, "title": "Second"}
-        )
+        second = await client.post("/api/admin/challenges", json={**payload, "title": "Second"})
 
         assert second.status_code == 409
         assert second.json()["error"]["code"] == "slug_taken"
@@ -374,9 +372,7 @@ class TestArtifacts:
         assert artifact["checksum_sha256"] == hashlib.sha256(payload).hexdigest()
         assert artifact["size_bytes"] == len(payload)
 
-        download = await client.get(
-            f"/api/challenges/{challenge.id}/artifacts/{artifact['id']}"
-        )
+        download = await client.get(f"/api/challenges/{challenge.id}/artifacts/{artifact['id']}")
 
         assert download.status_code == 200
         assert download.content == payload
@@ -400,9 +396,7 @@ class TestArtifacts:
         player = await make_user(db_session, status=UserStatus.ACTIVE)
         await sign_in(client, player)
 
-        response = await client.get(
-            f"/api/challenges/{challenge.id}/artifacts/{artifact_id}"
-        )
+        response = await client.get(f"/api/challenges/{challenge.id}/artifacts/{artifact_id}")
 
         assert response.status_code == 403
         assert response.json()["error"]["code"] == "challenge_locked"
@@ -418,9 +412,7 @@ class TestArtifacts:
             files={"file": ("f.bin", b"contents", "application/octet-stream")},
         )
 
-        response = await client.get(
-            f"/api/challenges/{other.id}/artifacts/{upload.json()['id']}"
-        )
+        response = await client.get(f"/api/challenges/{other.id}/artifacts/{upload.json()['id']}")
 
         assert response.status_code == 404
 

@@ -45,6 +45,13 @@ def _test_settings() -> Settings:
         database_url=database_url,
         redis_url=base.redis_url,
         cors_allowed_origins=[],
+        # No SMTP under test, ever. Without this the suite inherits the real
+        # relay from .env and genuinely mails the fake addresses in the
+        # fixtures — magic links and approval notices both.
+        smtp_host=None,
+        smtp_from=None,
+        smtp_username=None,
+        smtp_token=None,
     )
 
 
@@ -209,3 +216,19 @@ async def clear_rate_limits(settings: Settings):
     keys = [key async for key in redis.scan_iter("magiclink:*")]
     if keys:
         await redis.delete(*keys)
+
+
+@pytest.fixture(autouse=True)
+def no_outbound_mail(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail loudly if any test tries to send mail.
+
+    The settings above already leave SMTP unconfigured, so nothing should reach
+    the transport. This is the tripwire: a future endpoint that sends
+    unconditionally would otherwise start mailing example.com addresses and
+    nobody would notice until the bounces arrived.
+    """
+
+    async def _refuse(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("a test attempted to send real mail")
+
+    monkeypatch.setattr("app.services.mail.send_message", _refuse)
