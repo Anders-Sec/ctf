@@ -14,7 +14,7 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | 002 | `002-identity-and-auth.md` | Identity & Auth | **done** |
 | 003 | `003-challenges-and-flags.md` | Challenge & Flag System (models, submission, rate limiting, attempt log, dynamic scoring, scheduled release) | **done** |
 | 004 | `004-hints.md` | Challenge & Flag System (hint system) | **done** |
-| 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | not written |
+| 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | draft |
 | 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | not written |
 | 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | not written |
 | 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | not written |
@@ -69,7 +69,7 @@ Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 | ~~Entra registration scope~~ | 002 | **Resolved** — tenant-wide, all employees, config-supplied credentials |
 | ~~Corporate email domains~~ | 002 | **Resolved** — `ENTRA_ENFORCED_EMAIL_DOMAINS` env var, never in source |
 | ~~Roster lock at event start~~ | 002 | **Resolved** — no lock; safe because solves are personal |
-| Party ranking formula: sum of member scores vs. average | 005 | before 005 sign-off |
+| ~~Party ranking formula~~ | 005 | **Resolved** — union of distinct solves minus distinct hints; identical ceiling for a party of 1 and of 8 |
 | ~~Hint cost model~~ | 004 | **Resolved** — points, per player; no party pool |
 | ~~Dynamic scoring decay basis~~ | 003 | **Resolved** — configurable per challenge, players *or* teams |
 | ~~Artifact storage~~ | 003 | **Resolved** — MinIO in-cluster, behind a swappable storage interface |
