@@ -1,6 +1,6 @@
 # Spec 001 — Platform Skeleton & Local Dev Environment
 
-Status: **approved** (2026-09-06) — implementing
+Status: **done** (2026-09-06) — 17 backend tests, 8 frontend tests, CI green locally
 Phase: 1
 Covers: foundational (no `Plan.md` feature section; prerequisite for all of them)
 
