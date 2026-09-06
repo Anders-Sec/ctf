@@ -100,6 +100,21 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
+    # --- Artifact storage (spec 003) ----------------------------------------
+    #: MinIO in-cluster. Any S3-compatible endpoint works.
+    s3_endpoint_url: str | None = None
+    s3_bucket: str = "ctf-artifacts"
+    s3_access_key: str | None = None
+    s3_secret_key: str | None = None
+    s3_region: str = "us-east-1"
+    #: Hard cap on a single upload. Large enough for a VM image, small enough
+    #: that one careless upload cannot fill the volume.
+    max_artifact_bytes: int = 256 * 1024 * 1024
+
+    @property
+    def s3_configured(self) -> bool:
+        return bool(self.s3_endpoint_url and self.s3_access_key and self.s3_secret_key)
+
     @model_validator(mode="after")
     def _check_production_secrets(self) -> "Settings":
         """A shared default signing key would let anyone mint an admin session."""

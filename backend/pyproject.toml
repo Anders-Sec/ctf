@@ -18,6 +18,8 @@ dependencies = [
     "aiosmtplib>=3.0",
     "httpx>=0.28",
     "regex>=2024.11.6",
+    "boto3>=1.35",
+    "python-multipart>=0.0.20",
 ]
 
 [dependency-groups]

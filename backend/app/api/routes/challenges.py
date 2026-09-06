@@ -9,9 +9,10 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
-from app.api.deps import DbSession, Player, RedisClient
+from app.api.deps import AppSettings, DbSession, Player, RedisClient
 from app.models.challenge import Challenge, ChallengeState
 from app.models.play import Solve
 from app.schemas.challenges import (
@@ -24,6 +25,7 @@ from app.schemas.challenges import (
     SubmitAnswerRequest,
     SubmitAnswerResponse,
 )
+from app.services import artifacts as artifact_service
 from app.services import challenges as challenge_service
 from app.services import scoring
 
@@ -113,6 +115,39 @@ async def submit_answer(
         points_awarded=outcome.points_awarded,
         attempts_remaining=outcome.attempts_remaining,
         message=message,
+    )
+
+
+@router.get("/challenges/{challenge_id}/artifacts/{artifact_id}")
+async def download_artifact(
+    challenge_id: UUID,
+    artifact_id: UUID,
+    db: DbSession,
+    settings: AppSettings,
+    current: Player,
+) -> StreamingResponse:
+    """Stream a challenge file.
+
+    The challenge is resolved through the player visibility rules first, so a
+    locked or hidden challenge's files are unreachable even with a valid
+    artifact id.
+    """
+    row = await challenge_service.get_for_player(
+        db, challenge_id, current.user.id, datetime.now(UTC)
+    )
+    if row["effective_state"] == ChallengeState.LOCKED:
+        raise challenge_service.ChallengeLocked
+
+    artifact = await artifact_service.get_artifact(db, challenge_id, artifact_id)
+
+    return StreamingResponse(
+        artifact_service.stream_artifact(settings, artifact),
+        media_type=artifact.content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{artifact.filename}"',
+            "Content-Length": str(artifact.size_bytes),
+            "X-Checksum-SHA256": artifact.checksum_sha256,
+        },
     )
 
 
