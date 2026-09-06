@@ -1,0 +1,59 @@
+# Spec Index & Sequencing
+
+Working index of Phase 1 feature specs. Each spec is written, signed off, and
+implemented one at a time (see `CLAUDE.md`). This file records the intended order
+and why — it is a plan, not a commitment; later specs may be resequenced as we
+learn things.
+
+Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` ·
+`done` · `not written`
+
+| #   | Spec | Covers (`Plan.md` section) | Status |
+| --- | ---- | -------------------------- | ------ |
+| 001 | `001-platform-skeleton.md` | (foundational — not a Plan.md feature) | draft |
+| 002 | `002-identity-and-auth.md` | Identity & Auth | not written |
+| 003 | `003-challenges-and-flags.md` | Challenge & Flag System (models, submission, rate limiting, attempt log, dynamic scoring, scheduled release) | not written |
+| 004 | `004-hints.md` | Challenge & Flag System (hint system) | not written |
+| 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | not written |
+| 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | not written |
+| 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | not written |
+| 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | not written |
+| 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | not written |
+| 010 | `010-ai-assistant-service.md` | AI Assistant — mediator service + model client | not written |
+| 011 | `011-ai-guardrails.md` | AI Assistant — challenge-integrity + real-world-safety layers | not written |
+| 012 | `012-load-and-nfr-verification.md` | Non-Functional Requirements | not written |
+
+## Sequencing rationale
+
+- **001 first** because every later spec needs a place to put code, a migration
+  tool, and a test harness. It deliberately contains no game logic.
+- **002 before 003** — challenges, submissions, and scoring all hang off
+  `user`/`team` identity, and getting that schema wrong is the expensive mistake.
+- **003 before 005** — the scoreboard is a projection of solve data; it needs
+  something to project.
+- **004 (hints) after 003** because hint cost is a scoring-side effect.
+- **006/007 after 003+005** — admin tooling is mostly CRUD and read views over
+  models that must already exist.
+- **008 split out from 009** because `Plan.md` explicitly flags the isolation
+  model as needing its own design write-up before implementation. 008 produces a
+  decision (namespace-per-team vs. network-policy-per-instance, quotas,
+  concurrency limits); 009 implements it.
+- **010 before 011** so there is a real request path to attach guardrails to, but
+  011 is *not* optional polish — Phase 1's Definition of Done requires both
+  guardrail layers demonstrably working, so 010 does not ship to players without 011.
+- **012 last** — load testing needs the flows it is testing.
+
+The container track (008/009) is the largest unknown and depends on cluster
+access. It can be lifted earlier if cluster access lands sooner; it is late here
+only because it is not a blocker for anything above it.
+
+## Open Items still owed a decision
+
+Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
+
+| Open Item | Blocks | Needed by |
+| --------- | ------ | --------- |
+| Guest accounts: self-serve magic-link signup, or admin approval step? | 002 | before 002 sign-off |
+| Team size limits + team creation/join UX details | 002 | before 002 sign-off |
+| Which local model is hosted, and its API shape (OpenAI-compatible or custom?) | 010 | before 010 sign-off |
+| Container isolation model | 009 | resolved *by* spec 008 |
