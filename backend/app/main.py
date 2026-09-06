@@ -13,15 +13,17 @@ from app.api.routes import (
     auth,
     challenges,
     health,
+    scoreboard,
     teams,
     users,
 )
 from app.config import Settings, get_settings
-from app.db import dispose_engine
+from app.db import dispose_engine, get_sessionmaker
 from app.errors import register_exception_handlers
 from app.logging import configure_logging, get_logger
 from app.middleware import RequestContextMiddleware
 from app.redis import close_redis, get_redis
+from app.services.scoreboard_cache import broadcaster
 
 logger = get_logger(__name__)
 
@@ -35,10 +37,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     # Touch Redis once so a misconfigured URL surfaces at boot rather than on the
     # first player request. Connection failures are left to readiness to report.
-    get_redis(settings)
+    redis = get_redis(settings)
+    # One debounced recompute loop and one subscriber per process. Several pods
+    # stay in step through the Redis channel, not through shared memory.
+    broadcaster.start(get_sessionmaker(settings), redis)
     try:
         yield
     finally:
+        await broadcaster.stop()
         await close_redis()
         await dispose_engine()
         logger.info("shutdown")
@@ -79,6 +85,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(admin_challenges.router)
     api.include_router(admin_hints.router)
     api.include_router(challenges.router)
+    api.include_router(scoreboard.router)
     api.include_router(teams.router)
     api.include_router(users.router)
     app.include_router(api)

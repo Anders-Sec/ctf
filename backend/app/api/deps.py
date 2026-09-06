@@ -179,6 +179,22 @@ def _play_message(reason: str) -> str:
     }.get(reason, "You do not have access to this.")
 
 
+async def require_scoreboard(current: Authenticated) -> CurrentUser:
+    """Reading the boards.
+
+    Deliberately not `require_play`: once the event ends, play is closed but the
+    scoreboard stays readable — the final standings are the point of the whole
+    exercise and must not vanish at the buzzer.
+    """
+    if not current.capabilities.view_scoreboard:
+        reason = current.capabilities.blocked_reason or "forbidden"
+        raise ForbiddenError(_play_message(reason), code=reason)
+    return current
+
+
+ScoreboardViewer = Annotated[CurrentUser, Depends(require_scoreboard)]
+
+
 async def require_staff(current: Authenticated) -> CurrentUser:
     """Read-only staff visibility: organizers and admins."""
     if not current.is_staff:
@@ -209,6 +225,7 @@ __all__ = [
     "PartyMember",
     "Player",
     "RedisClient",
+    "ScoreboardViewer",
     "Staff",
     "get_db_session",
 ]

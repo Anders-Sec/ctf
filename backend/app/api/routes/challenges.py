@@ -30,7 +30,7 @@ from app.schemas.challenges import (
 from app.services import artifacts as artifact_service
 from app.services import challenges as challenge_service
 from app.services import hints as hint_service
-from app.services import scoring
+from app.services import scoreboard_cache, scoring
 
 router = APIRouter(tags=["challenges"])
 
@@ -108,6 +108,7 @@ async def unlock_hint(
     challenge_id: UUID,
     hint_id: UUID,
     db: DbSession,
+    redis: RedisClient,
     current: Player,
 ) -> UnlockHintResponse:
     """Buy a hint.
@@ -122,6 +123,9 @@ async def unlock_hint(
         raise challenge_service.ChallengeLocked
 
     result = await hint_service.unlock(db, hint_id, challenge_id, current.user.id)
+
+    if result.cost_charged:
+        await scoreboard_cache.mark_dirty(redis)
 
     return UnlockHintResponse(
         body=result.body,
@@ -149,6 +153,11 @@ async def submit_answer(
         ip=request.client.host if request.client else None,
         request_id=_request_id(request),
     )
+
+    if outcome.correct and not outcome.already_solved:
+        # A solve moves this player, their party, and — through decay — everyone
+        # else who has solved this challenge.
+        await scoreboard_cache.mark_dirty(redis)
 
     if outcome.already_solved and outcome.correct:
         message = "You have already solved this one."

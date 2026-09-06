@@ -31,6 +31,7 @@ from app.schemas.teams import (
     UpdateTeamRequest,
 )
 from app.services import teams as team_service
+from app.services.scoreboard_cache import mark_dirty
 from app.services.user_cache import invalidate
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -145,6 +146,8 @@ async def join_team(
         request_id=_request_id(request),
     )
     await invalidate(redis, current.user.id)
+    # The party board is an aggregate over current members.
+    await mark_dirty(redis)
     return await _detail(db, await team_service.get_team(db, team_id))
 
 
@@ -173,6 +176,7 @@ async def remove_member(
     # and they may well be mid-request.
     await invalidate(redis, current.user.id)
     await invalidate(redis, user_id)
+    await mark_dirty(redis)
     return MessageResponse(message=message)
 
 
@@ -273,6 +277,7 @@ async def accept_join_request(
         db, team, current.user, request_row_id, accept=True, request_id=_request_id(request)
     )
     await invalidate(redis, decided.user_id)
+    await mark_dirty(redis)
     return await _detail(db, team)
 
 
