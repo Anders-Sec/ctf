@@ -15,7 +15,7 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | 003 | `003-challenges-and-flags.md` | Challenge & Flag System (models, submission, rate limiting, attempt log, dynamic scoring, scheduled release) | **done** |
 | 004 | `004-hints.md` | Challenge & Flag System (hint system) | **done** |
 | 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | **done** |
-| 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | not written |
+| 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | draft |
 | 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | not written |
 | 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | not written |
 | 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | not written |
@@ -58,6 +58,10 @@ Phase 2 layers XP, levels and highest-skill breakdowns onto the same aggregate
 shape. Phase 1 builds none of that.
 
 ## Open Items still owed a decision
+
+Container work (008/009) is the largest remaining unknown and needs cluster
+access; it is late in the order only because nothing above it depends on it.
+
 
 Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 
