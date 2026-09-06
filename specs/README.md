@@ -11,7 +11,7 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | #   | Spec | Covers (`Plan.md` section) | Status |
 | --- | ---- | -------------------------- | ------ |
 | 001 | `001-platform-skeleton.md` | (foundational — not a Plan.md feature) | draft |
-| 002 | `002-identity-and-auth.md` | Identity & Auth | not written |
+| 002 | `002-identity-and-auth.md` | Identity & Auth | draft |
 | 003 | `003-challenges-and-flags.md` | Challenge & Flag System (models, submission, rate limiting, attempt log, dynamic scoring, scheduled release) | not written |
 | 004 | `004-hints.md` | Challenge & Flag System (hint system) | not written |
 | 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | not written |
@@ -53,7 +53,11 @@ Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 
 | Open Item | Blocks | Needed by |
 | --------- | ------ | --------- |
-| Guest accounts: self-serve magic-link signup, or admin approval step? | 002 | before 002 sign-off |
-| Team size limits + team creation/join UX details | 002 | before 002 sign-off |
+| ~~Guest accounts: self-serve or admin approval?~~ | 002 | **Resolved** — sign-in allowed, actions blocked until admin approval |
+| ~~Team size limits + create/join UX~~ | 002 | **Resolved** — max 8; public/private parties, leader kicks, password or request-to-join |
+| Email transport for magic links (SMTP relay / Graph / third-party) | 002 | before 002 implementation — blocks guest login |
+| Entra app registration + secret delivery; tenant-wide or group-restricted | 002 | before 002 implementation |
+| Corporate email domain(s) to steer off the magic-link path | 002 | before 002 implementation |
+| Roster lock at event start? (recommend yes) | 002 | before 002 sign-off |
 | Which local model is hosted, and its API shape (OpenAI-compatible or custom?) | 010 | before 010 sign-off |
 | Container isolation model | 009 | resolved *by* spec 008 |
