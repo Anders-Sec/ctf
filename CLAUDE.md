@@ -25,11 +25,17 @@ work, and treat it as the current source of truth for what's in scope right now
 
 ## Git Workflow
 
-This repo has a GitHub remote. There is likely a separate IaC repo (Bicep/
-Terraform/etc. for Azure resources and AKS deployment config) — this repo
-(`CLAUDE.md`/`plan.md`) is the application code; don't put infrastructure
-definitions here unless told otherwise, and don't assume you can see or edit
-the IaC repo unless it's explicitly present in the working environment.
+This repo has a GitHub remote. Cluster infrastructure — the namespace,
+datastores, ingress controller, cert-manager, ArgoCD, secrets — is owned by a
+separate platform session and lives outside this repo; don't put it here, and
+don't assume you can see or edit it.
+
+**This app's own deployment artefacts do belong here**, per the agreed contract
+in `Deployment.md` and our reply in `DeploymentResponse.md`: the Dockerfiles and
+the Kubernetes manifests for this app's Deployments, Services and Ingresses,
+under `deploy/`. The dividing line is ownership — we describe how *this
+application* is packaged and routed; the platform session owns the cluster it
+lands on.
 
 - **Commit in logical units, not one giant commit per feature.** Break a spec's
   implementation into the same natural seams you'd review it in — e.g. schema/

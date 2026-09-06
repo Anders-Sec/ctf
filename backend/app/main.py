@@ -80,6 +80,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_exception_handlers(app)
 
+    # Probes hit the pod directly, so health lives at the root too.
+    app.include_router(health.root_router)
+
     api = APIRouter(prefix="/api")
     api.include_router(health.router)
     api.include_router(auth.router)

@@ -12,6 +12,12 @@ logger = get_logger(__name__)
 
 router = APIRouter(tags=["health"])
 
+#: The same probes mounted at the root of the pod, outside the /api prefix.
+#: Kubernetes probes hit the container directly rather than through the
+#: ingress, and the platform's standard probe config expects /health there.
+#: Hidden from the schema so the docs show one canonical path, not two.
+root_router = APIRouter(tags=["health"], include_in_schema=False)
+
 
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
@@ -70,3 +76,9 @@ async def _check_redis() -> str:
     except Exception as exc:
         logger.warning("readiness_redis_failed", extra={"error_type": type(exc).__name__})
         return "error"
+
+
+# Registered under both prefixes; the handlers above are the single definition.
+root_router.add_api_route("/health", health, methods=["GET"])
+root_router.add_api_route("/health/ready", readiness, methods=["GET"])
+root_router.add_api_route("/version", version, methods=["GET"])
