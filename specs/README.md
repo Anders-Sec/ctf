@@ -16,7 +16,7 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | 004 | `004-hints.md` | Challenge & Flag System (hint system) | **done** |
 | 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | **done** |
 | 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | **done** |
-| 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | not written |
+| 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | draft |
 | 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | not written |
 | 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | not written |
 | 010 | `010-ai-assistant-service.md` | AI Assistant — mediator service + model client | not written |
