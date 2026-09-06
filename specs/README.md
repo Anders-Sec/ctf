@@ -10,8 +10,8 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 
 | #   | Spec | Covers (`Plan.md` section) | Status |
 | --- | ---- | -------------------------- | ------ |
-| 001 | `001-platform-skeleton.md` | (foundational — not a Plan.md feature) | draft |
-| 002 | `002-identity-and-auth.md` | Identity & Auth | draft |
+| 001 | `001-platform-skeleton.md` | (foundational — not a Plan.md feature) | approved |
+| 002 | `002-identity-and-auth.md` | Identity & Auth | approved |
 | 003 | `003-challenges-and-flags.md` | Challenge & Flag System (models, submission, rate limiting, attempt log, dynamic scoring, scheduled release) | not written |
 | 004 | `004-hints.md` | Challenge & Flag System (hint system) | not written |
 | 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | not written |
@@ -47,6 +47,16 @@ The container track (008/009) is the largest unknown and depends on cluster
 access. It can be lifted earlier if cluster access lands sooner; it is late here
 only because it is not a blocker for anything above it.
 
+## Standing decision: scoring attribution
+
+**Solves belong to the player, not the party.** A party's standing is an aggregate
+over its current members, computed at read time — never a stored running total.
+Rosters therefore stay open all event. Spec 002 carries the full reasoning; 003,
+004, 005, 007 and 009 all inherit it.
+
+Phase 2 layers XP, levels and highest-skill breakdowns onto the same aggregate
+shape. Phase 1 builds none of that.
+
 ## Open Items still owed a decision
 
 Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
@@ -55,9 +65,11 @@ Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 | --------- | ------ | --------- |
 | ~~Guest accounts: self-serve or admin approval?~~ | 002 | **Resolved** — sign-in allowed, actions blocked until admin approval |
 | ~~Team size limits + create/join UX~~ | 002 | **Resolved** — max 8; public/private parties, leader kicks, password or request-to-join |
-| Email transport for magic links (SMTP relay / Graph / third-party) | 002 | before 002 implementation — blocks guest login |
-| Entra app registration + secret delivery; tenant-wide or group-restricted | 002 | before 002 implementation |
-| Corporate email domain(s) to steer off the magic-link path | 002 | before 002 implementation |
-| Roster lock at event start? (recommend yes) | 002 | before 002 sign-off |
+| ~~Email transport for magic links~~ | 002 | **Resolved** — Proton Mail SMTP, `smtp.protonmail.ch`, token in env |
+| ~~Entra registration scope~~ | 002 | **Resolved** — tenant-wide, all employees, config-supplied credentials |
+| ~~Corporate email domains~~ | 002 | **Resolved** — `ENTRA_ENFORCED_EMAIL_DOMAINS` env var, never in source |
+| ~~Roster lock at event start~~ | 002 | **Resolved** — no lock; safe because solves are personal |
+| Party ranking formula: sum of member scores vs. average | 005 | before 005 sign-off |
+| Dynamic scoring decay: per distinct *player* solve rather than per team | 003 | before 003 sign-off |
 | Which local model is hosted, and its API shape (OpenAI-compatible or custom?) | 010 | before 010 sign-off |
 | Container isolation model | 009 | resolved *by* spec 008 |

@@ -1,6 +1,6 @@
 # Spec 002 — Identity, Auth & Teams
 
-Status: **draft — awaiting sign-off**
+Status: **approved** (2026-09-06) — implementation follows spec 001
 Phase: 1
 Covers: `Plan.md` → Identity & Auth
 Depends on: spec 001 (skeleton, migrations, error envelope, request-id logging)
@@ -41,6 +41,48 @@ public/private and leader rules below.
 - Parties are **public** (anyone joins) or **private** (join password, or
   request-to-join approved by the leader).
 - The party creator is the **leader** and can kick any member.
+- **Solves belong to the player, not the party.** A party is a social and bonus layer;
+  a player's score travels with them. See "Scoring attribution" below — this is the
+  single most consequential decision in this spec.
+- **No roster lock at event start.** Players may join, leave and switch parties at
+  any time, which is safe precisely because scores are personal.
+- Pending (unapproved) guests **may create and join parties**. Only gameplay is
+  gated behind approval.
+- Email: **Proton Mail SMTP** (`smtp.protonmail.ch`, sender `admin@ctf-nm.org`),
+  credentials from environment.
+- Entra: **every employee** signs in this way — tenant-wide, no group restriction,
+  no passwords anywhere in the platform.
+
+## Scoring attribution — the load-bearing decision
+
+**A solve is owned by the `user` who submitted it. A party's standing is an
+aggregate computed over its *current* members, never a stored running total.**
+
+Consequences, spelled out because later specs depend on them:
+
+- `team` gets **no** `points`/`score` column, in this spec or in 003. Party standing
+  is derived at read time (and cached in Redis by 005), so it recomputes for free
+  when a roster changes.
+- A departing player subtracts their own contribution and nothing else. A joining
+  player adds theirs, including solves earned before they joined. There is no
+  transfer, backfill, or snapshot to reconcile.
+- This is what makes an open roster safe, which is why there is no lock at
+  `starts_at`.
+- Anti-cheat (007) watches *players* sharing flags, not parties.
+- **Consequence for 003 that needs your call later:** `Plan.md` specifies dynamic
+  scoring that decays "as more teams solve". With personal solves that should
+  almost certainly become *distinct players who solved*. Flagged now, decided in 003.
+- **Consequence for 004:** hint costs come out of the player's score, not a party
+  pool.
+- **Consequence for 009:** `Plan.md`'s Definition of Done still says instances are
+  "scoped to their team". Party-shared instances remain the plan — sharing a live
+  target is a party benefit that doesn't touch scoring — but it is worth
+  re-confirming in 008.
+
+Phase 2 is where combined party XP, levels, and highest-skill breakdowns live. This
+spec deliberately builds none of that; it only guarantees the aggregate-not-stored
+shape so Phase 2 can add XP and skill dimensions as further derived columns rather
+than as a migration that unpicks a stored total.
 
 ## Data model
 
@@ -150,6 +192,26 @@ Entra users are `active` on creation — no approval step.
    issues a session.
 4. First-time guests are prompted for a display name before anything else.
 
+Mail is sent over **Proton Mail SMTP**: host `smtp.protonmail.ch`, sender
+`admin@ctf-nm.org`, with an SMTP submission token supplied via environment.
+STARTTLS on 587 with 465/implicit TLS as the fallback; both are attempted at
+startup and the working one logged, because a mail path that fails first at 09:00
+on event day is not a fun discovery. Sending happens on a background task with a
+bounded retry so a slow relay never blocks the HTTP response.
+
+Config (names only — values live in `.env`, never committed):
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_TOKEN`, `SMTP_FROM`,
+`SMTP_USE_TLS`, `APP_PUBLIC_URL` (for building the link).
+
+Entra config, likewise name-only: `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`,
+`ENTRA_CLIENT_SECRET`, `ENTRA_REDIRECT_URI`. Sign-in is tenant-wide — any employee
+in the tenant may log in, with no group gate.
+
+`ENTRA_ENFORCED_EMAIL_DOMAINS` (comma-separated) lists the corporate domains that
+are refused on the magic-link path and told to use the work-account button. It is
+configuration rather than a constant so the domain list never enters source
+control and can be corrected without a deploy.
+
 Rate limited in Redis: per email address and per source IP, on both request and
 verify. Verify failures are counted separately — that is the brute-force surface.
 
@@ -168,8 +230,8 @@ verify. Verify failures are counted separately — that is the brute-force surfa
 Postgres through a Redis-cached user record (60s TTL, explicitly invalidated on
 approve/disable/role-change/kick). This costs a cache read per request and buys
 correctness: a kicked or disabled player loses access immediately rather than up to
-15 minutes later. That mattered enough to pay for — a player kicked mid-event
-should not keep submitting flags for the party that removed them.
+15 minutes later. Worth paying for: a disabled account must stop being able to act
+the moment an admin says so, not whenever its access token happens to expire.
 
 Signing key comes from config as a secret; `kid` in the JWT header so keys can be
 rotated without invalidating every session at once.
@@ -189,7 +251,7 @@ Capability matrix — what each state can do:
 | Action | Pending guest | Active, before start | Active, after start | Organizer | Admin |
 | ------ | ------------- | -------------------- | ------------------- | --------- | ----- |
 | Log in, view own profile, set display name | yes | yes | yes | yes | yes |
-| Create / join / leave a party | no | yes | see roster lock | read | yes |
+| Create / join / leave a party | **yes** | yes | yes | read | yes |
 | View scoreboard | no | no | yes | yes | yes |
 | Submit flags, use hints, deploy instances, chat with the DM AI | no | no | yes | no | yes |
 | Approve users, adjust scores, edit challenges | no | no | no | **read-only** | yes |
@@ -219,6 +281,9 @@ frontend can render "your account is awaiting a dungeon master's approval" versu
   auto-transfers to the longest-tenured remaining member. If the last member
   leaves, the party is `disbanded_at`-stamped rather than deleted.
 - **Kicks and leaves are audit-logged**, including who and when.
+- **Rosters stay open for the whole event.** No lock at `starts_at` — churn costs
+  nothing because a departing player takes their own score with them and leaves no
+  hole in anyone's history.
 - Party name is validated (3–32 chars, printable, no impersonation of admin/staff
   names via a small blocklist) and unique case-insensitively.
 
@@ -312,9 +377,9 @@ players apart in a party list. Phase 3 replaces this with real art.
   row lock at accept time; the loser gets `team_full`, not a party of 9.
 - **Leader kicks themselves.** Rejected; they must transfer leadership or leave
   (which auto-transfers).
-- **A player leaves a party after solving challenges.** Solves belong to the team
-  (003), so points stay with the party. The departing player carries nothing.
-  See the roster-lock question below — this is the team-hopping cheat vector.
+- **A player leaves a party after solving challenges.** Their score goes with them;
+  the party's aggregate simply recomputes over its remaining members. No transfer,
+  no clawback, no frozen snapshot. Joining a new party adds their score there.
 - **Disabled mid-event.** Cached user record invalidated immediately and refresh
   chain revoked; the next request fails closed.
 - **Clock skew around event start.** The gate compares server time only; the SPA
@@ -338,27 +403,24 @@ players apart in a party list. Phase 3 replaces this with real art.
 
 ## Open questions
 
-1. **Email transport for magic links** — internal SMTP relay, Graph `sendMail`, or a
-   third-party service? **This blocks guest login entirely**; everything else in the
-   spec can be built without it. Need host/auth details in config (never committed).
-2. **Entra app registration** — who creates it, and how do `tenant_id`,
-   `client_id`, and the client secret reach the cluster? Also: may any user in the
-   tenant sign in, or must they be in a specific security group?
-3. **Corporate email domain(s)** to steer away from the magic-link path.
-4. **Roster lock at event start?** My recommendation is **yes**: after `starts_at`,
-   joining/leaving/kicking requires an admin. Otherwise a party can rotate members
-   through and a player who solved for team A can carry knowledge to team B, and
-   the scoreboard stops meaning anything. The cost is admin work for genuine
-   no-shows. Your call — it changes the team endpoints' gating.
-5. **Can pending guests join a party before approval?** Spec currently says no. If
-   approval is expected to lag (someone signs up the night before), letting them
-   pick a party while pending and gating only gameplay would smooth the first hour.
-   Cheap to flip either way now, annoying later.
-6. **Guest self-service after rejection** — is there a "rejected" state distinct
-   from `disabled`, and does a rejected user see why? Currently they see the same
-   pending-style screen.
-7. **Approval notification** — should approved guests get an email, or is it
-   assumed they'll refresh? An email needs the same transport as (1).
+Resolved since the first draft: email transport (Proton SMTP), Entra registration
+(tenant-wide, config-supplied), corporate domain handling (config-driven), roster
+lock (none), pending guests joining parties (allowed).
+
+Remaining:
+
+1. **Is there a `rejected` state distinct from `disabled`, and does a rejected guest
+   see why?** Currently both land on the same neutral screen. Recommendation: keep
+   one `disabled` state with an admin-only reason — fewer states, and a rejected
+   person mostly needs to know who to talk to, not the reasoning.
+2. **Should approval send the guest an email?** Now cheap, since SMTP exists.
+   Recommendation: yes — a guest who signed up the night before otherwise has no
+   signal to come back. One line of copy, reuses the same transport.
+3. **Party ranking formula** — sum of member scores, or average? Your note about a
+   leaver "bringing down the averages" implies average, but average lets a party of
+   two outrank a full party of eight. A common answer is to rank on sum and *show*
+   the average alongside. This is properly a spec 005 decision and does not block
+   002; noting it here so it isn't lost.
 
 ## Commit plan
 

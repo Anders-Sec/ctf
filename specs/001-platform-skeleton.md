@@ -1,6 +1,6 @@
 # Spec 001 — Platform Skeleton & Local Dev Environment
 
-Status: **draft — awaiting sign-off**
+Status: **approved** (2026-09-06) — implementing
 Phase: 1
 Covers: foundational (no `Plan.md` feature section; prerequisite for all of them)
 
@@ -199,14 +199,13 @@ to the IaC repo.
 - Monorepo: backend and frontend in this repo. **Confirmed.**
 - Styling: Tailwind with token-driven colours. **Confirmed.**
 - CI: GitHub Actions in this repo. **Confirmed.**
-- Git: `git init` here plus `git remote add origin <url>`. **Confirmed** — still
-  need the remote URL and default branch name from you. Nothing gets pushed
-  regardless, per `CLAUDE.md`.
+- Git: initialised on `main` with `origin` →
+  `https://github.com/Anders-Sec/ctf.git`. **Done.** Nothing is pushed without an
+  explicit ask, per `CLAUDE.md`.
 
 ## Open questions
 
-1. **Remote URL and default branch** for `git remote add origin` (see above). Not a
-   blocker for implementation — local commits work without it.
+None outstanding.
 
 ## Commit plan
 
