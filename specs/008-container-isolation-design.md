@@ -1,6 +1,21 @@
 # Spec 008 — Live Challenge Containers: Isolation Design
 
-Status: **draft — awaiting sign-off**
+Status: **on hold** (2026-09-06) — design complete, implementation paused
+
+> **Why paused.** The platform session confirmed **NetworkPolicy enforcement is
+> off** on this k3s and **no sandboxed RuntimeClass is available**. Those were
+> questions 1 and 2 below, and the spec's own recommendation was not to run
+> container-backed challenges if both came back unfavourable — so we are not.
+>
+> Without policy enforcement, an instance can reach `postgres.ctf`, which holds
+> every challenge answer in plaintext. Without a sandboxed runtime, a container
+> escape on a single node reaches everything. A challenge category is not worth
+> either, and nothing else in Phase 1 depends on this.
+>
+> The design below stands and needs no rework — it becomes buildable the moment
+> policy enforcement is turned on, or instances move to a node that is not also
+> hosting the database. Spec 009 is deferred behind that.
+
 Phase: 1
 Covers: `Plan.md` → Live Isolated Challenge Containers (**design only**)
 Depends on: 002 (parties), 003 (challenges, `container_template_id`), 006 (console)

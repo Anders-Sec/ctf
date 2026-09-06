@@ -17,8 +17,8 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | **done** |
 | 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | **done** |
 | 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | **done** |
-| 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | draft |
-| 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | not written |
+| 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | **on hold** — design done, blocked on cluster isolation |
+| 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | **deferred** behind 008 |
 | 010 | `010-ai-assistant-service.md` | AI Assistant — mediator service + model client | not written |
 | 011 | `011-ai-guardrails.md` | AI Assistant — challenge-integrity + real-world-safety layers | not written |
 | 012 | `012-load-and-nfr-verification.md` | Non-Functional Requirements | not written |
@@ -80,6 +80,6 @@ Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 | ~~Scoring defaults~~ | 003 | **Resolved** — floor of 100 for now; the full modifier model is deferred to the user |
 | Which local model is hosted, and its API shape (OpenAI-compatible or custom?) | 010 | before 010 sign-off |
 | ~~Container isolation model~~ | 009 | **Resolved by spec 008** — one `ctf-instances` namespace, NetworkPolicy per instance |
-| k3s NetworkPolicy enforcement — on, or disabled at startup? | 009 | before 009 implementation — if off, instances are not isolated at all |
-| Sandboxed RuntimeClass (gVisor/Kata) available? | 009 | before 009 implementation |
-| Wildcard DNS for `*.ctf-nm.org` | 009 | before 009 implementation — decides HTTP instance exposure |
+| ~~k3s NetworkPolicy enforcement~~ | 009 | **Answered: off.** Container challenges paused |
+| ~~Sandboxed RuntimeClass~~ | 009 | **Answered: none available.** Container challenges paused |
+| Wildcard DNS for `*.ctf-nm.org` | 009 | Moot while 009 is deferred |
