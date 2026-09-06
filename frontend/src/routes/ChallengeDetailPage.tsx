@@ -6,6 +6,7 @@ import { artifactUrl, getChallenge, submitAnswer } from "../api/challenges";
 import { ApiError } from "../api/client";
 import ErrorMessage from "../components/ErrorMessage";
 import HintList from "../components/HintList";
+import ReportChallenge from "../components/ReportChallenge";
 import Spinner from "../components/Spinner";
 
 export default function ChallengeDetailPage() {
@@ -157,6 +158,8 @@ export default function ChallengeDetailPage() {
         )}
         <ErrorMessage error={submit.error} />
       </section>
+
+      <ReportChallenge challengeId={detail.id} />
     </main>
   );
 }

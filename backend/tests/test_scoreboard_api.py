@@ -207,6 +207,37 @@ class TestCaching:
         # The dirty flag is cleared by the recompute that consumed it.
         assert await redis.get(scoreboard_cache.DIRTY_KEY) is None
 
+    async def test_the_lock_is_released_so_the_next_change_is_not_throttled(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        """Left to expire, the lock would throttle recomputes to one per TTL.
+
+        A change made just after a refresh would then sit unreflected for ten
+        seconds, which is exactly how a score override appears not to work.
+        """
+        redis = get_redis(settings)
+
+        await scoreboard_cache.refresh(db_session, redis, force=True)
+
+        assert await redis.get(scoreboard_cache.LOCK_KEY) is None
+
+    async def test_a_second_change_recomputes_immediately(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        redis = get_redis(settings)
+        player = await make_user(db_session, display_name="Mover", status=UserStatus.ACTIVE)
+        await scoreboard_cache.refresh(db_session, redis, force=True)
+
+        from app.models.play import ScoreAdjustment
+
+        db_session.add(ScoreAdjustment(user_id=player.id, points=42, reason="Award"))
+        await db_session.flush()
+        await scoreboard_cache.mark_dirty(redis)
+
+        payload = await scoreboard_cache.refresh(db_session, redis)
+        entry = next(p for p in payload["players"] if p["display_name"] == "Mover")
+        assert entry["score"] == 42
+
     async def test_the_board_still_answers_when_redis_is_unavailable(
         self, db_session: AsyncSession
     ) -> None:

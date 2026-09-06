@@ -212,6 +212,28 @@ class TestAdjustmentTargets:
         assert entry.meta["self_adjustment"] is True
 
 
+class TestScoreboardInvalidation:
+    async def test_an_adjustment_marks_the_board_dirty(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, settings
+    ) -> None:
+        """An override moves a board just as a solve does."""
+        from app.redis import get_redis
+        from app.services import scoreboard_cache
+
+        redis = get_redis(settings)
+        await signed_in(db_session, client, sign_in)
+        player = await make_user(db_session)
+        await redis.delete(scoreboard_cache.DIRTY_KEY)
+
+        await client.post(
+            "/api/admin/adjustments",
+            json={"user_id": str(player.id), "points": 10, "reason": "Nice work"},
+        )
+
+        assert await redis.get(scoreboard_cache.DIRTY_KEY) is not None
+        await redis.delete(scoreboard_cache.DIRTY_KEY)
+
+
 class TestReversal:
     async def test_a_reversal_cancels_the_original_exactly(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

@@ -1,6 +1,6 @@
 # Spec 006 — Admin Tooling
 
-Status: **approved** (2026-09-06) — implementing
+Status: **done** (2026-09-06) — 448 backend tests, 73 frontend tests, verified end to end
 Phase: 1
 Covers: `Plan.md` → Admin Tooling (except anti-cheat surfacing, which is 007)
 Depends on: 002 (roles, audit log, event config), 003 (challenges, adjustments,

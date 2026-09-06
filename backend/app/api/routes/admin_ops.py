@@ -6,10 +6,10 @@ change anything; every write requires admin.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Query, Request, status
 from sqlalchemy import select
 
-from app.api.deps import Admin, DbSession, Player, Staff
+from app.api.deps import Admin, DbSession, Player, RedisClient, Staff
 from app.models.audit import AuditLog
 from app.models.challenge import Challenge
 from app.models.play import ScoreAdjustment
@@ -29,6 +29,7 @@ from app.schemas.admin_ops import (
 )
 from app.schemas.auth import MessageResponse
 from app.services import admin_ops
+from app.services.scoreboard_cache import mark_dirty
 
 router = APIRouter(tags=["admin-ops"])
 
@@ -65,7 +66,9 @@ async def _name_lookup(db: DbSession, adjustments: list[ScoreAdjustment]) -> tup
 async def create_adjustment(
     payload: CreateAdjustmentRequest,
     request: Request,
+    background: BackgroundTasks,
     db: DbSession,
+    redis: RedisClient,
     current: Admin,
 ) -> AdjustmentResponse:
     adjustment = await admin_ops.create_adjustment(
@@ -77,6 +80,9 @@ async def create_adjustment(
         team_id=payload.team_id,
         request_id=_request_id(request),
     )
+    # An override moves a board just as a solve does. Queued so the recompute
+    # cannot read this transaction before it commits.
+    background.add_task(mark_dirty, redis)
     users, teams = await _name_lookup(db, [adjustment])
     return _adjustment_response(adjustment, users, teams, None)
 
@@ -133,12 +139,15 @@ async def reverse_adjustment(
     adjustment_id: UUID,
     payload: ReverseAdjustmentRequest,
     request: Request,
+    background: BackgroundTasks,
     db: DbSession,
+    redis: RedisClient,
     current: Admin,
 ) -> AdjustmentResponse:
     reversal = await admin_ops.reverse_adjustment(
         db, current.user, adjustment_id, payload.reason, request_id=_request_id(request)
     )
+    background.add_task(mark_dirty, redis)
     users, teams = await _name_lookup(db, [reversal])
     return _adjustment_response(reversal, users, teams, None)
 

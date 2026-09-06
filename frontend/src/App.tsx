@@ -3,6 +3,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth";
 import AppLayout from "./components/AppLayout";
 import AdminChallengesPage from "./routes/AdminChallengesPage";
+import AdminDashboardPage from "./routes/AdminDashboardPage";
+import AdminOpsPage from "./routes/AdminOpsPage";
 import AdminUsersPage from "./routes/AdminUsersPage";
 import ChallengeDetailPage from "./routes/ChallengeDetailPage";
 import ChallengesPage from "./routes/ChallengesPage";
@@ -35,6 +37,22 @@ export default function App() {
         <Route path="/scoreboard" element={<ScoreboardPage />} />
         <Route path="/challenges" element={<ChallengesPage />} />
         <Route path="/challenges/:challengeId" element={<ChallengeDetailPage />} />
+        <Route
+          path="/admin"
+          element={
+            <RequireAuth staffOnly>
+              <AdminDashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/ops"
+          element={
+            <RequireAuth staffOnly>
+              <AdminOpsPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/admin/challenges"
           element={

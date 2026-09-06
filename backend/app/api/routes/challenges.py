@@ -8,7 +8,7 @@ of it.
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
@@ -107,6 +107,7 @@ def _hint_response(view: "hint_service.HintView") -> HintResponse:
 async def unlock_hint(
     challenge_id: UUID,
     hint_id: UUID,
+    background: BackgroundTasks,
     db: DbSession,
     redis: RedisClient,
     current: Player,
@@ -125,7 +126,7 @@ async def unlock_hint(
     result = await hint_service.unlock(db, hint_id, challenge_id, current.user.id)
 
     if result.cost_charged:
-        await scoreboard_cache.mark_dirty(redis)
+        background.add_task(scoreboard_cache.mark_dirty, redis)
 
     return UnlockHintResponse(
         body=result.body,
@@ -140,6 +141,7 @@ async def submit_answer(
     challenge_id: UUID,
     payload: SubmitAnswerRequest,
     request: Request,
+    background: BackgroundTasks,
     db: DbSession,
     redis: RedisClient,
     current: Player,
@@ -156,8 +158,9 @@ async def submit_answer(
 
     if outcome.correct and not outcome.already_solved:
         # A solve moves this player, their party, and — through decay — everyone
-        # else who has solved this challenge.
-        await scoreboard_cache.mark_dirty(redis)
+        # else who has solved this challenge. Queued rather than awaited: the
+        # recompute must not see this transaction before it commits.
+        background.add_task(scoreboard_cache.mark_dirty, redis)
 
     if outcome.already_solved and outcome.correct:
         message = "You have already solved this one."

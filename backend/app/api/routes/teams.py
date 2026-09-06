@@ -6,7 +6,7 @@ form a party the night before the event. Only gameplay waits on approval.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, BackgroundTasks, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -134,6 +134,7 @@ async def join_team(
     team_id: UUID,
     payload: JoinTeamRequest,
     request: Request,
+    background: BackgroundTasks,
     db: DbSession,
     redis: RedisClient,
     current: PartyMember,
@@ -146,8 +147,9 @@ async def join_team(
         request_id=_request_id(request),
     )
     await invalidate(redis, current.user.id)
-    # The party board is an aggregate over current members.
-    await mark_dirty(redis)
+    # The party board is an aggregate over current members. Queued so the
+    # recompute cannot read this transaction before it commits.
+    background.add_task(mark_dirty, redis)
     return await _detail(db, await team_service.get_team(db, team_id))
 
 
@@ -156,6 +158,7 @@ async def remove_member(
     team_id: UUID,
     user_id: UUID,
     request: Request,
+    background: BackgroundTasks,
     db: DbSession,
     redis: RedisClient,
     current: PartyMember,
@@ -176,7 +179,7 @@ async def remove_member(
     # and they may well be mid-request.
     await invalidate(redis, current.user.id)
     await invalidate(redis, user_id)
-    await mark_dirty(redis)
+    background.add_task(mark_dirty, redis)
     return MessageResponse(message=message)
 
 
@@ -268,6 +271,7 @@ async def accept_join_request(
     team_id: UUID,
     request_row_id: UUID,
     request: Request,
+    background: BackgroundTasks,
     db: DbSession,
     redis: RedisClient,
     current: PartyMember,
@@ -277,7 +281,7 @@ async def accept_join_request(
         db, team, current.user, request_row_id, accept=True, request_id=_request_id(request)
     )
     await invalidate(redis, decided.user_id)
-    await mark_dirty(redis)
+    background.add_task(mark_dirty, redis)
     return await _detail(db, team)
 
 

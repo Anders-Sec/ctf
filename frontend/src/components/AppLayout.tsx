@@ -42,6 +42,12 @@ export default function AppLayout() {
           </NavLink>
           {me?.capabilities.view_admin && (
             <>
+              <NavLink to="/admin" end className="text-sm hover:underline">
+                Console
+              </NavLink>
+              <NavLink to="/admin/ops" className="text-sm hover:underline">
+                Ops
+              </NavLink>
               <NavLink to="/admin/challenges" className="text-sm hover:underline">
                 Manage
               </NavLink>

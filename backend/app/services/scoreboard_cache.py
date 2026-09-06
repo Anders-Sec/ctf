@@ -34,8 +34,8 @@ CHANNEL = "scoreboard:v1:updates"
 
 #: At most one recompute per second, however fast flags land.
 DEBOUNCE_SECONDS = 1.0
-#: Long enough to cover a recompute, short enough that a crashed pod does not
-#: block the board for long.
+#: Only a backstop for a pod that dies mid-recompute — the lock is released
+#: explicitly as soon as the work finishes.
 LOCK_TTL_SECONDS = 10
 #: The cache is a convenience, not a source of truth; a stale entry is only ever
 #: seconds old because every scoring event invalidates it.
@@ -105,12 +105,19 @@ async def refresh(db: AsyncSession, redis: Redis, *, force: bool = False) -> dic
             if cached is not None:
                 return cached
 
-        payload = serialise(await scoreboard.compute(db, datetime.now(UTC)))
+        try:
+            payload = serialise(await scoreboard.compute(db, datetime.now(UTC)))
 
-        await redis.set(CACHE_KEY, json.dumps(payload), ex=CACHE_TTL_SECONDS)
-        await redis.delete(DIRTY_KEY)
-        await redis.publish(CHANNEL, json.dumps(payload))
-        return payload
+            await redis.set(CACHE_KEY, json.dumps(payload), ex=CACHE_TTL_SECONDS)
+            await redis.delete(DIRTY_KEY)
+            await redis.publish(CHANNEL, json.dumps(payload))
+            return payload
+        finally:
+            # Released as soon as the work is done. The lock exists to stop two
+            # pods computing the same board at once, not to rate-limit: leaving
+            # it to expire would throttle every later recompute to one per TTL,
+            # so a change could sit unreflected for ten seconds.
+            await redis.delete(LOCK_KEY)
     except Exception as exc:
         logger.warning("scoreboard_refresh_degraded", extra={"error_type": type(exc).__name__})
         # Degraded, not broken: straight from Postgres, no cache, no push.
