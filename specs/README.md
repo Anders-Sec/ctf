@@ -70,8 +70,8 @@ Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 | ~~Corporate email domains~~ | 002 | **Resolved** — `ENTRA_ENFORCED_EMAIL_DOMAINS` env var, never in source |
 | ~~Roster lock at event start~~ | 002 | **Resolved** — no lock; safe because solves are personal |
 | Party ranking formula: sum of member scores vs. average | 005 | before 005 sign-off |
-| Dynamic scoring decay: per distinct *player* solve rather than per team | 003 | before 003 sign-off |
-| Artifact storage backend (cluster PVC vs on-prem object store) | 003 | before 003 implementation — touches the IaC repo |
-| Scoring defaults (500 / 100 / 40 solves to floor) | 003 | before 003 sign-off |
+| ~~Dynamic scoring decay basis~~ | 003 | **Resolved** — configurable per challenge, players *or* teams |
+| Artifact storage: MinIO in-cluster vs Postgres bytea vs an RWX volume | 003 | before commit 5 of 003 — everything in-cluster either way |
+| ~~Scoring defaults~~ | 003 | **Resolved** — floor of 100 for now; the full modifier model is deferred to the user |
 | Which local model is hosted, and its API shape (OpenAI-compatible or custom?) | 010 | before 010 sign-off |
 | Container isolation model | 009 | resolved *by* spec 008 |
