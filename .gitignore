@@ -21,3 +21,5 @@ coverage/
 .DS_Store
 .idea/
 *.swp
+.venv/
+uv.lock.bak

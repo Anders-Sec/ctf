@@ -144,8 +144,13 @@ placeholder name in `.env.example` only.
 named volumes. Backend and frontend run on the host for fast reload:
 
 - backend: `uv run uvicorn app.main:app --reload` → `:8000`
-- frontend: `npm run dev` → `:5173`, proxying `/api` → `:8000` via Vite, so the
+- frontend: `npm run dev` → `:4173`, proxying `/api` → `:8000` via Vite, so the
   browser sees one origin and CORS is a non-issue locally.
+
+Postgres is published on `15432` and Vite on `4173` rather than the conventional
+`5432`/`5173`: Windows reserves blocks of ports in the 5000s for dynamic
+allocation and both defaults land inside one, failing to bind with a permissions
+error. Recorded in the README.
 
 A short root `README.md` documents these three commands. That is the whole of the
 README for now.

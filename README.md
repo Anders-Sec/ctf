@@ -17,7 +17,19 @@ cd frontend && npm install && npm run dev
 ```
 
 - API: http://localhost:8000 — docs at http://localhost:8000/api/docs
-- App: http://localhost:5173 (proxies `/api` to the backend)
+- App: http://localhost:4173 (proxies `/api` to the backend)
+
+### Ports on Windows
+
+Postgres uses host port `15432` and Vite uses `4173` rather than the usual `5432`
+and `5173`. Windows reserves blocks of ports for dynamic allocation (Hyper-V, WSL,
+Docker), and both defaults commonly fall inside one — binding them fails with a
+permissions error that looks nothing like a port conflict. To see the current
+reservations:
+
+```sh
+netsh int ipv4 show excludedportrange protocol=tcp
+```
 
 ## Tests
 

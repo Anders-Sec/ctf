@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens. Phase 3's art pass rethemes the platform by changing these
+ * values; components reference the Tailwind colour names that map onto them and
+ * should never hardcode a hex value.
+ */
+:root {
+  --color-parchment: 245 241 232;
+  --color-ink: 26 24 22;
+  --color-muted: 110 104 96;
+  --color-torch: 194 106 42;
+  --color-stone: 214 208 197;
+}
+
+body {
+  @apply bg-parchment text-ink antialiased;
+}
