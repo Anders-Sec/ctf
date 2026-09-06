@@ -1,9 +1,8 @@
 """Liveness, readiness and version endpoints."""
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Request, Response, status
 from sqlalchemy import text
 
-from app.config import Settings, get_settings
 from app.db import get_sessionmaker
 from app.logging import get_logger
 from app.redis import get_redis
@@ -46,11 +45,11 @@ async def readiness(response: Response) -> ReadinessResponse:
 
 
 @router.get("/version", response_model=VersionResponse)
-async def version(
-    request: Request,
-    settings: Settings = Depends(get_settings),
-) -> VersionResponse:
-    settings = getattr(request.app.state, "settings", settings)
+async def version(request: Request) -> VersionResponse:
+    # create_app always stashes Settings here, so tests can build an app with
+    # overridden settings and this endpoint reports them rather than the process-wide
+    # cached singleton.
+    settings = request.app.state.settings
     return VersionResponse(version=settings.app_version, environment=settings.environment)
 
 
