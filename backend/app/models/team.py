@@ -74,7 +74,10 @@ class Team(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: audit trail, so it is stamped rather than removed.
     disbanded_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
-    leader: Mapped["User"] = relationship(foreign_keys=[leader_user_id], lazy="joined")
+    # lazy="raise": eager-joining the leader would make `SELECT ... FOR UPDATE`
+    # illegal in Postgres (no outer joins under a row lock), and the join lock is
+    # what keeps party capacity correct. Load it explicitly where it is needed.
+    leader: Mapped["User"] = relationship(foreign_keys=[leader_user_id], lazy="raise")
     memberships: Mapped[list["TeamMembership"]] = relationship(
         back_populates="team",
         foreign_keys="TeamMembership.team_id",
