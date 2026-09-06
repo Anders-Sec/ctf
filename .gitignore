@@ -1,11 +1,23 @@
+# Secrets & local config
 .env
 .env.local
+.env.*.local
+
+# Python
 __pycache__/
 *.py[cod]
 .venv/
 .pytest_cache/
 .ruff_cache/
+*.egg-info/
+
+# Node
 node_modules/
 dist/
+coverage/
+.vite/
+
+# Editors / OS
 .DS_Store
 .idea/
+*.swp
