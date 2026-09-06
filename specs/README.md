@@ -11,7 +11,7 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | #   | Spec | Covers (`Plan.md` section) | Status |
 | --- | ---- | -------------------------- | ------ |
 | 001 | `001-platform-skeleton.md` | (foundational — not a Plan.md feature) | **done** |
-| 002 | `002-identity-and-auth.md` | Identity & Auth | approved |
+| 002 | `002-identity-and-auth.md` | Identity & Auth | **done** |
 | 003 | `003-challenges-and-flags.md` | Challenge & Flag System (models, submission, rate limiting, attempt log, dynamic scoring, scheduled release) | not written |
 | 004 | `004-hints.md` | Challenge & Flag System (hint system) | not written |
 | 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | not written |

@@ -1,6 +1,6 @@
 # Spec 002 — Identity, Auth & Teams
 
-Status: **approved** (2026-09-06) — implementation follows spec 001
+Status: **done** (2026-09-06) — 221 backend tests, 24 frontend tests, verified end to end
 Phase: 1
 Covers: `Plan.md` → Identity & Auth
 Depends on: spec 001 (skeleton, migrations, error envelope, request-id logging)

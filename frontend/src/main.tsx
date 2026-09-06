@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
+import { SessionProvider } from "./auth/session";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -25,8 +26,11 @@ if (!container) {
 createRoot(container).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <App />
+      {/* Opt in early to the v7 behaviours so the upgrade is not a surprise. */}
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <SessionProvider>
+          <App />
+        </SessionProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
