@@ -110,7 +110,14 @@ async def db_session(settings: Settings) -> AsyncIterator[AsyncSession]:
     engine = create_async_engine(settings.async_database_url)
     connection = await engine.connect()
     transaction = await connection.begin()
-    session = async_sessionmaker(bind=connection, expire_on_commit=False)()
+    # create_savepoint: a test that provokes an IntegrityError rolls the session
+    # back to a savepoint rather than tearing down the outer transaction, so the
+    # test can keep using the session afterwards.
+    session = async_sessionmaker(
+        bind=connection,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )()
     try:
         yield session
     finally:
