@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, health, teams, users
+from app.api.routes import admin, auth, health, teams, users
 from app.config import Settings, get_settings
 from app.db import dispose_engine
 from app.errors import register_exception_handlers
@@ -66,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api = APIRouter(prefix="/api")
     api.include_router(health.router)
     api.include_router(auth.router)
+    api.include_router(admin.router)
     api.include_router(teams.router)
     api.include_router(users.router)
     app.include_router(api)
