@@ -24,7 +24,7 @@ async def make_user(
     entra_object_id: uuid.UUID | None = None,
 ) -> User:
     user = User(
-        email=email or f"player-{uuid.uuid4().hex[:12]}@example.test",
+        email=email or f"player-{uuid.uuid4().hex[:12]}@example.com",
         display_name=display_name,
         source=source,
         status=status,

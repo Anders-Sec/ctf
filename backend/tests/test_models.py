@@ -73,10 +73,10 @@ async def test_membership_history_survives_removal(db_session: AsyncSession) -> 
 
 async def test_emails_are_case_insensitively_unique(db_session: AsyncSession) -> None:
     """Otherwise a guest could register the Entra-linked address in another case."""
-    await make_user(db_session, email="Rogue@example.test")
+    await make_user(db_session, email="Rogue@example.com")
 
     with pytest.raises(IntegrityError):
-        await make_user(db_session, email="rogue@example.test")
+        await make_user(db_session, email="rogue@example.com")
 
 
 async def test_team_names_are_case_insensitively_unique(db_session: AsyncSession) -> None:

@@ -47,7 +47,7 @@ EVENTS = {
 
 def make(role: UserRole, status: UserStatus) -> User:
     return User(
-        email="matrix@example.test",
+        email="matrix@example.com",
         display_name="Matrix",
         source=UserSource.GUEST,
         role=role,

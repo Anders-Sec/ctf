@@ -17,7 +17,18 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import Settings
+from app.db import get_db_session
 from app.main import create_app
+from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.user import User
+from app.services.cookies import (
+    ACCESS_COOKIE,
+    CSRF_COOKIE,
+    CSRF_HEADER,
+    REFRESH_COOKIE,
+    REFRESH_COOKIE_PATH,
+)
+from app.services.sessions import IssuedSession, issue_session
 
 TEST_DATABASE_NAME = "ctf_test"
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -128,8 +139,19 @@ async def db_session(settings: Settings) -> AsyncIterator[AsyncSession]:
 
 
 @pytest.fixture
-def app(settings: Settings) -> FastAPI:
-    return create_app(settings)
+def app(settings: Settings, db_session: AsyncSession) -> FastAPI:
+    """An app whose requests run inside the test's rolled-back transaction.
+
+    Without the override, a route would open its own session and could not see
+    rows the test had created but not committed.
+    """
+    application = create_app(settings)
+
+    async def _override_session() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    application.dependency_overrides[get_db_session] = _override_session
+    return application
 
 
 @pytest.fixture
@@ -139,3 +161,51 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
         base_url="http://test",
     ) as async_client:
         yield async_client
+
+
+@pytest.fixture
+async def sign_in(db_session: AsyncSession, settings: Settings):
+    """Put a real session's cookies on a client, as a browser would carry them."""
+
+    async def _sign_in(http_client: AsyncClient, user: User) -> IssuedSession:
+        session = await issue_session(db_session, settings, user.id)
+        http_client.cookies.set(ACCESS_COOKIE, session.access_token)
+        # Same path the app scopes it to, or httpx ends up holding two cookies
+        # of the same name after a refresh and cannot decide between them.
+        http_client.cookies.set(REFRESH_COOKIE, session.refresh_token, path=REFRESH_COOKIE_PATH)
+        http_client.cookies.set(CSRF_COOKIE, session.csrf_token)
+        # The SPA copies the readable CSRF cookie into this header; tests do the
+        # same rather than bypassing the check.
+        http_client.headers[CSRF_HEADER] = session.csrf_token
+        return session
+
+    return _sign_in
+
+
+@pytest.fixture
+async def running_event(db_session: AsyncSession) -> EventConfig:
+    """Put the event into its running window so gameplay gates open."""
+    from datetime import UTC, datetime, timedelta
+
+    config = await db_session.get(EventConfig, EVENT_CONFIG_ID)
+    assert config is not None
+    now = datetime.now(UTC)
+    config.starts_at = now - timedelta(hours=1)
+    config.ends_at = now + timedelta(days=1)
+    await db_session.flush()
+    return config
+
+
+@pytest.fixture
+async def clear_rate_limits(settings: Settings):
+    """Rate-limit counters live in Redis and outlive a rolled-back transaction."""
+    from app.redis import get_redis
+
+    redis = get_redis(settings)
+    keys = [key async for key in redis.scan_iter("magiclink:*")]
+    if keys:
+        await redis.delete(*keys)
+    yield
+    keys = [key async for key in redis.scan_iter("magiclink:*")]
+    if keys:
+        await redis.delete(*keys)
