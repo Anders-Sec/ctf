@@ -32,6 +32,11 @@ export default function AppLayout() {
               Challenges
             </NavLink>
           )}
+          {me?.capabilities.view_scoreboard && (
+            <NavLink to="/scoreboard" className="text-sm hover:underline">
+              Scoreboard
+            </NavLink>
+          )}
           <NavLink to="/party" className="text-sm hover:underline">
             Party
           </NavLink>

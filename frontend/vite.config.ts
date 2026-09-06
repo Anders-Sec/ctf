@@ -15,6 +15,9 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:8000",
         changeOrigin: true,
+        // The scoreboard rides a WebSocket on the same prefix. Without this the
+        // upgrade is not forwarded and the live board silently never connects.
+        ws: true,
       },
     },
   },

@@ -11,6 +11,7 @@ import HomePage from "./routes/HomePage";
 import LoginPage from "./routes/LoginPage";
 import MagicLinkPage from "./routes/MagicLinkPage";
 import PartyPage from "./routes/PartyPage";
+import ScoreboardPage from "./routes/ScoreboardPage";
 import StatusPage from "./routes/StatusPage";
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/welcome" element={<FirstRunPage />} />
         <Route path="/party" element={<PartyPage />} />
+        <Route path="/scoreboard" element={<ScoreboardPage />} />
         <Route path="/challenges" element={<ChallengesPage />} />
         <Route path="/challenges/:challengeId" element={<ChallengeDetailPage />} />
         <Route

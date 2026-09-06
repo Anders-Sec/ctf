@@ -62,7 +62,11 @@ export default function HomePage() {
             <Link to="/challenges" className="underline">
               Take on a challenge
             </Link>{" "}
-            and start scoring.
+            and start scoring, or see where you stand on the{" "}
+            <Link to="/scoreboard" className="underline">
+              scoreboard
+            </Link>
+            .
           </p>
         </GateCard>
       )}

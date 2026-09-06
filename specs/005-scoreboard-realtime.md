@@ -1,6 +1,6 @@
 # Spec 005 — Real-Time Scoreboard
 
-Status: **draft — awaiting sign-off**
+Status: **done** (2026-09-06) — 407 backend tests, 60 frontend tests, verified end to end
 Phase: 1
 Covers: `Plan.md` → Real-Time Scoreboard
 Depends on: 002 (identity, parties), 003 (solves, values), 004 (hint costs)
