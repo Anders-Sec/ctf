@@ -1,6 +1,6 @@
 # Spec 007 — Anti-Cheat Visibility
 
-Status: **draft — awaiting sign-off**
+Status: **done** (2026-09-06) — 481 backend tests, 82 frontend tests, verified end to end
 Phase: 1
 Covers: `Plan.md` → Admin Tooling (anti-cheat visibility)
 Depends on: 002 (party history), 003 (submission log), 005 (boards), 006 (console)

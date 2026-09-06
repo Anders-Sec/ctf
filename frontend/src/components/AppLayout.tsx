@@ -48,6 +48,9 @@ export default function AppLayout() {
               <NavLink to="/admin/ops" className="text-sm hover:underline">
                 Ops
               </NavLink>
+              <NavLink to="/admin/signals" className="text-sm hover:underline">
+                Signals
+              </NavLink>
               <NavLink to="/admin/challenges" className="text-sm hover:underline">
                 Manage
               </NavLink>
