@@ -13,7 +13,7 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | 001 | `001-platform-skeleton.md` | (foundational — not a Plan.md feature) | **done** |
 | 002 | `002-identity-and-auth.md` | Identity & Auth | **done** |
 | 003 | `003-challenges-and-flags.md` | Challenge & Flag System (models, submission, rate limiting, attempt log, dynamic scoring, scheduled release) | **done** |
-| 004 | `004-hints.md` | Challenge & Flag System (hint system) | not written |
+| 004 | `004-hints.md` | Challenge & Flag System (hint system) | draft |
 | 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | not written |
 | 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | not written |
 | 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | not written |
@@ -70,6 +70,7 @@ Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 | ~~Corporate email domains~~ | 002 | **Resolved** — `ENTRA_ENFORCED_EMAIL_DOMAINS` env var, never in source |
 | ~~Roster lock at event start~~ | 002 | **Resolved** — no lock; safe because solves are personal |
 | Party ranking formula: sum of member scores vs. average | 005 | before 005 sign-off |
+| ~~Hint cost model~~ | 004 | **Resolved** — points, per player; no party pool |
 | ~~Dynamic scoring decay basis~~ | 003 | **Resolved** — configurable per challenge, players *or* teams |
 | ~~Artifact storage~~ | 003 | **Resolved** — MinIO in-cluster, behind a swappable storage interface |
 | ~~Scoring defaults~~ | 003 | **Resolved** — floor of 100 for now; the full modifier model is deferred to the user |
