@@ -1,0 +1,54 @@
+# Two Ingress objects on one host, so the browser makes same-origin calls and
+# the session cookie works without any CORS or SameSite gymnastics.
+#
+# The API ingress does NOT strip /api. The application mounts every route under
+# an in-app /api prefix, so stripping as well would produce the double-prefix
+# 404 the deployment contract warns about.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ctf-api
+  namespace: ctf
+  annotations:
+    # The live scoreboard holds a WebSocket at /api/ws/scoreboard open for as
+    # long as a player leaves the page up.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Challenge artifacts. The 1 MB default would reject every real handout.
+    nginx.ingress.kubernetes.io/proxy-body-size: "256m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["ctf-nm.org"]
+      secretName: ctf-tls
+  rules:
+    - host: ctf-nm.org
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: ctf-backend
+                port: { number: 8000 }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ctf-frontend
+  namespace: ctf
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["ctf-nm.org"]
+      secretName: ctf-tls
+  rules:
+    - host: ctf-nm.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ctf-frontend
+                port: { number: 80 }

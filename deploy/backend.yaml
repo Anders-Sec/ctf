@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ctf-backend
+  namespace: ctf
+  labels: { app: ctf-backend }
+spec:
+  # Two replicas buy CPU parallelism and rolling restarts. On a single node they
+  # are not high availability, and nothing here pretends otherwise.
+  replicas: 2
+  selector:
+    matchLabels: { app: ctf-backend }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels: { app: ctf-backend }
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: backend
+          image: ghcr.io/anders-sec/ctf-backend:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 8000 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+            seccompProfile: { type: RuntimeDefault }
+          env:
+            - { name: ENVIRONMENT, value: "prod" }
+            - { name: APP_PUBLIC_URL, value: "https://ctf-nm.org" }
+            - { name: COOKIE_SECURE, value: "true" }
+            # Same origin, so CORS is never exercised.
+            - { name: CORS_ALLOWED_ORIGINS, value: "" }
+            - { name: LOG_LEVEL, value: "INFO" }
+            - { name: APP_VERSION, value: "v1" }
+            - { name: S3_ENDPOINT_URL, value: "http://minio.ctf.svc.cluster.local:9000" }
+            - { name: S3_BUCKET, value: "ctf-artifacts" }
+            # Stable in-cluster name for the AI host. The platform session keeps
+            # the Endpoints pointed at the right address, so this value never
+            # changes here even when the host address does.
+            - { name: AI_BASE_URL, value: "http://ai.ctf.svc.cluster.local:1235/v1" }
+
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: database-url } }
+            - name: REDIS_URL
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: redis-url } }
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: secret-key } }
+            - name: S3_ACCESS_KEY
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: minio-access-key } }
+            - name: S3_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: minio-secret-key } }
+            - name: SMTP_HOST
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: smtp-host } }
+            - name: SMTP_PORT
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: smtp-port } }
+            - name: SMTP_USERNAME
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: smtp-username } }
+            - name: SMTP_FROM
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: smtp-from } }
+            - name: ENTRA_REDIRECT_URI
+              valueFrom: { secretKeyRef: { name: ctf-secrets, key: entra-redirect-uri } }
+
+            # Optional until the human supplies them. Marked optional so the pod
+            # starts without Entra, magic-link mail or the AI configured — each
+            # feature reports itself unavailable rather than taking the whole
+            # platform down at rollout.
+            - name: SMTP_TOKEN
+              valueFrom:
+                secretKeyRef: { name: ctf-secrets, key: smtp-token, optional: true }
+            - name: ENTRA_TENANT_ID
+              valueFrom:
+                secretKeyRef: { name: ctf-secrets, key: entra-tenant-id, optional: true }
+            - name: ENTRA_CLIENT_ID
+              valueFrom:
+                secretKeyRef: { name: ctf-secrets, key: entra-client-id, optional: true }
+            - name: ENTRA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: { name: ctf-secrets, key: entra-client-secret, optional: true }
+            - name: ENTRA_ENFORCED_EMAIL_DOMAINS
+              valueFrom:
+                secretKeyRef:
+                  { name: ctf-secrets, key: entra-enforced-email-domains, optional: true }
+            - name: AI_API_KEY
+              valueFrom:
+                secretKeyRef: { name: ctf-secrets, key: ai-api-key, optional: true }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "2", memory: 1Gi }
+          # Liveness deliberately checks nothing but the process. If it touched
+          # Postgres, a brief database blip would restart every pod mid-event.
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 3
+          # Headroom for migrations on a fresh database: 30 x 5s.
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          volumeMounts:
+            # The root filesystem is read-only, so anything that writes needs a
+            # declared home.
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ctf-backend
+  namespace: ctf
+spec:
+  selector: { app: ctf-backend }
+  ports:
+    - { name: http, port: 8000, targetPort: http }
