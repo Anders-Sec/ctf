@@ -1,0 +1,247 @@
+"""Challenges, their answer rules, and their downloadable artifacts."""
+
+import enum
+import uuid
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import CITEXT, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+
+class Difficulty(enum.StrEnum):
+    EASY = "easy"
+    MEDIUM = "medium"
+    HARD = "hard"
+    INSANE = "insane"
+
+
+class ChallengeState(enum.StrEnum):
+    """Four genuinely different situations, not a boolean.
+
+    An admin mid-event needs to tell "not written yet" from "pulled because it is
+    broken" from "players can see it exists but not attempt it".
+    """
+
+    #: Staff only. Work in progress.
+    DRAFT = "draft"
+    #: Players see nothing at all.
+    HIDDEN = "hidden"
+    #: Players see the title, category and value — never the body — and cannot submit.
+    LOCKED = "locked"
+    #: Live.
+    PUBLISHED = "published"
+
+
+class PreReleaseState(enum.StrEnum):
+    """What players see before ``release_at``."""
+
+    HIDDEN = "hidden"
+    LOCKED = "locked"
+
+
+class ScoringMode(enum.StrEnum):
+    DYNAMIC = "dynamic"
+    #: Pinned at initial_points — a participation flag, a sponsor challenge.
+    STATIC = "static"
+
+
+class DecayBasis(enum.StrEnum):
+    """Whose solves move the curve.
+
+    Two different questions: how many *people* found this, versus how many
+    *groups* did. Both are offered because both are legitimate.
+    """
+
+    PLAYERS = "players"
+    TEAMS = "teams"
+
+
+class MatchType(enum.StrEnum):
+    """How a submission is compared against an answer rule.
+
+    Open by design: adding a type is one resolver and one member here. Spec 009
+    will add a computed per-instance type that fits the same column shape.
+    """
+
+    EXACT = "exact"
+    CASE_INSENSITIVE = "case_insensitive"
+    REGEX = "regex"
+    NUMERIC = "numeric"
+    #: Multi-part answers — three CVEs in any order, say.
+    SET = "set"
+    #: A list of accepted alternatives.
+    ANY_OF = "any_of"
+
+
+def _enum(python_enum: type[enum.StrEnum], name: str) -> Enum:
+    return Enum(python_enum, name=name, values_callable=lambda e: [m.value for m in e])
+
+
+class Category(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A challenge category.
+
+    A table rather than a string column on ``challenge``: Phase 2 ties stat blocks
+    to categories, and attaching that to free text later means a migration that
+    first has to invent the missing rows.
+    """
+
+    __tablename__ = "category"
+
+    name: Mapped[str] = mapped_column(CITEXT(), unique=True, nullable=False)
+    slug: Mapped[str] = mapped_column(CITEXT(), unique=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    display_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
+
+class Challenge(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "challenge"
+    __table_args__ = (
+        Index("ix_challenge_state_release", "state", "release_at"),
+        Index("ix_challenge_category", "category_id"),
+    )
+
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    slug: Mapped[str] = mapped_column(CITEXT(), unique=True, nullable=False)
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("category.id", ondelete="RESTRICT"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    difficulty: Mapped[Difficulty] = mapped_column(
+        _enum(Difficulty, "challenge_difficulty"),
+        nullable=False,
+        default=Difficulty.MEDIUM,
+        server_default=Difficulty.MEDIUM.value,
+    )
+
+    state: Mapped[ChallengeState] = mapped_column(
+        _enum(ChallengeState, "challenge_state"),
+        nullable=False,
+        default=ChallengeState.DRAFT,
+        server_default=ChallengeState.DRAFT.value,
+    )
+    release_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    pre_release_state: Mapped[PreReleaseState] = mapped_column(
+        _enum(PreReleaseState, "pre_release_state"),
+        nullable=False,
+        default=PreReleaseState.HIDDEN,
+        server_default=PreReleaseState.HIDDEN.value,
+    )
+
+    initial_points: Mapped[int] = mapped_column(Integer, nullable=False, default=500)
+    #: The floor, before the modifier model that lands later.
+    minimum_points: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=100, server_default="100"
+    )
+    decay_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=40)
+    scoring: Mapped[ScoringMode] = mapped_column(
+        _enum(ScoringMode, "scoring_mode"),
+        nullable=False,
+        default=ScoringMode.DYNAMIC,
+        server_default=ScoringMode.DYNAMIC.value,
+    )
+    decay_basis: Mapped[DecayBasis] = mapped_column(
+        _enum(DecayBasis, "decay_basis"),
+        nullable=False,
+        default=DecayBasis.PLAYERS,
+        server_default=DecayBasis.PLAYERS.value,
+    )
+
+    #: Null (the default) means unlimited attempts — rate limiting is the brake.
+    max_attempts: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    #: Reserved for spec 009. Nothing reads it yet; it exists so the container
+    #: work needs no schema change.
+    container_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), nullable=True
+    )
+
+    author_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+
+    category: Mapped["Category"] = relationship(lazy="raise")
+    answers: Mapped[list["ChallengeAnswer"]] = relationship(
+        back_populates="challenge",
+        cascade="all, delete-orphan",
+        order_by="ChallengeAnswer.display_order",
+        lazy="raise",
+    )
+    artifacts: Mapped[list["ChallengeArtifact"]] = relationship(
+        back_populates="challenge",
+        cascade="all, delete-orphan",
+        order_by="ChallengeArtifact.display_order",
+        lazy="raise",
+    )
+
+    def effective_state(self, now: datetime) -> ChallengeState:
+        """The state a player experiences, after applying the release schedule.
+
+        Before ``release_at`` the challenge behaves as ``pre_release_state``; at
+        or after it, its own state applies. Drafts are never released — an
+        unfinished challenge going live on a timer is exactly the accident this
+        prevents.
+        """
+        if self.state == ChallengeState.DRAFT:
+            return ChallengeState.DRAFT
+        if self.release_at is not None and now < self.release_at:
+            return ChallengeState(self.pre_release_state.value)
+        return self.state
+
+    def __repr__(self) -> str:
+        return f"<Challenge {self.slug} {self.state}>"
+
+
+class ChallengeAnswer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One accepted answer rule. A submission is correct if *any* rule matches."""
+
+    __tablename__ = "challenge_answer"
+    __table_args__ = (Index("ix_challenge_answer_challenge", "challenge_id", "display_order"),)
+
+    challenge_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("challenge.id", ondelete="CASCADE"), nullable=False
+    )
+    match_type: Mapped[MatchType] = mapped_column(_enum(MatchType, "match_type"), nullable=False)
+    #: Plaintext. Regex and computed answers are a requirement, and hashing
+    #: forecloses them; the database is not reachable by players.
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Per-type settings: tolerance, ordering, case handling, timeouts.
+    options: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
+    #: Admin-facing note, e.g. "accepts the British spelling".
+    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    display_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
+    challenge: Mapped["Challenge"] = relationship(back_populates="answers", lazy="raise")
+
+
+class ChallengeArtifact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A downloadable file. Bytes live in object storage, not in this row."""
+
+    __tablename__ = "challenge_artifact"
+    __table_args__ = (Index("ix_challenge_artifact_challenge", "challenge_id", "display_order"),)
+
+    challenge_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("challenge.id", ondelete="CASCADE"), nullable=False
+    )
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: Opaque key in whichever storage backend is wired in.
+    storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    #: Lets a player verify a download, and lets us detect silent corruption.
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
+    challenge: Mapped["Challenge"] = relationship(back_populates="artifacts", lazy="raise")

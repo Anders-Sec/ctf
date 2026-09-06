@@ -8,7 +8,20 @@ not imported here is invisible to migrations.
 from app.models.audit import AuditLog
 from app.models.auth import AuthSession, MagicLinkToken
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.challenge import (
+    Category,
+    Challenge,
+    ChallengeAnswer,
+    ChallengeArtifact,
+    ChallengeState,
+    DecayBasis,
+    Difficulty,
+    MatchType,
+    PreReleaseState,
+    ScoringMode,
+)
 from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.team import (
     Team,
     TeamJoinRequest,
@@ -21,6 +34,19 @@ __all__ = [
     "AuditLog",
     "AuthSession",
     "Base",
+    "Category",
+    "Challenge",
+    "ChallengeAnswer",
+    "ChallengeArtifact",
+    "ChallengeState",
+    "DecayBasis",
+    "Difficulty",
+    "MatchType",
+    "PreReleaseState",
+    "ScoreAdjustment",
+    "ScoringMode",
+    "Solve",
+    "Submission",
     "EventConfig",
     "MagicLinkToken",
     "Team",

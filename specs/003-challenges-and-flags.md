@@ -1,6 +1,6 @@
 # Spec 003 — Challenges, Answers & Dynamic Scoring
 
-Status: **draft (revision 2) — awaiting sign-off**
+Status: **approved** (2026-09-06) — implementing
 Phase: 1
 Covers: `Plan.md` → Challenge & Flag System (except hints, which are spec 004)
 Depends on: 001 (skeleton), 002 (identity, the `play` gate, audit log)
@@ -340,13 +340,9 @@ Everything below runs inside the cluster, as you want:
 | **Postgres bytea** | Zero new infrastructure — Postgres is already there and already backed up. Cost: artifact bytes bloat every backup and replication stream, and the database ends up serving file downloads. Fine for a handful of small files, poor for 50 MB VM images |
 | **RWX PersistentVolume** | Feels simplest, but only works if your storage class actually offers RWX, which many do not |
 
-My recommendation is **MinIO in-cluster**, with the storage interface written so
-the Postgres-backed implementation is a drop-in if you would rather not run it.
-Either way the application code is identical — this decision only changes which
-implementation is wired in, and it can be deferred until commit 5.
-
-Tell me which, or tell me your storage class supports RWX and I will take the
-volume route.
+**Resolved: MinIO in-cluster.** The storage interface is written so a
+Postgres-backed implementation stays a drop-in; application code is identical
+either way. MinIO itself is a component for the IaC repo, not this one.
 
 ## Commit plan
 

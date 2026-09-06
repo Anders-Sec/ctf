@@ -9,6 +9,17 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.challenge import (
+    Category,
+    Challenge,
+    ChallengeAnswer,
+    ChallengeState,
+    DecayBasis,
+    MatchType,
+    PreReleaseState,
+    ScoringMode,
+)
+from app.models.play import Solve
 from app.models.team import MembershipRole, Team, TeamMembership, TeamVisibility
 from app.models.user import User, UserRole, UserSource, UserStatus
 
@@ -74,3 +85,86 @@ async def add_member(
     session.add(membership)
     await session.flush()
     return membership
+
+
+async def make_category(
+    session: AsyncSession, *, name: str | None = None, display_order: int = 0
+) -> Category:
+    suffix = uuid.uuid4().hex[:8]
+    category = Category(
+        name=name or f"Category {suffix}",
+        slug=(name or f"category-{suffix}").lower().replace(" ", "-"),
+        display_order=display_order,
+    )
+    session.add(category)
+    await session.flush()
+    return category
+
+
+async def make_challenge(
+    session: AsyncSession,
+    *,
+    category: Category | None = None,
+    title: str | None = None,
+    state: ChallengeState = ChallengeState.PUBLISHED,
+    release_at: datetime | None = None,
+    pre_release_state: PreReleaseState = PreReleaseState.HIDDEN,
+    initial_points: int = 500,
+    minimum_points: int = 100,
+    decay_threshold: int = 40,
+    scoring: ScoringMode = ScoringMode.DYNAMIC,
+    decay_basis: DecayBasis = DecayBasis.PLAYERS,
+    max_attempts: int | None = None,
+    body: str = "Find the flag.",
+    answers: list[tuple[MatchType, str]] | None = None,
+) -> Challenge:
+    suffix = uuid.uuid4().hex[:8]
+    category = category or await make_category(session)
+    challenge = Challenge(
+        title=title or f"Challenge {suffix}",
+        slug=f"challenge-{suffix}",
+        category_id=category.id,
+        body=body,
+        state=state,
+        release_at=release_at,
+        pre_release_state=pre_release_state,
+        initial_points=initial_points,
+        minimum_points=minimum_points,
+        decay_threshold=decay_threshold,
+        scoring=scoring,
+        decay_basis=decay_basis,
+        max_attempts=max_attempts,
+    )
+    session.add(challenge)
+    await session.flush()
+
+    for order, (match_type, value) in enumerate(answers or [(MatchType.EXACT, "flag{correct}")]):
+        session.add(
+            ChallengeAnswer(
+                challenge_id=challenge.id,
+                match_type=match_type,
+                value=value,
+                options={},
+                display_order=order,
+            )
+        )
+    await session.flush()
+    return challenge
+
+
+async def record_solve(
+    session: AsyncSession,
+    user: User,
+    challenge: Challenge,
+    *,
+    team: Team | None = None,
+) -> Solve:
+    solve = Solve(
+        user_id=user.id,
+        challenge_id=challenge.id,
+        team_id_at_solve=team.id if team else None,
+        submitted_at=datetime.now(UTC),
+    )
+    session.add(solve)
+    await session.flush()
+    return solve
