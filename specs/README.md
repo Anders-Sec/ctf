@@ -12,7 +12,7 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | --- | ---- | -------------------------- | ------ |
 | 001 | `001-platform-skeleton.md` | (foundational — not a Plan.md feature) | **done** |
 | 002 | `002-identity-and-auth.md` | Identity & Auth | **done** |
-| 003 | `003-challenges-and-flags.md` | Challenge & Flag System (models, submission, rate limiting, attempt log, dynamic scoring, scheduled release) | not written |
+| 003 | `003-challenges-and-flags.md` | Challenge & Flag System (models, submission, rate limiting, attempt log, dynamic scoring, scheduled release) | draft |
 | 004 | `004-hints.md` | Challenge & Flag System (hint system) | not written |
 | 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | not written |
 | 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | not written |
@@ -71,5 +71,7 @@ Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 | ~~Roster lock at event start~~ | 002 | **Resolved** — no lock; safe because solves are personal |
 | Party ranking formula: sum of member scores vs. average | 005 | before 005 sign-off |
 | Dynamic scoring decay: per distinct *player* solve rather than per team | 003 | before 003 sign-off |
+| Artifact storage backend (cluster PVC vs on-prem object store) | 003 | before 003 implementation — touches the IaC repo |
+| Scoring defaults (500 / 100 / 40 solves to floor) | 003 | before 003 sign-off |
 | Which local model is hosted, and its API shape (OpenAI-compatible or custom?) | 010 | before 010 sign-off |
 | Container isolation model | 009 | resolved *by* spec 008 |
