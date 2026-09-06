@@ -51,6 +51,7 @@ class ChallengeDetail(ChallengeListItem):
     #: Omitted (None) while locked — not merely hidden by the client.
     body: str | None
     artifacts: list[ArtifactResponse]
+    hints: list["HintResponse"]
 
 
 class SubmitAnswerRequest(BaseModel):
@@ -76,3 +77,22 @@ class SolveSummary(BaseModel):
 class MyScoreResponse(BaseModel):
     total: int
     solves: list[SolveSummary]
+
+
+class HintResponse(BaseModel):
+    id: UUID
+    title: str
+    #: What unlocking costs right now — zero once the challenge is solved.
+    cost: int
+    unlocked: bool
+    #: False while a prerequisite is unbought or the reveal time has not come.
+    available: bool
+    #: Null until unlocked. Withheld server-side, like a locked challenge's body.
+    body: str | None
+
+
+class UnlockHintResponse(BaseModel):
+    body: str
+    cost_charged: int
+    already_unlocked: bool
+    new_total: int

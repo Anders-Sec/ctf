@@ -111,7 +111,14 @@ async def team_solve_counts_for(db: AsyncSession, challenge_ids: list[UUID]) -> 
 
 
 async def user_score(db: AsyncSession, user_id: UUID) -> int:
-    """A player's total: solved challenges at current value, plus adjustments."""
+    """A player's total.
+
+    ``sum(current value of solved challenges) + sum(adjustments) - sum(hint costs)``
+
+    Can go negative: someone who buys hints and solves nothing has spent more
+    than they earned. That is the correct arithmetic, and the scoreboard shows
+    it rather than clamping at zero.
+    """
     solved = (
         (
             await db.execute(
@@ -142,4 +149,8 @@ async def user_score(db: AsyncSession, user_id: UUID) -> int:
         )
     ) or 0
 
-    return total + adjustments
+    # Imported here rather than at module scope: hints depend on Solve, and a
+    # top-level import would close the cycle.
+    from app.services.hints import total_hint_cost
+
+    return total + adjustments - await total_hint_cost(db, user_id)

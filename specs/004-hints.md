@@ -1,6 +1,6 @@
 # Spec 004 — Hints
 
-Status: **draft — awaiting sign-off**
+Status: **approved** (2026-09-06) — implementing
 Phase: 1
 Covers: `Plan.md` → Challenge & Flag System (hint system)
 Depends on: 002 (identity, the `play` gate, audit log), 003 (challenges, scoring)

@@ -20,13 +20,16 @@ from app.schemas.challenges import (
     CategoryResponse,
     ChallengeDetail,
     ChallengeListItem,
+    HintResponse,
     MyScoreResponse,
     SolveSummary,
     SubmitAnswerRequest,
     SubmitAnswerResponse,
+    UnlockHintResponse,
 )
 from app.services import artifacts as artifact_service
 from app.services import challenges as challenge_service
+from app.services import hints as hint_service
 from app.services import scoring
 
 router = APIRouter(tags=["challenges"])
@@ -69,6 +72,10 @@ async def get_challenge(challenge_id: UUID, db: DbSession, current: Player) -> C
     challenge = row["challenge"]
     locked = row["effective_state"] == ChallengeState.LOCKED
 
+    hints = (
+        [] if locked else await hint_service.list_for_challenge(db, challenge.id, current.user.id)
+    )
+
     return ChallengeDetail(
         **_list_item(row).model_dump(),
         # The body is withheld server-side. The client is never sent something
@@ -80,6 +87,47 @@ async def get_challenge(challenge_id: UUID, db: DbSession, current: Player) -> C
             ArtifactResponse.model_validate(artifact, from_attributes=True)
             for artifact in challenge.artifacts
         ],
+        hints=[_hint_response(view) for view in hints],
+    )
+
+
+def _hint_response(view: "hint_service.HintView") -> HintResponse:
+    return HintResponse(
+        id=view.hint.id,
+        title=view.hint.title,
+        cost=view.effective_cost,
+        unlocked=view.unlocked,
+        available=view.available,
+        # Never sent before it is bought.
+        body=view.hint.body if view.unlocked else None,
+    )
+
+
+@router.post("/challenges/{challenge_id}/hints/{hint_id}/unlock")
+async def unlock_hint(
+    challenge_id: UUID,
+    hint_id: UUID,
+    db: DbSession,
+    current: Player,
+) -> UnlockHintResponse:
+    """Buy a hint.
+
+    Resolving the challenge through the player rules first means a hint on a
+    locked or hidden challenge is unreachable, whatever id is supplied.
+    """
+    row = await challenge_service.get_for_player(
+        db, challenge_id, current.user.id, datetime.now(UTC)
+    )
+    if row["effective_state"] == ChallengeState.LOCKED:
+        raise challenge_service.ChallengeLocked
+
+    result = await hint_service.unlock(db, hint_id, challenge_id, current.user.id)
+
+    return UnlockHintResponse(
+        body=result.body,
+        cost_charged=result.cost_charged,
+        already_unlocked=result.already_unlocked,
+        new_total=await scoring.user_score(db, current.user.id),
     )
 
 

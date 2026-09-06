@@ -21,6 +21,7 @@ from app.models.challenge import (
     ScoringMode,
 )
 from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.hint import Hint, HintUnlock
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.team import (
     Team,
@@ -48,6 +49,8 @@ __all__ = [
     "Solve",
     "Submission",
     "EventConfig",
+    "Hint",
+    "HintUnlock",
     "MagicLinkToken",
     "Team",
     "TeamJoinRequest",
