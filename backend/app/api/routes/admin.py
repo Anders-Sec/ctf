@@ -8,7 +8,7 @@ Spec 006 builds the wider admin tooling on the same audit log.
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Query, Request
 from sqlalchemy import func, select
 
 from app.api.deps import Admin, AppSettings, DbSession, RedisClient, Staff
@@ -293,41 +293,6 @@ def _event_response(config: EventConfig) -> EventConfigResponse:
         registration_open=config.registration_open,
         server_time=datetime.now(UTC),
     )
-
-
-@router.get("/audit-log", status_code=status.HTTP_200_OK)
-async def read_audit_log(
-    db: DbSession,
-    current: Staff,
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
-) -> list[dict]:
-    """A minimal window on the audit trail. Spec 006 gives it a proper UI."""
-    from app.models.audit import AuditLog
-
-    rows = (
-        (
-            await db.execute(
-                select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return [
-        {
-            "id": str(row.id),
-            "action": row.action,
-            "actor_user_id": str(row.actor_user_id) if row.actor_user_id else None,
-            "target_type": row.target_type,
-            "target_id": str(row.target_id) if row.target_id else None,
-            "reason": row.reason,
-            "metadata": row.meta,
-            "request_id": row.request_id,
-            "created_at": row.created_at.isoformat(),
-        }
-        for row in rows
-    ]
 
 
 __all__ = ["MessageResponse", "router"]

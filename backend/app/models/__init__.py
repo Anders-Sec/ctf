@@ -23,6 +23,7 @@ from app.models.challenge import (
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.hint import Hint, HintUnlock
 from app.models.play import ScoreAdjustment, Solve, Submission
+from app.models.report import ChallengeReport, ReportStatus
 from app.models.team import (
     Team,
     TeamJoinRequest,
@@ -36,6 +37,7 @@ __all__ = [
     "AuthSession",
     "Base",
     "Category",
+    "ChallengeReport",
     "Challenge",
     "ChallengeAnswer",
     "ChallengeArtifact",
@@ -44,6 +46,7 @@ __all__ = [
     "Difficulty",
     "MatchType",
     "PreReleaseState",
+    "ReportStatus",
     "ScoreAdjustment",
     "ScoringMode",
     "Solve",

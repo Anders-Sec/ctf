@@ -66,7 +66,12 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
     solves = (await db.execute(select(Solve.user_id, Solve.challenge_id, Solve.submitted_at))).all()
     adjustments = (
         await db.execute(
-            select(ScoreAdjustment.user_id, ScoreAdjustment.points, ScoreAdjustment.created_at)
+            select(
+                ScoreAdjustment.user_id,
+                ScoreAdjustment.team_id,
+                ScoreAdjustment.points,
+                ScoreAdjustment.created_at,
+            )
         )
     ).all()
     unlocks = (
@@ -107,14 +112,28 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
 
     adjust_by_user: dict[UUID, int] = {}
     adjust_gain_at: dict[UUID, datetime] = {}
-    for user_id, points, created_at in adjustments:
-        adjust_by_user[user_id] = adjust_by_user.get(user_id, 0) + points
+    # Party-scoped adjustments belong to the party, never to a member, so they
+    # move the party board without touching anybody's personal score.
+    adjust_by_team: dict[UUID, int] = {}
+    team_adjust_gain_at: dict[UUID, datetime] = {}
+
+    for user_id, team_id, points, created_at in adjustments:
+        target, totals, gains = (
+            (user_id, adjust_by_user, adjust_gain_at)
+            if user_id is not None
+            else (team_id, adjust_by_team, team_adjust_gain_at)
+        )
+        if target is None:
+            continue
+        totals[target] = totals.get(target, 0) + points
         if points > 0:
-            previous = adjust_gain_at.get(user_id)
-            adjust_gain_at[user_id] = max(previous, created_at) if previous else created_at
+            previous = gains.get(target)
+            gains[target] = max(previous, created_at) if previous else created_at
 
     team_of_user = {user_id: team_id for team_id, user_id in memberships}
-    members_of_team: dict[UUID, list[UUID]] = {}
+    # Every live party gets an entry, even an empty one: it may still hold a
+    # party-scoped adjustment, and it can be rejoined.
+    members_of_team = {team.id: [] for team in teams}
     for team_id, user_id in memberships:
         if user_id in eligible:
             members_of_team.setdefault(team_id, []).append(user_id)
@@ -139,6 +158,8 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
         unlocks_by_user,
         adjust_by_user,
         adjust_gain_at,
+        adjust_by_team,
+        team_adjust_gain_at,
     )
 
     return Boards(players=player_entries, teams=team_entries, generated_at=now)
@@ -246,6 +267,8 @@ def _rank_teams(
     unlocks_by_user: dict[UUID, dict[UUID, int]],
     adjust_by_user: dict[UUID, int],
     adjust_gain_at: dict[UUID, datetime],
+    adjust_by_team: dict[UUID, int],
+    team_adjust_gain_at: dict[UUID, datetime],
 ) -> list[TeamEntry]:
     rows = []
     for team_id, member_ids in members_of_team.items():
@@ -268,12 +291,17 @@ def _rank_teams(
 
         score = sum(values.get(challenge_id, 0) for challenge_id in solved)
         score -= sum(hint_costs.values())
-        # Adjustments are summed, not unioned. They are per-person compensation,
-        # and the one thing that can carry a party past the nominal ceiling.
+        # Adjustments are summed, not unioned, and are the one thing that can
+        # carry a party past the nominal ceiling. Members' own adjustments count
+        # because their personal scores are part of the party; the party's own
+        # count once, whoever leads it and whoever comes and goes.
         score += sum(adjust_by_user.get(member_id, 0) for member_id in member_ids)
+        score += adjust_by_team.get(team_id, 0)
 
         gains = list(solved.values())
         gains += [adjust_gain_at[m] for m in member_ids if m in adjust_gain_at]
+        if team_id in team_adjust_gain_at:
+            gains.append(team_adjust_gain_at[team_id])
 
         rows.append(
             {

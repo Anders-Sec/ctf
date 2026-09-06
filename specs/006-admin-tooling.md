@@ -1,6 +1,6 @@
 # Spec 006 — Admin Tooling
 
-Status: **draft — awaiting sign-off**
+Status: **approved** (2026-09-06) — implementing
 Phase: 1
 Covers: `Plan.md` → Admin Tooling (except anti-cheat surfacing, which is 007)
 Depends on: 002 (roles, audit log, event config), 003 (challenges, adjustments,
@@ -45,24 +45,37 @@ screen:
 on, a party has no points of its own: its standing is an aggregate over its
 members. So a literal team adjustment has nowhere to live.
 
-**Resolution: an admin adjusts a player, or adjusts a party — and a party
-adjustment fans out to one row per current member.** Both write
-`score_adjustment` rows, which the boards already sum. This is the ergonomics
-`Plan.md` was reaching for: when a broken challenge cost a party of eight an
-hour, compensating all eight is one action, not eight.
+**Resolution: an adjustment targets either a player or a party, and a party
+adjustment belongs to the party itself** — one row with a `team_id`, no
+`user_id`. The boards already sum adjustments; the party board additionally
+sums those scoped to it.
 
-Two additions to `score_adjustment`:
+This was reached in two steps, and the discarded ones are worth recording.
 
-| Column | Why |
-| ------ | --- |
-| `batch_id` (uuid, nullable) | Groups the rows a single party-wide action produced, so the dashboard shows one entry rather than eight, and so it can be reversed as one |
-| `reverses_id` (uuid, nullable, self-FK) | See below |
+**Not fanning out to every member.** The first draft wrote one row per current
+member. It works, but it smears a single decision across eight people's personal
+scores, which is the opposite of treating it as a party-level fact.
 
-**Adjustments are never deleted.** An admin who awards the wrong amount issues a
-**reversing entry** that points at the original. Deleting would erase the record
-of a decision people may well argue about after the event, which is the exact
-opposite of what an audit trail is for. The dashboard renders a reversed pair as
-struck through rather than hiding it.
+**Not routing through the party leader either.** The proposal after that was to
+apply it to the leader, as a constant the party can be adjusted through. Two
+problems, both fatal:
+
+- **The leader is not a constant.** Leadership transfers, and a departing leader
+  hands off automatically (002). An adjustment attached to the person would leave
+  the party when they did — precisely when the compensation still applies.
+- **It inflates the leader's personal score.** Party score sums its members'
+  adjustments, so routing 100 points through the leader also moves them 100
+  points up the *player* board for something they did not earn.
+
+A `team_id` on the adjustment gets the intent exactly: applied once, at party
+level, unsmeared across individuals, surviving every roster and leadership change,
+and leaving personal scores alone. It is also closer to `Plan.md`'s literal
+"adjust a team's points directly" than either alternative.
+
+`score_adjustment` therefore gains a nullable `team_id`, `user_id` becomes
+nullable, and a `CHECK` enforces that exactly one of the two is set — an
+adjustment belonging to both or to neither is meaningless, and the database is
+the right place to say so.
 
 `reason` is already required on the table and stays required.
 
@@ -128,8 +141,8 @@ New endpoints only; everything else is already built.
 
 | Method | Path | Gate | Notes |
 | ------ | ---- | ---- | ----- |
-| POST | `/api/admin/adjustments` | admin | `{user_id \| team_id, points, reason}` — a team fans out to current members |
-| GET | `/api/admin/adjustments` | staff | Grouped by batch, reversals shown against their original |
+| POST | `/api/admin/adjustments` | admin | `{user_id \| team_id, points, reason}` — exactly one target |
+| GET | `/api/admin/adjustments` | staff | Reversals shown against their original |
 | POST | `/api/admin/adjustments/{id}/reverse` | admin | Reason required |
 | GET | `/api/admin/dashboard` | staff | The whole screen in one response |
 | GET | `/api/admin/challenge-health` | staff | Per-challenge attempt/solve ratios |
@@ -144,10 +157,13 @@ six parallel polls from every open console is a self-inflicted load test.
 
 ## Edge cases
 
-- **Adjusting a party that changes roster afterwards.** The rows are already
-  written against the people who were there. A later joiner gets nothing, a
-  leaver keeps theirs. Correct: the compensation was for time already lost.
-- **Adjusting a party with no members.** Refused — nothing to write.
+- **A party's roster changes after it was adjusted.** The adjustment belongs to
+  the party, so it stays put through joins, departures and leadership handovers.
+  This is the whole reason it is not attached to a person.
+- **A party is adjusted and then disbands.** The row survives with the
+  soft-deleted party; the party is simply off the board.
+- **Adjusting a party with no members.** Allowed — the party still exists and may
+  be rejoined. It contributes nothing to a board it is not on.
 - **Reversing an already-reversed adjustment.** Refused, with the original named.
 - **An admin adjusts their own score.** Allowed but always audit-logged, and the
   dashboard marks self-adjustments, because an event runs on the organisers being
@@ -165,8 +181,11 @@ six parallel polls from every open console is a self-inflicted load test.
 
 ## Testing
 
-- A party adjustment writes exactly one row per current member, sharing a batch
-  id, and moves the party's board score by the total.
+- A party adjustment writes exactly one row, moves the party's board score, and
+  moves **no** member's personal score — including the leader's.
+- A party adjustment survives a leadership transfer and the original leader
+  leaving.
+- The database refuses an adjustment targeting both a user and a party, or neither.
 - A reversal cancels the original exactly and leaves both rows in place.
 - Adjustments cannot be deleted through any endpoint.
 - `reason` is required, and reaches the audit log.

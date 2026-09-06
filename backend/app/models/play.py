@@ -3,7 +3,16 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -86,18 +95,32 @@ class Submission(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class ScoreAdjustment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """A manual correction to a player's total.
+    """A manual correction, to a player's total or to a party's.
 
-    Defined here rather than in spec 006 because a player's score is
-    ``sum(current value of solved challenges) + sum(adjustments)``, and the
-    scoreboard needs that expression whole. Spec 006 adds the granting endpoint.
+    A party-scoped adjustment belongs to the party, not to any member — not
+    fanned out across everyone, and not routed through the leader. Leadership
+    transfers and leaders leave, so an adjustment attached to a person would
+    walk out of the party with them; and routing it through the leader would
+    also move them up the *player* board for points they did not earn.
     """
 
     __tablename__ = "score_adjustment"
-    __table_args__ = (Index("ix_score_adjustment_user", "user_id"),)
+    __table_args__ = (
+        Index("ix_score_adjustment_user", "user_id"),
+        Index("ix_score_adjustment_team", "team_id"),
+        # Exactly one target. Belonging to both, or to neither, is meaningless,
+        # and the database is the right place to say so.
+        CheckConstraint(
+            "(user_id IS NOT NULL) <> (team_id IS NOT NULL)",
+            name="ck_score_adjustment_one_target",
+        ),
+    )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=True
+    )
+    team_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("team.id", ondelete="CASCADE"), nullable=True
     )
     #: Signed: compensation for a broken challenge, or a penalty.
     points: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -105,4 +128,9 @@ class ScoreAdjustment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    #: Adjustments are never deleted. A mistake is corrected by a reversing
+    #: entry pointing at the original, so the record of the decision survives.
+    reverses_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("score_adjustment.id", ondelete="SET NULL"), nullable=True
     )

@@ -147,7 +147,7 @@ async def user_score(db: AsyncSession, user_id: UUID) -> int:
                 ScoreAdjustment.user_id == user_id
             )
         )
-    ) or 0
+    ) or 0  # Party-scoped rows have a null user_id and are excluded here.
 
     # Imported here rather than at module scope: hints depend on Solve, and a
     # top-level import would close the cycle.
