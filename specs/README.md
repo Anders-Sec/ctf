@@ -20,7 +20,7 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | **on hold** — design done, blocked on cluster isolation |
 | 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | **deferred** behind 008 |
 | 010 | `010-ai-assistant-service.md` | AI Assistant — mediator service + model client | **done** (staff-gated until 011) |
-| 011 | `011-ai-guardrails.md` | AI Assistant — challenge-integrity + real-world-safety layers | not written |
+| 011 | `011-ai-guardrails.md` | AI Assistant — challenge-integrity + real-world-safety layers | **draft** — awaiting sign-off |
 | 012 | `012-load-and-nfr-verification.md` | Non-Functional Requirements | not written |
 
 ## Sequencing rationale
