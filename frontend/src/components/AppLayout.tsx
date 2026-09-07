@@ -56,17 +56,29 @@ export default function AppLayout() {
               <NavLink to="/admin/signals" className="text-sm hover:underline">
                 Signals
               </NavLink>
-              <NavLink to="/admin/assistant" className="text-sm hover:underline">
+              <NavLink
+                to="/admin/assistant"
+                className="text-sm hover:underline"
+              >
                 AI flags
               </NavLink>
-              <NavLink to="/admin/instances" className="text-sm hover:underline">
+              <NavLink
+                to="/admin/instances"
+                className="text-sm hover:underline"
+              >
                 Dungeons
               </NavLink>
-              <NavLink to="/admin/challenges" className="text-sm hover:underline">
+              <NavLink
+                to="/admin/challenges"
+                className="text-sm hover:underline"
+              >
                 Manage
               </NavLink>
               <NavLink to="/admin/users" className="text-sm hover:underline">
                 Approvals
+              </NavLink>
+              <NavLink to="/admin/event" className="text-sm hover:underline">
+                Event
               </NavLink>
             </>
           ) : (
@@ -106,7 +118,10 @@ export default function AppLayout() {
                   hasAvatar={me.user.has_avatar}
                   size={28}
                 />
-                <button onClick={() => signOut.mutate()} className="text-sm hover:underline">
+                <button
+                  onClick={() => signOut.mutate()}
+                  className="text-sm hover:underline"
+                >
                   Sign out
                 </button>
               </>

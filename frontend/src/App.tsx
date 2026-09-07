@@ -6,6 +6,7 @@ import AdminChallengesPage from "./routes/AdminChallengesPage";
 import AdminDashboardPage from "./routes/AdminDashboardPage";
 import AdminOpsPage from "./routes/AdminOpsPage";
 import AdminAssistantPage from "./routes/AdminAssistantPage";
+import AdminEventPage from "./routes/AdminEventPage";
 import AdminInstancesPage from "./routes/AdminInstancesPage";
 import AdminSignalsPage from "./routes/AdminSignalsPage";
 import AdminUsersPage from "./routes/AdminUsersPage";
@@ -39,7 +40,10 @@ export default function App() {
         <Route path="/party" element={<PartyPage />} />
         <Route path="/scoreboard" element={<ScoreboardPage />} />
         <Route path="/challenges" element={<ChallengesPage />} />
-        <Route path="/challenges/:challengeId" element={<ChallengeDetailPage />} />
+        <Route
+          path="/challenges/:challengeId"
+          element={<ChallengeDetailPage />}
+        />
         <Route
           path="/admin"
           element={
@@ -77,6 +81,14 @@ export default function App() {
           element={
             <RequireAuth staffOnly>
               <AdminInstancesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/event"
+          element={
+            <RequireAuth staffOnly>
+              <AdminEventPage />
             </RequireAuth>
           }
         />
