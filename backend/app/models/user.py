@@ -75,6 +75,13 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     avatar_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     avatar_updated_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    #: Takes the dungeon master away from one person mid-event. Without it the
+    #: only lever is the event-wide switch, and one player misbehaving should
+    #: not cost the other 199 the feature.
+    assistant_blocked: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default="false"
+    )
+
     approved_at: Mapped[datetime | None] = mapped_column(nullable=True)
     approved_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True

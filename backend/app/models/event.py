@@ -37,6 +37,13 @@ class EventConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Boolean, nullable=False, default=True, server_default="true"
     )
 
+    #: The runtime off switch for the dungeon master. ``AI_ENABLED`` remains the
+    #: deployment-level one, but reaching for a redeploy is the wrong tool at
+    #: 11pm on day two when the assistant starts saying something unfortunate.
+    assistant_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+
     updated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True
     )

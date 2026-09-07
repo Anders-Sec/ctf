@@ -59,6 +59,11 @@ class AssistantMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
+    #: What the model actually said, kept only when the reply was withheld.
+    #: ``content`` stays "what the player saw"; staff reviewing an incident need
+    #: the real text.
+    original_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     #: What the player was looking at when they asked, so the assistant gets
     #: context without them restating it — and so spec 011 can review what was
     #: asked about what.

@@ -22,6 +22,12 @@ from app.models.challenge import (
     ScoringMode,
 )
 from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.guardrail import (
+    AssistantFinding,
+    FindingAction,
+    GuardrailLayer,
+    Severity,
+)
 from app.models.hint import Hint, HintUnlock
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.report import ChallengeReport, ReportStatus
@@ -36,6 +42,7 @@ from app.models.user import User
 __all__ = [
     "EVENT_CONFIG_ID",
     "AssistantConversation",
+    "AssistantFinding",
     "AssistantMessage",
     "AuditLog",
     "AuthSession",
@@ -48,8 +55,11 @@ __all__ = [
     "ChallengeState",
     "DecayBasis",
     "Difficulty",
+    "FindingAction",
+    "GuardrailLayer",
     "MatchType",
     "MessageRole",
+    "Severity",
     "PreReleaseState",
     "ReportStatus",
     "ScoreAdjustment",

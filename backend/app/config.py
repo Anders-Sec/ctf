@@ -158,6 +158,40 @@ class Settings(BaseSettings):
     ai_breaker_threshold: int = 5
     ai_breaker_cooldown_seconds: int = 60
 
+    # --- Guardrails (spec 011) ----------------------------------------------
+    ai_integrity_filter_enabled: bool = True
+    ai_safety_filter_enabled: bool = True
+    #: The judge is a second model call on an already-flagged reply. Off until
+    #: the log shows how the deterministic layer behaves: the same uncensored 8B
+    #: judging its own output is a weak control to trust with suppression.
+    ai_safety_judge_enabled: bool = False
+    #: Shape of a flag. Every flag-shaped reply is deflected whether or not the
+    #: value is real, which is what stops the deflection being a correctness
+    #: oracle for a player who pastes a guess.
+    ai_flag_pattern: str = r"[A-Za-z0-9_]{2,16}\{[^}]{1,120}\}"
+    #: Answers shorter than this are not scanned. "1337" or a single English word
+    #: would deflect good advice several times an hour and train players to
+    #: distrust the assistant.
+    ai_answer_scan_min_length: int = 8
+    #: Rebuilt at most this often. A newly written answer is unscanned for up to
+    #: this long, which the structural guarantee in 010 still covers.
+    ai_answer_cache_seconds: int = 60
+    #: Hosts belonging to the event. A target *outside* this list, named
+    #: alongside attack language, is what distinguishes the crawl from the real
+    #: world. Configuration, never source: real internal names must not enter
+    #: this repository.
+    ai_event_domains: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    #: Age past which a conversation is purged. Conversations are the most
+    #: personal thing this platform stores.
+    ai_retention_days: int = 30
+
+    @field_validator("ai_event_domains", mode="before")
+    @classmethod
+    def _split_event_domains(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [d.strip().lower().lstrip("@") for d in value.split(",") if d.strip()]
+        return value
+
     @property
     def ai_configured(self) -> bool:
         return bool(self.ai_enabled and self.ai_base_url and self.ai_model)
