@@ -179,6 +179,30 @@ def _play_message(reason: str) -> str:
     }.get(reason, "You do not have access to this.")
 
 
+class AssistantUnavailableError(ForbiddenError):
+    code = "assistant_unavailable"
+    message = "The dungeon master is not holding court right now."
+
+
+async def require_assistant(current: Player, event: EventCfg) -> CurrentUser:
+    """The dungeon master chat, spec 011.
+
+    Builds on the play gate — approved account, event running — and adds the two
+    switches that let staff take the assistant away without a redeploy: the
+    event-wide runtime toggle, and the per-player block for one troublemaker.
+    """
+    if event is not None and not event.assistant_enabled:
+        raise AssistantUnavailableError
+    if current.user.assistant_blocked:
+        raise AssistantUnavailableError(
+            "The dungeon master is no longer speaking with you.", code="assistant_blocked"
+        )
+    return current
+
+
+AssistantUser = Annotated[CurrentUser, Depends(require_assistant)]
+
+
 async def require_scoreboard(current: Authenticated) -> CurrentUser:
     """Reading the boards.
 
@@ -218,6 +242,7 @@ __all__ = [
     "ActiveUser",
     "Admin",
     "AppSettings",
+    "AssistantUser",
     "Authenticated",
     "CurrentUser",
     "DbSession",

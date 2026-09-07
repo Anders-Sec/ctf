@@ -1,6 +1,6 @@
 # Spec 011 — AI Assistant: Guardrails
 
-Status: **approved** — decisions recorded below
+Status: **done** — 606 backend tests, 96 frontend tests
 Phase: 1
 Covers: `Plan.md` → AI Assistant (both guardrail layers, and opening the chat to players)
 Depends on: 010 (the mediator), 003 (plaintext answers), 007 (review framing), 006 (console)

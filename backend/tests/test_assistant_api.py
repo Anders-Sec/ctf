@@ -73,7 +73,7 @@ async def player(db_session, client, sign_in):  # noqa: ANN001 - test helper
 
 
 class TestTheGate:
-    """Spec 010 ships staff-only; spec 011 opens it once the guardrails exist."""
+    """Players reach the chat; only staff reach the review and health surface."""
 
     async def test_an_anonymous_visitor_is_refused(self, client: AsyncClient) -> None:
         assert (await client.get("/api/assistant/conversation")).status_code == 401
@@ -81,13 +81,12 @@ class TestTheGate:
     @pytest.mark.parametrize(
         ("method", "path"),
         [
-            ("GET", "/api/assistant/conversation"),
-            ("POST", "/api/assistant/messages"),
-            ("DELETE", "/api/assistant/conversation"),
             ("GET", "/api/admin/assistant/health"),
+            ("GET", "/api/admin/assistant/findings"),
+            ("POST", "/api/admin/assistant/purge"),
         ],
     )
-    async def test_a_player_is_refused_until_the_guardrails_land(
+    async def test_a_player_is_refused_the_staff_surface(
         self, client: AsyncClient, db_session: AsyncSession, sign_in, method: str, path: str
     ) -> None:
         await player(db_session, client, sign_in)
@@ -95,6 +94,14 @@ class TestTheGate:
         response = await client.request(method, path, json={"content": "hello"})
 
         assert response.status_code == 403
+
+    async def test_a_player_can_now_reach_the_chat(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Spec 011 opened the gate."""
+        await player(db_session, client, sign_in)
+
+        assert (await client.get("/api/assistant/conversation")).status_code == 200
 
 
 class TestConversing:
@@ -239,12 +246,13 @@ class TestDegradation:
         _reconfigure(app, ai_enabled=False)
         assert (await client.get("/api/auth/me")).json()["assistant_available"] is False
 
-    async def test_a_player_is_not_offered_the_chat_yet(
+    async def test_a_player_is_now_offered_the_chat(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """Spec 011 opened the gate; the guardrails stand between them and the model."""
         await player(db_session, client, sign_in)
 
-        assert (await client.get("/api/auth/me")).json()["assistant_available"] is False
+        assert (await client.get("/api/auth/me")).json()["assistant_available"] is True
 
 
 class TestLimits:
@@ -321,3 +329,50 @@ class TestHealth:
 
         assert response.status_code == 200
         assert response.json()["reachable"] is False
+
+
+class TestPerPlayerBlock:
+    async def test_an_admin_can_block_one_player(
+        self, app: FastAPI, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from app.models.user import UserRole
+
+        admin = await make_user(
+            db_session, status=UserStatus.ACTIVE, role=UserRole.ADMIN, display_name="Arch"
+        )
+        target = await make_user(db_session, status=UserStatus.ACTIVE)
+        await sign_in(client, admin)
+
+        blocked = await client.post(
+            f"/api/admin/users/{target.id}/assistant-block", json={"blocked": True}
+        )
+
+        assert blocked.status_code == 200
+        await db_session.refresh(target)
+        assert target.assistant_blocked is True
+
+    async def test_a_blocked_player_cannot_chat(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        user.assistant_blocked = True
+        await db_session.flush()
+        await sign_in(client, user)
+
+        response = await client.get("/api/assistant/conversation")
+
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "assistant_blocked"
+        assert (await client.get("/api/auth/me")).json()["assistant_available"] is False
+
+
+class TestRuntimeSwitch:
+    async def test_disabling_it_at_runtime_closes_the_chat(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, running_event
+    ) -> None:
+        running_event.assistant_enabled = False
+        await db_session.flush()
+        await player(db_session, client, sign_in)
+
+        assert (await client.get("/api/assistant/conversation")).status_code == 403
+        assert (await client.get("/api/auth/me")).json()["assistant_available"] is False

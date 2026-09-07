@@ -1,21 +1,25 @@
 """The dungeon master chat.
 
-**Staff-gated for now.** Spec 010 ships the mediator; spec 011 adds both
-guardrail layers and opens it to players. Shipping an unguarded assistant to 200
-people in the interim would be the wrong shape of mistake, so the gate below is
-deliberately one name changed in one place.
+Open to players, now that spec 011's guardrails stand between them and the
+model. `AssistantUser` is the play gate plus the two switches — the event-wide
+runtime toggle and the per-player block — that let staff take the assistant
+away without a redeploy.
 """
 
 from datetime import UTC, datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Request
 
-from app.api.deps import Admin, AppSettings, DbSession, RedisClient, Staff
+from app.api.deps import Admin, AppSettings, AssistantUser, DbSession, RedisClient, Staff
+from app.errors import NotFoundError
 from app.models.assistant import AssistantMessage
 from app.models.guardrail import FindingAction, GuardrailLayer, Severity
+from app.models.user import User
 from app.schemas.assistant import (
     AssistantHealthResponse,
     AssistantMessageResponse,
+    BlockPlayerRequest,
     ConversationResponse,
     FindingResponse,
     FindingsPage,
@@ -23,14 +27,15 @@ from app.schemas.assistant import (
     SendMessageRequest,
     SendMessageResponse,
 )
+from app.schemas.auth import MessageResponse
 from app.services import ai_client
 from app.services import assistant_chat as chat
 from app.services import assistant_review as review
 from app.services.identity import record_audit
 from app.services.rate_limit import RateLimited, check_assistant_limits
 
-#: Spec 011 changes this to `Player`. Everything else stays as it is.
-ChatUser = Staff
+#: Players, gated behind the guardrails and the runtime switches.
+ChatUser = AssistantUser
 
 router = APIRouter(tags=["assistant"])
 
@@ -168,3 +173,32 @@ async def purge_conversations(
         request_id=getattr(request.state, "request_id", None),
     )
     return PurgeResponse(purged=purged)
+
+
+@router.post("/admin/users/{user_id}/assistant-block", tags=["admin"])
+async def set_assistant_block(
+    user_id: UUID,
+    payload: BlockPlayerRequest,
+    request: Request,
+    db: DbSession,
+    current: Admin,
+) -> MessageResponse:
+    """Take the chat from one person without touching the other 199."""
+    user = await db.get(User, user_id)
+    if user is None:
+        raise NotFoundError("No such user.")
+    user.assistant_blocked = payload.blocked
+    await record_audit(
+        db,
+        action="assistant.block" if payload.blocked else "assistant.unblock",
+        target_type="user",
+        target_id=user_id,
+        actor_user_id=current.user.id,
+        request_id=getattr(request.state, "request_id", None),
+    )
+    await db.flush()
+    return MessageResponse(
+        message="The dungeon master will ignore them."
+        if payload.blocked
+        else "The dungeon master will speak with them again."
+    )

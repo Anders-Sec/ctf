@@ -48,6 +48,9 @@ class UpdateEventConfigRequest(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     registration_open: bool | None = None
+    #: The runtime kill switch for the dungeon master (spec 011). A redeploy is
+    #: the wrong tool at 11pm on day two.
+    assistant_enabled: bool | None = None
 
 
 class EventConfigResponse(BaseModel):
@@ -55,4 +58,5 @@ class EventConfigResponse(BaseModel):
     starts_at: datetime | None
     ends_at: datetime | None
     registration_open: bool
+    assistant_enabled: bool
     server_time: datetime

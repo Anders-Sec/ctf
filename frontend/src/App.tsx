@@ -5,6 +5,7 @@ import AppLayout from "./components/AppLayout";
 import AdminChallengesPage from "./routes/AdminChallengesPage";
 import AdminDashboardPage from "./routes/AdminDashboardPage";
 import AdminOpsPage from "./routes/AdminOpsPage";
+import AdminAssistantPage from "./routes/AdminAssistantPage";
 import AdminSignalsPage from "./routes/AdminSignalsPage";
 import AdminUsersPage from "./routes/AdminUsersPage";
 import ChallengeDetailPage from "./routes/ChallengeDetailPage";
@@ -59,6 +60,14 @@ export default function App() {
           element={
             <RequireAuth staffOnly>
               <AdminSignalsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/assistant"
+          element={
+            <RequireAuth staffOnly>
+              <AdminAssistantPage />
             </RequireAuth>
           }
         />

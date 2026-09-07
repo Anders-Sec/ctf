@@ -108,6 +108,12 @@ spec:
             - name: AI_API_KEY
               valueFrom:
                 secretKeyRef: { name: ctf-secrets, key: ai-api-key, optional: true }
+            # The event's own hosts, so the safety filter can tell an attack on
+            # the crawl (fine) from one on the real company (not). Real internal
+            # names must never enter this repo, so it arrives as a secret.
+            - name: AI_EVENT_DOMAINS
+              valueFrom:
+                secretKeyRef: { name: ctf-secrets, key: ai-event-domains, optional: true }
           resources:
             requests: { cpu: 250m, memory: 512Mi }
             limits: { cpu: "2", memory: 1Gi }

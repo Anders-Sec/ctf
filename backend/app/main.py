@@ -32,6 +32,21 @@ from app.services.scoreboard_cache import broadcaster
 logger = get_logger(__name__)
 
 
+async def _purge_stale_conversations(settings: Settings) -> None:
+    if not settings.ai_configured:
+        return
+    try:
+        sessionmaker = get_sessionmaker(settings)
+        async with sessionmaker() as session, session.begin():
+            from app.services.assistant_review import purge_expired
+
+            purged = await purge_expired(session, settings.ai_retention_days)
+        if purged:
+            logger.info("assistant_retention_purge", extra={"purged": purged})
+    except Exception as exc:  # noqa: BLE001 - never block startup on this
+        logger.warning("assistant_retention_purge_failed", extra={"error_type": type(exc).__name__})
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
@@ -45,6 +60,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # One debounced recompute loop and one subscriber per process. Several pods
     # stay in step through the Redis channel, not through shared memory.
     broadcaster.start(get_sessionmaker(settings), redis)
+    # A best-effort retention sweep at boot. Not the only trigger — the admin
+    # console has a button — but it means a long-running deployment does not
+    # accumulate stale transcripts just because nobody pressed it. Never fatal:
+    # the assistant is optional and a failed purge must not stop the app serving.
+    await _purge_stale_conversations(settings)
     try:
         yield
     finally:

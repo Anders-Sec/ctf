@@ -319,7 +319,12 @@ async def me(
 
     return MeResponse(
         user=_user_response(current.user),
-        assistant_available=settings.ai_configured and current.is_staff,
+        assistant_available=(
+            settings.ai_configured
+            and current.capabilities.play
+            and not current.user.assistant_blocked
+            and (event is None or event.assistant_enabled)
+        ),
         team=TeamSummary(**team) if team else None,
         capabilities=CapabilitiesResponse(**current.capabilities.to_dict()),
         event=(
