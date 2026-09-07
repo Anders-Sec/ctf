@@ -17,6 +17,7 @@ from app.models.play import MAX_SUBMISSION_LENGTH, Solve, Submission
 from app.models.user import User
 from app.services import answers as answer_service
 from app.services import scoring
+from app.services.instances import launcher as instance_launcher
 from app.services.rate_limit import RateLimited, check_submission_limits
 from app.services.user_cache import load_active_team
 
@@ -217,13 +218,27 @@ async def submit_answer(
             extra={"challenge_id": str(challenge.id), "errors": list(verdict.errors)},
         )
 
+    is_correct = verdict.correct
+    matched_answer_id = verdict.matched_answer.id if verdict.matched_answer else None
+    team = await load_active_team(db, user.id)
+
+    # A container challenge is solved by its own instance's generated answer, in
+    # addition to any static rules. Checked only when the static rules missed, so
+    # a challenge can carry both a fixed and a per-instance answer.
+    if (
+        not is_correct
+        and challenge.container_template_id is not None
+        and await instance_launcher.answer_matches(db, challenge.id, team, user, raw_answer)
+    ):
+        is_correct = True
+
     submission = await _record(
         db,
         user,
         challenge,
         raw_answer,
-        verdict.correct,
-        verdict.matched_answer.id if verdict.matched_answer else None,
+        is_correct,
+        matched_answer_id,
         ip,
         request_id,
         now,
@@ -231,14 +246,13 @@ async def submit_answer(
 
     remaining = _remaining(challenge, used + 1)
 
-    if not verdict.correct:
+    if not is_correct:
         return SubmissionOutcome(False, already is not None, 0, remaining)
 
     if already is not None:
         # Players do re-submit to check. Logged, no second solve, no points.
         return SubmissionOutcome(True, True, 0, remaining)
 
-    team = await load_active_team(db, user.id)
     solve = Solve(
         user_id=user.id,
         challenge_id=challenge.id,

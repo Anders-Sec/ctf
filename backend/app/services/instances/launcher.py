@@ -310,6 +310,21 @@ async def _load_container_challenge(
     return challenge, template
 
 
+async def answer_matches(
+    db: AsyncSession, challenge_id: UUID, team: Team | None, user: User, submitted: str
+) -> bool:
+    """Whether a submission equals *this player's own* instance's answer.
+
+    The correct string is unique per instance, so one player cannot pass another
+    the answer (008 Decision 6). A player with no live instance simply cannot
+    match, which is right — there is nothing to have solved.
+    """
+    instance = await find_for_owner(db, challenge_id, team, user)
+    if instance is None or not instance.generated_answer:
+        return False
+    return secrets.compare_digest(submitted.strip(), instance.generated_answer)
+
+
 async def count_live(db: AsyncSession) -> int:
     return (
         await db.scalar(
