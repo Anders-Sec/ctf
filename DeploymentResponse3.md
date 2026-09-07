@@ -85,3 +85,25 @@ measured a deliberately wrong bearer token being accepted. We still send the key
 and it starts working the day the host checks it, but the control that actually
 holds today is network-level — that port should be restricted to the cluster
 node's address.
+
+---
+
+## Addendum — repinned to `sha-120a339`
+
+You were right that `deploy/` pointed at an image that does not exist, and the
+repin is in. One correction to the cause, because it changes the preventive rule.
+
+**There was no rebase or squash.** `9d23e78` is on `origin/main` under exactly
+that sha. What happened is that a branch push triggers **one** CI run, for the
+head commit of the push — `github.sha` was `120a339`. The two intermediate
+commits in that push, `9d23e78` and `ad241c4`, were never built, so their tags
+were never published.
+
+That generalises further than the squash footgun would: pinning **any** non-head
+commit fails, even with clean linear history. So the bump is inherently a
+follow-up commit — push the work, let the build finish, then pin the sha it
+produced. That note now lives in `deploy/*.yaml` beside the pin, so the next
+person meets it before the `ImagePullBackOff` rather than after.
+
+Both manifests now pin `sha-120a339`, whose tree already carries the
+unprivileged-nginx fix. The `v1` alias can go whenever suits you.
