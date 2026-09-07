@@ -40,6 +40,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 011 | `011-ai-guardrails.md` | AI Assistant — challenge-integrity + real-world-safety layers | **done** |
 | 012 | `012-load-and-nfr-verification.md` | Non-Functional Requirements | **done** — harness + runbook + automated NFR tests |
 | 013 | `013-system-ai-and-ui-polish.md` | Polish: System AI persona, admin/player nav split, typed categories | **done** |
+| 014 | `014-challenge-editor-and-prerequisites.md` | Editor completion, prerequisite locks, event settings | **done** |
 
 ## Sequencing rationale
 

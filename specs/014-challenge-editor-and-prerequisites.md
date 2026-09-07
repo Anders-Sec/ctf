@@ -1,6 +1,6 @@
 # Spec 014 — Challenge Editor Completion, Prerequisites & Event Settings
 
-Status: **approved** (2026-09-07) — build
+Status: **done** — 673 backend tests, 112 frontend tests
 Phase: 1 cleanup (before Phase 2)
 Covers: the gaps in the admin challenge editor, per-player prerequisite gating, and the event-settings page
 Depends on: 003 (challenges/scoring), 004 (hints), 009 (container templates), 006 (admin CRUD), 002 (event config)
