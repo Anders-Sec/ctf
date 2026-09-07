@@ -28,7 +28,9 @@ export default function ChallengeDetailPage() {
         // The board, this challenge and the score all move on a solve — and so
         // does everyone else's, since the value decays.
         await queryClient.invalidateQueries({ queryKey: ["challenges"] });
-        await queryClient.invalidateQueries({ queryKey: ["challenge", challengeId] });
+        await queryClient.invalidateQueries({
+          queryKey: ["challenge", challengeId],
+        });
         await queryClient.invalidateQueries({ queryKey: ["my-score"] });
       }
     },
@@ -36,7 +38,8 @@ export default function ChallengeDetailPage() {
 
   if (challenge.isPending) return <Spinner />;
   if (challenge.isError) {
-    const notFound = challenge.error instanceof ApiError && challenge.error.status === 404;
+    const notFound =
+      challenge.error instanceof ApiError && challenge.error.status === 404;
     return (
       <main className="mx-auto max-w-2xl p-6">
         <h1 className="text-2xl font-semibold">
@@ -63,8 +66,12 @@ export default function ChallengeDetailPage() {
       </Link>
 
       <header className="mt-4">
-        <p className="text-sm uppercase tracking-wide text-muted">{detail.category.name}</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{detail.title}</h1>
+        <p className="text-sm uppercase tracking-wide text-muted">
+          {detail.category.name}
+        </p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">
+          {detail.title}
+        </h1>
         <p className="mt-2 text-muted">
           {detail.value} points · {detail.difficulty} · {detail.solve_count}{" "}
           {detail.solve_count === 1 ? "solve" : "solves"}
@@ -77,6 +84,30 @@ export default function ChallengeDetailPage() {
         </p>
       )}
 
+      {detail.locked && (
+        <section className="mt-6 rounded-lg border border-torch/40 bg-torch/10 p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+            Locked
+          </h2>
+          {detail.unlock_requirements.length > 0 ? (
+            <>
+              <p className="mt-1 text-sm">Unlock by solving:</p>
+              <ul className="mt-2 space-y-1 text-sm">
+                {detail.unlock_requirements.map((req) => (
+                  <li key={req.challenge_id}>
+                    {req.solved ? "✓" : "•"} {req.title}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-muted">
+              This challenge is not open yet.
+            </p>
+          )}
+        </section>
+      )}
+
       {detail.body !== null && (
         <section className="mt-6 whitespace-pre-wrap rounded-lg border border-stone bg-white/60 p-5">
           {detail.body}
@@ -85,7 +116,9 @@ export default function ChallengeDetailPage() {
 
       {detail.artifacts.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Files</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+            Files
+          </h2>
           <ul className="mt-2 flex flex-col gap-2">
             {detail.artifacts.map((artifact) => (
               <li key={artifact.id}>
@@ -105,62 +138,70 @@ export default function ChallengeDetailPage() {
         </section>
       )}
 
-      {detail.has_container && <InstancePanel challengeId={detail.id} />}
+      {!detail.locked && detail.has_container && (
+        <InstancePanel challengeId={detail.id} />
+      )}
 
-      <HintList challengeId={detail.id} hints={detail.hints} />
+      {!detail.locked && (
+        <HintList challengeId={detail.id} hints={detail.hints} />
+      )}
 
-      <section className="mt-6">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            submit.mutate();
-          }}
-        >
-          <label htmlFor="answer" className="block text-sm font-medium">
-            Your answer
-          </label>
-          <div className="mt-1 flex gap-2">
-            <input
-              id="answer"
-              value={answer}
-              onChange={(event) => setAnswer(event.target.value)}
-              disabled={outOfAttempts}
-              className="flex-1 rounded border border-stone px-3 py-2 font-mono"
-              placeholder="flag{…}"
-              autoComplete="off"
-            />
-            <button
-              type="submit"
-              disabled={submit.isPending || answer.trim() === "" || outOfAttempts}
-              className="rounded bg-ink px-4 py-2 font-medium text-parchment disabled:opacity-50"
+      {!detail.locked && (
+        <section className="mt-6">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              submit.mutate();
+            }}
+          >
+            <label htmlFor="answer" className="block text-sm font-medium">
+              Your answer
+            </label>
+            <div className="mt-1 flex gap-2">
+              <input
+                id="answer"
+                value={answer}
+                onChange={(event) => setAnswer(event.target.value)}
+                disabled={outOfAttempts}
+                className="flex-1 rounded border border-stone px-3 py-2 font-mono"
+                placeholder="flag{…}"
+                autoComplete="off"
+              />
+              <button
+                type="submit"
+                disabled={
+                  submit.isPending || answer.trim() === "" || outOfAttempts
+                }
+                className="rounded bg-ink px-4 py-2 font-medium text-parchment disabled:opacity-50"
+              >
+                {submit.isPending ? "Checking…" : "Submit"}
+              </button>
+            </div>
+
+            {detail.max_attempts !== null && (
+              <p className="mt-2 text-sm text-muted">
+                {outOfAttempts
+                  ? "No attempts left on this challenge."
+                  : `${result?.attempts_remaining ?? detail.attempts_remaining} of ${detail.max_attempts} attempts remaining.`}
+              </p>
+            )}
+          </form>
+
+          {result && (
+            <p
+              role="status"
+              className={`mt-3 rounded px-3 py-2 ${
+                result.correct
+                  ? "border border-ink/30 bg-ink/5"
+                  : "border border-torch/40 bg-torch/10"
+              }`}
             >
-              {submit.isPending ? "Checking…" : "Submit"}
-            </button>
-          </div>
-
-          {detail.max_attempts !== null && (
-            <p className="mt-2 text-sm text-muted">
-              {outOfAttempts
-                ? "No attempts left on this challenge."
-                : `${result?.attempts_remaining ?? detail.attempts_remaining} of ${detail.max_attempts} attempts remaining.`}
+              {result.message}
             </p>
           )}
-        </form>
-
-        {result && (
-          <p
-            role="status"
-            className={`mt-3 rounded px-3 py-2 ${
-              result.correct
-                ? "border border-ink/30 bg-ink/5"
-                : "border border-torch/40 bg-torch/10"
-            }`}
-          >
-            {result.message}
-          </p>
-        )}
-        <ErrorMessage error={submit.error} />
-      </section>
+          <ErrorMessage error={submit.error} />
+        </section>
+      )}
 
       <ReportChallenge challengeId={detail.id} />
     </main>

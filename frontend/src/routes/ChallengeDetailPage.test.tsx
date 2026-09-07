@@ -32,6 +32,7 @@ function detail(overrides: Partial<ChallengeDetail> = {}): ChallengeDetail {
     attempts_remaining: null,
     max_attempts: null,
     release_at: null,
+    unlock_requirements: [],
     body: "Find the flag in the capture.",
     artifacts: [],
     hints: [],

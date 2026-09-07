@@ -3,12 +3,7 @@ import { api } from "./client";
 export type Difficulty = "easy" | "medium" | "hard" | "insane";
 export type ChallengeState = "draft" | "hidden" | "locked" | "published";
 export type MatchType =
-  | "exact"
-  | "case_insensitive"
-  | "regex"
-  | "numeric"
-  | "set"
-  | "any_of";
+  "exact" | "case_insensitive" | "regex" | "numeric" | "set" | "any_of";
 
 export interface Category {
   id: string;
@@ -40,6 +35,12 @@ export interface ChallengeListItem {
   attempts_remaining: number | null;
   max_attempts: number | null;
   release_at: string | null;
+  /** On a challenge locked by prerequisites, what unlocks it. */
+  unlock_requirements: {
+    challenge_id: string;
+    title: string;
+    solved: boolean;
+  }[];
 }
 
 export interface Hint {
@@ -92,11 +93,14 @@ export interface MyScore {
 }
 
 export const listChallenges = () => api.get<ChallengeListItem[]>("/challenges");
-export const getChallenge = (id: string) => api.get<ChallengeDetail>(`/challenges/${id}`);
+export const getChallenge = (id: string) =>
+  api.get<ChallengeDetail>(`/challenges/${id}`);
 export const submitAnswer = (id: string, answer: string) =>
   api.post<SubmitResult>(`/challenges/${id}/submit`, { answer });
 export const getMyScore = () => api.get<MyScore>("/me/score");
 export const unlockHint = (challengeId: string, hintId: string) =>
-  api.post<UnlockHintResult>(`/challenges/${challengeId}/hints/${hintId}/unlock`);
+  api.post<UnlockHintResult>(
+    `/challenges/${challengeId}/hints/${hintId}/unlock`,
+  );
 export const artifactUrl = (challengeId: string, artifactId: string) =>
   `/api/challenges/${challengeId}/artifacts/${artifactId}`;
