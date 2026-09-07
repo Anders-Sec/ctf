@@ -222,6 +222,8 @@ class Settings(BaseSettings):
     instance_extend_seconds: int = 1800
     #: The image-pull secret the platform copied into the instance namespace.
     instance_image_pull_secret: str = "ghcr-pull"
+    #: The wildcard-cert secret in the instance namespace (cert-manager issues it).
+    instance_tls_secret: str = "ctf-tls"
     #: Turns the whole feature off cleanly, like AI_ENABLED.
     instances_enabled: bool = False
 

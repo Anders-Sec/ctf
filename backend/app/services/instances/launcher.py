@@ -285,6 +285,7 @@ def _spec_for(
         egress_cidrs=list(template.egress_cidrs),
         readiness_path=template.readiness_path,
         image_pull_secret=settings.instance_image_pull_secret,
+        tls_secret=settings.instance_tls_secret,
     )
 
 

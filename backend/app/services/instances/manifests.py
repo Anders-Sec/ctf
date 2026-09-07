@@ -47,6 +47,9 @@ class InstanceSpec:
     #: The namespace the ingress controller runs in, so ingress traffic can be
     #: allowed from it and nowhere else.
     ingress_namespace: str = "ingress-nginx"
+    #: The wildcard-cert secret in this namespace, so the per-instance Ingress
+    #: terminates TLS for <name>.ctf-nm.org. cert-manager keeps it renewed.
+    tls_secret: str = "ctf-tls"
 
 
 def _labels(spec: InstanceSpec) -> dict[str, str]:
@@ -214,6 +217,7 @@ def ingress_manifest(spec: InstanceSpec, host: str, authorise_url: str) -> dict:
         },
         "spec": {
             "ingressClassName": "nginx",
+            "tls": [{"hosts": [host], "secretName": spec.tls_secret}],
             "rules": [
                 {
                     "host": host,

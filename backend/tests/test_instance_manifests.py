@@ -131,3 +131,11 @@ class TestIngress:
         rule = ing["spec"]["rules"][0]
         assert rule["host"] == "dm-abc123.ctf-nm.org"
         assert rule["http"]["paths"][0]["backend"]["service"]["name"] == "dm-abc123"
+
+    def test_it_terminates_tls_with_the_wildcard_cert(self) -> None:
+        """cert-manager issues ctf-tls in the namespace; the Ingress references it
+        so <name>.ctf-nm.org serves the wildcard cert rather than the default."""
+        ing = manifests.ingress_manifest(_spec(), "dm-abc123.ctf-nm.org", "http://x/authorise")
+        tls = ing["spec"]["tls"][0]
+        assert tls["hosts"] == ["dm-abc123.ctf-nm.org"]
+        assert tls["secretName"] == "ctf-tls"
