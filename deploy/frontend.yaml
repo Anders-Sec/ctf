@@ -19,7 +19,12 @@ spec:
         - name: ghcr-pull
       containers:
         - name: frontend
-          image: ghcr.io/anders-sec/ctf-frontend:v1
+          # Immutable: the tag names the commit the image was built from, and
+          # is never repointed. A release is a bump to this line, so ArgoCD
+          # shows exactly what is running and a rollback is a git revert. A
+          # moving tag would leave the cluster on an old image with the sync
+          # reporting healthy, and IfNotPresent would never re-pull it.
+          image: ghcr.io/anders-sec/ctf-frontend:sha-9d23e78
           imagePullPolicy: IfNotPresent
           ports:
             - { name: http, containerPort: 8080 }
