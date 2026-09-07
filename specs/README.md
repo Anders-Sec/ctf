@@ -8,6 +8,23 @@ learn things.
 Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` ·
 `done` · `not written`
 
+## Phase 1 status: complete
+
+**All Phase 1 specs (001–013) are done.** Every Definition-of-Done item in
+`Plan.md` is built and covered by tests, with two steps that are deliberately the
+operator's to run rather than this session's:
+
+- **Live challenge containers go-live** (009): the code, manifests and cluster
+  contract are ready and verified; going live is flipping `INSTANCES_ENABLED` +
+  `COOKIE_DOMAIN` in `deploy/backend.yaml` and pushing the demo image.
+- **The 200-player load test** (012): the harness, seed, automated NFR tests and
+  runbook are done; the real run against the cluster is executed per
+  `loadtest/README.md`.
+
+Spec 013 was a polish release on top of Phase 1. Phase 2/3 work (D&D mechanics,
+lore, art, a wider tone pass) is intentionally not started.
+
+
 | #   | Spec | Covers (`Plan.md` section) | Status |
 | --- | ---- | -------------------------- | ------ |
 | 001 | `001-platform-skeleton.md` | (foundational — not a Plan.md feature) | **done** |
@@ -19,9 +36,10 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | **done** |
 | 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | **done** — unblocked 2026-09-07 (NetworkPolicy on, gVisor installed) |
 | 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | **done** — HTTP-only, behind a fake orchestrator in CI |
-| 010 | `010-ai-assistant-service.md` | AI Assistant — mediator service + model client | **done** (staff-gated until 011) |
-| 011 | `011-ai-guardrails.md` | AI Assistant — challenge-integrity + real-world-safety layers | **draft** — awaiting sign-off |
-| 012 | `012-load-and-nfr-verification.md` | Non-Functional Requirements | not written |
+| 010 | `010-ai-assistant-service.md` | AI Assistant — mediator service + model client | **done** |
+| 011 | `011-ai-guardrails.md` | AI Assistant — challenge-integrity + real-world-safety layers | **done** |
+| 012 | `012-load-and-nfr-verification.md` | Non-Functional Requirements | **done** — harness + runbook + automated NFR tests |
+| 013 | `013-system-ai-and-ui-polish.md` | Polish: System AI persona, admin/player nav split, typed categories | **done** |
 
 ## Sequencing rationale
 
