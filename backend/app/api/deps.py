@@ -139,7 +139,7 @@ async def require_active_user(current: Authenticated) -> CurrentUser:
     reason = current.capabilities.blocked_reason
     if reason in (REASON_PENDING_APPROVAL, REASON_DISABLED):
         raise ForbiddenError(
-            "Your account is awaiting a dungeon master's approval."
+            "Your account is awaiting an organiser's approval."
             if reason == REASON_PENDING_APPROVAL
             else "Your account has been disabled.",
             code=reason,
@@ -176,7 +176,7 @@ Player = Annotated[CurrentUser, Depends(require_play)]
 
 def _play_message(reason: str) -> str:
     return {
-        REASON_PENDING_APPROVAL: "Your account is awaiting a dungeon master's approval.",
+        REASON_PENDING_APPROVAL: "Your account is awaiting an organiser's approval.",
         REASON_DISABLED: "Your account has been disabled.",
         "event_not_started": "The dungeon doors have not opened yet.",
         "event_ended": "This dungeon crawl has ended.",
@@ -185,11 +185,11 @@ def _play_message(reason: str) -> str:
 
 class AssistantUnavailableError(ForbiddenError):
     code = "assistant_unavailable"
-    message = "The dungeon master is not holding court right now."
+    message = "The System AI is offline right now."
 
 
 async def require_assistant(current: Player, event: EventCfg) -> CurrentUser:
-    """The dungeon master chat, spec 011.
+    """The System AI chat, spec 011.
 
     Builds on the play gate — approved account, event running — and adds the two
     switches that let staff take the assistant away without a redeploy: the
@@ -199,7 +199,7 @@ async def require_assistant(current: Player, event: EventCfg) -> CurrentUser:
         raise AssistantUnavailableError
     if current.user.assistant_blocked:
         raise AssistantUnavailableError(
-            "The dungeon master is no longer speaking with you.", code="assistant_blocked"
+            "The System AI is no longer speaking with you.", code="assistant_blocked"
         )
     return current
 

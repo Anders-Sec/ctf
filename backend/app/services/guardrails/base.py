@@ -29,7 +29,4 @@ class Finding:
 
 #: What the player is told when a reply is withheld. One string for every
 #: reason, so a deflection cannot be read as a hint about which rule fired.
-DEFLECTION = (
-    "The dungeon master leans back, taps the side of their nose, and says nothing further. "
-    "Some things you must find for yourself."
-)
+DEFLECTION = "Nice try. I wrote these; I'm not going to hand you the answer. Find it yourself."

@@ -186,6 +186,31 @@ class TestVisibility:
         assert context.challenge is None
 
 
+class TestPersona:
+    """The System AI voice, pinned so the fantasy framing cannot creep back and
+    the style rules cannot be quietly dropped (spec 013)."""
+
+    def test_it_is_the_system_ai_not_a_dungeon_master(self) -> None:
+        prompt = assistant.PERSONA.lower()
+        assert "system ai" in prompt
+        for banned in ("dungeon", "adventurer", "treasure", "encounter"):
+            assert banned not in prompt, banned
+
+    def test_it_frames_them_as_a_player_and_a_challenge(self) -> None:
+        context = assistant.PromptContext(
+            display_name="Mara", party_name=None, solve_count=0, score=0, challenge=None
+        )
+        prompt = assistant.render_system_prompt(context).lower()
+        assert "player" in prompt
+        assert "challenge" in prompt
+
+    def test_the_style_rules_are_present(self) -> None:
+        """Very short, plain text, no markdown — the chat box renders none of it."""
+        prompt = assistant.PERSONA.lower()
+        assert "markdown" in prompt
+        assert "short" in prompt
+
+
 class TestFlavour:
     async def test_the_player_and_party_are_named(self, db_session: AsyncSession) -> None:
         user = await make_user(db_session, display_name="Brannor")
@@ -197,7 +222,7 @@ class TestFlavour:
 
         assert "Brannor" in prompt
         assert "The Bold" in prompt
-        assert "Encounters cleared: 1" in prompt
+        assert "Challenges solved: 1" in prompt
 
     async def test_a_long_body_is_clipped(self, db_session: AsyncSession) -> None:
         user = await make_user(db_session)

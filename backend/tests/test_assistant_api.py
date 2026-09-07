@@ -209,7 +209,7 @@ class TestDegradation:
         assert response.status_code == 200
         message = response.json()["message"]
         assert message["error"] == ai_client.REASON_UNREACHABLE
-        assert "dungeon master" in message["content"].lower()
+        assert "system ai" in message["content"].lower() or "offline" in message["content"].lower()
 
     async def test_a_failed_exchange_is_still_recorded(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

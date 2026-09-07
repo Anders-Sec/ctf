@@ -1,4 +1,4 @@
-"""The dungeon master chat.
+"""The System AI chat.
 
 Open to players, now that spec 011's guardrails stand between them and the
 model. `AssistantUser` is the play gate plus the two switches — the event-wide
@@ -79,7 +79,7 @@ async def send_message(
     )
     if not decision.allowed:
         raise RateLimited(
-            "The dungeon master needs a moment. Ask again shortly.",
+            "The System AI needs a moment. Ask again shortly.",
             details={"retry_after_seconds": decision.retry_after_seconds},
         )
 
@@ -198,7 +198,7 @@ async def set_assistant_block(
     )
     await db.flush()
     return MessageResponse(
-        message="The dungeon master will ignore them."
+        message="The System AI will ignore them."
         if payload.blocked
-        else "The dungeon master will speak with them again."
+        else "The System AI will speak with them again."
     )

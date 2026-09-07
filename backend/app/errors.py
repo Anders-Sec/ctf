@@ -121,7 +121,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return error_response(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             "internal_error",
-            "Something went wrong. The dungeon masters have been notified.",
+            "Something went wrong. The organisers have been notified.",
         )
 
     # FastAPI's HTTPException subclasses Starlette's, so the handler above covers

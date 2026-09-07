@@ -2,8 +2,8 @@
 
 The model host is outside the cluster and will be unavailable at some point
 during a multi-day event. Every failure here is turned into something the
-dungeon master could plausibly have said, because a player who sees a stack
-trace assumes the whole platform is broken.
+System AI could plausibly have said, because a player who sees a stack trace
+assumes the whole platform is broken.
 """
 
 from datetime import UTC, datetime
@@ -29,34 +29,21 @@ logger = get_logger(__name__)
 class AssistantUnavailable(AppError):
     status_code = 503
     code = "assistant_unavailable"
-    message = "The dungeon master is not holding court right now."
+    message = "The System AI is offline right now."
 
 
 #: In-character copy for each failure the client can return. Written so a player
 #: can tell "try again in a moment" from "this is off tonight" without being
 #: shown machinery.
 DEGRADED_REPLIES = {
-    ai_client.REASON_TIMEOUT: (
-        "The dungeon master trails off mid-sentence, distracted by something in "
-        "the dark. Ask again in a moment."
-    ),
-    ai_client.REASON_UNREACHABLE: (
-        "The dungeon master has stepped away from the table. Try again shortly."
-    ),
-    ai_client.REASON_BREAKER_OPEN: (
-        "The dungeon master has stepped away from the table. Try again in a minute."
-    ),
-    ai_client.REASON_BAD_RESPONSE: (
-        "The dungeon master mutters something that makes no sense at all. Ask again."
-    ),
-    ai_client.REASON_EMPTY: (
-        "The dungeon master considers your question, and says nothing. Try asking it another way."
-    ),
-    ai_client.REASON_BUSY: (
-        "The dungeon master is attending to other adventurers. Try again in a moment."
-    ),
+    ai_client.REASON_TIMEOUT: ("Still thinking. Too long, apparently. Ask again in a moment."),
+    ai_client.REASON_UNREACHABLE: "The System AI is offline right now. Try again shortly.",
+    ai_client.REASON_BREAKER_OPEN: ("The System AI is offline right now. Try again in a minute."),
+    ai_client.REASON_BAD_RESPONSE: ("That came back as nonsense on my end. Ask again."),
+    ai_client.REASON_EMPTY: "Nothing to say to that. Try asking it another way.",
+    ai_client.REASON_BUSY: ("I am busy watching other people struggle. Try again in a moment."),
 }
-FALLBACK_REPLY = "The dungeon master cannot answer that right now. Try again shortly."
+FALLBACK_REPLY = "I can't answer that right now. Try again shortly."
 
 
 async def get_conversation(db: AsyncSession, user_id: UUID) -> AssistantConversation | None:
