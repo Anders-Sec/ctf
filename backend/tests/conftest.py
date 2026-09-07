@@ -21,6 +21,7 @@ from app.db import get_db_session
 from app.main import create_app
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.user import User
+from app.services import ai_client
 from app.services.cookies import (
     ACCESS_COOKIE,
     CSRF_COOKIE,
@@ -52,6 +53,11 @@ def _test_settings() -> Settings:
         smtp_from=None,
         smtp_username=None,
         smtp_token=None,
+        # A host that cannot resolve, so a test that forgets to install a fake
+        # transport fails loudly instead of reaching the real model box.
+        ai_base_url="http://model.invalid/v1",
+        ai_api_key="test-key",
+        ai_model="test-model",
     )
 
 
@@ -232,3 +238,11 @@ def no_outbound_mail(monkeypatch: pytest.MonkeyPatch) -> None:
         raise AssertionError("a test attempted to send real mail")
 
     monkeypatch.setattr("app.services.mail.send_message", _refuse)
+
+
+@pytest.fixture(autouse=True)
+def _reset_ai_client() -> AsyncIterator[None]:
+    """Breakers and connection pools are module state; do not leak them between tests."""
+    ai_client.reset_state()
+    yield
+    ai_client.reset_state()

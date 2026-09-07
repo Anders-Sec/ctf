@@ -25,6 +25,7 @@ from app.errors import register_exception_handlers
 from app.logging import configure_logging, get_logger
 from app.middleware import RequestContextMiddleware
 from app.redis import close_redis, get_redis
+from app.services.ai_client import close_clients as close_ai_clients
 from app.services.scoreboard_cache import broadcaster
 
 logger = get_logger(__name__)
@@ -47,6 +48,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await broadcaster.stop()
+        await close_ai_clients()
         await close_redis()
         await dispose_engine()
         logger.info("shutdown")
