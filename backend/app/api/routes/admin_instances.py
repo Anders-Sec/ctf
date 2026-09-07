@@ -9,7 +9,7 @@ something running needs to stop now.
 from uuid import UUID
 
 from fastapi import APIRouter, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Admin, AppSettings, DbSession, Staff, get_orchestrator
@@ -38,6 +38,12 @@ class TcpNotSupported(AppError):
     status_code = 400
     code = "tcp_not_supported"
     message = "Only HTTP challenges are supported. A raw-TCP target cannot be authorised."
+
+
+class TemplateInUse(AppError):
+    status_code = 409
+    code = "template_in_use"
+    message = "This template still has running instances. Tear them down first."
 
 
 def _template_response(template: ContainerTemplate) -> TemplateResponse:
@@ -103,6 +109,22 @@ async def delete_template(
     template = await db.get(ContainerTemplate, template_id)
     if template is None:
         raise NotFoundError("No such template.")
+
+    # Only a *live* instance blocks deletion: yanking a template out from under a
+    # running container would orphan it. Terminal instances and any challenges
+    # still pointing at it are detached automatically (the FKs are ON DELETE SET
+    # NULL), so their history survives without the now-gone template.
+    live = await db.scalar(
+        select(func.count())
+        .select_from(ChallengeInstance)
+        .where(
+            ChallengeInstance.template_id == template_id,
+            ChallengeInstance.status.in_(LIVE_STATUSES),
+        )
+    )
+    if live:
+        raise TemplateInUse
+
     await db.delete(template)
     await record_audit(
         db,

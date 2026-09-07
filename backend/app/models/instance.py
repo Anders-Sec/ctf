@@ -127,7 +127,7 @@ class ContainerTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     runtime_class: Mapped[str | None] = mapped_column(String(120), nullable=True, default="gvisor")
 
     instances: Mapped[list["ChallengeInstance"]] = relationship(
-        back_populates="template", lazy="raise"
+        back_populates="template", lazy="raise", passive_deletes=True
     )
 
 
@@ -150,10 +150,13 @@ class ChallengeInstance(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     challenge_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("challenge.id", ondelete="CASCADE"), nullable=False
     )
-    template_id: Mapped[uuid.UUID] = mapped_column(
+    #: Nullable + SET NULL so a template can be deleted without erasing the
+    #: history of instances launched from it — a terminal instance keeps its row,
+    #: it just loses the now-gone template link.
+    template_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("container_template.id", ondelete="RESTRICT"),
-        nullable=False,
+        ForeignKey("container_template.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -183,4 +186,6 @@ class ChallengeInstance(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     destroyed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     last_error: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
-    template: Mapped["ContainerTemplate"] = relationship(back_populates="instances", lazy="raise")
+    template: Mapped["ContainerTemplate | None"] = relationship(
+        back_populates="instances", lazy="raise"
+    )

@@ -159,7 +159,9 @@ class Challenge(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: Reserved for spec 009. Nothing reads it yet; it exists so the container
     #: work needs no schema change.
     container_template_id: Mapped[uuid.UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), nullable=True
+        PgUUID(as_uuid=True),
+        ForeignKey("container_template.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     author_user_id: Mapped[uuid.UUID | None] = mapped_column(

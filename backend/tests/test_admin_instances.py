@@ -155,3 +155,65 @@ class TestLifecycleHooks:
 
         await db_session.refresh(instance)
         assert instance.status == InstanceStatus.EXPIRED
+
+
+class TestTemplateDeletion:
+    async def test_a_template_with_a_terminal_instance_can_be_deleted(
+        self, app: FastAPI, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """The reported bug: a template used to launch (then tear down) an instance
+        must still be deletable. The instance keeps its history; the link nulls."""
+        from app.models.instance import InstanceStatus
+        from app.services.instances import launcher
+
+        _enable(app)
+        template = await make_template(db_session)
+        challenge = await make_container_challenge(db_session, template)
+        owner = await make_user(db_session, status=UserStatus.ACTIVE)
+        instance = await launcher.launch(
+            db_session, app.state.settings, FakeOrchestrator(), challenge.id, owner
+        )
+        instance.status = InstanceStatus.DESTROYED
+        await db_session.flush()
+
+        await admin(db_session, client, sign_in)
+        response = await client.delete(f"/api/admin/templates/{template.id}")
+
+        assert response.status_code == 204
+        await db_session.refresh(instance)
+        assert instance.template_id is None  # history kept, link nulled
+
+    async def test_a_template_assigned_to_a_challenge_can_be_deleted(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+
+        template = await make_template(db_session)
+        challenge = await make_container_challenge(db_session, template)
+        challenge.container_template_id = template.id
+        await db_session.flush()
+
+        await admin(db_session, client, sign_in)
+        response = await client.delete(f"/api/admin/templates/{template.id}")
+
+        assert response.status_code == 204
+        await db_session.refresh(challenge)
+        assert challenge.container_template_id is None  # challenge detached cleanly
+
+    async def test_a_template_with_a_live_instance_is_refused(
+        self, app: FastAPI, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from app.services.instances import launcher
+
+        _enable(app)
+        template = await make_template(db_session)
+        challenge = await make_container_challenge(db_session, template)
+        owner = await make_user(db_session, status=UserStatus.ACTIVE)
+        await launcher.launch(
+            db_session, app.state.settings, FakeOrchestrator(), challenge.id, owner
+        )  # left pending/running
+
+        await admin(db_session, client, sign_in)
+        response = await client.delete(f"/api/admin/templates/{template.id}")
+
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "template_in_use"
