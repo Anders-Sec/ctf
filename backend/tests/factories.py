@@ -19,6 +19,7 @@ from app.models.challenge import (
     PreReleaseState,
     ScoringMode,
 )
+from app.models.instance import ContainerTemplate
 from app.models.play import Solve
 from app.models.team import MembershipRole, Team, TeamMembership, TeamVisibility
 from app.models.user import User, UserRole, UserSource, UserStatus
@@ -168,3 +169,36 @@ async def record_solve(
     session.add(solve)
     await session.flush()
     return solve
+
+
+async def make_template(
+    session: AsyncSession,
+    *,
+    name: str = "Demo Target",
+    image: str = "ghcr.io/anders-sec/ctf-demo",
+    injects_answer: bool = True,
+    ttl_seconds: int = 3600,
+) -> ContainerTemplate:
+    template = ContainerTemplate(
+        name=name,
+        image=image,
+        image_tag="v1",
+        container_port=8080,
+        injects_answer=injects_answer,
+        ttl_seconds=ttl_seconds,
+    )
+    session.add(template)
+    await session.flush()
+    return template
+
+
+async def make_container_challenge(
+    session: AsyncSession,
+    template: ContainerTemplate,
+    **kwargs,
+) -> Challenge:
+    """A published challenge wired to a container template."""
+    challenge = await make_challenge(session, **kwargs)
+    challenge.container_template_id = template.id
+    await session.flush()
+    return challenge
