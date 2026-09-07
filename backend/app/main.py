@@ -29,6 +29,7 @@ from app.middleware import RequestContextMiddleware
 from app.redis import close_redis, get_redis
 from app.services.ai_client import close_clients as close_ai_clients
 from app.services.instances.factory import build_orchestrator
+from app.services.instances.reconciler import reconciler
 from app.services.scoreboard_cache import broadcaster
 
 logger = get_logger(__name__)
@@ -81,10 +82,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # the assistant is optional and a failed purge must not stop the app serving.
     await _purge_stale_conversations(settings)
     await _ensure_instance_isolation(app)
+    if settings.instances_configured:
+        # One reconciler per process; several replicas stay off each other's toes
+        # through the advisory lock, not shared memory.
+        reconciler.start(get_sessionmaker(settings), settings, app.state.orchestrator)
     try:
         yield
     finally:
         await broadcaster.stop()
+        await reconciler.stop()
         await close_ai_clients()
         await close_redis()
         await dispose_engine()
