@@ -54,9 +54,27 @@ build this check at all.
 | `answer_regex` | A `regex` answer's pattern matches the reply, evaluated through spec 003's resolver with its existing timeout | Deflect |
 | `flag_shaped` | The reply matches the configured flag pattern, even when it is not a real answer | Deflect |
 
+The live answer set is held in memory behind a short TTL
+(`AI_ANSWER_CACHE_SECONDS`, default 60) rather than queried per reply. A newly
+written answer is therefore unscanned for up to a minute; the structural
+guarantee still covers that window, so the exposure is the model coincidentally
+producing an answer written in the last sixty seconds. Literal values are hit
+through a normalised lookup set, and only `regex` rules are actually evaluated,
+against lines rather than every token.
+
 `answer_regex` reuses `app/services/answers.py` rather than reimplementing
 matching. Two matchers that are supposed to agree and eventually do not is a bug
 that would surface as a leak.
+
+**The deflection must not become a correctness oracle.** A player who pastes a
+guess and asks "is this right?" would learn the answer from *whether* the reply
+was deflected. `flag_shaped` is what closes this: every flag-shaped reply is
+deflected whether or not the value is real, so the deflection carries no
+information. For the answer types that are not flag-shaped — `numeric`, `set`,
+`any_of`, some `regex` — a residual oracle remains, and three things bound it:
+the deflection copy is identical to every other deflection, it is strictly
+weaker than the submit endpoint the player already has (6 messages a minute
+against 10 submissions), and every occurrence is logged with their name.
 
 **Distinctiveness threshold.** Some answers are short or ordinary — `1337`,
 `buffer`, a single English word. Scanning every reply for those would deflect
@@ -104,7 +122,12 @@ What actually reduces risk, strongest first:
    document. It is also not code.
 2. **Deterministic checks**, for the things that are genuinely checkable.
 3. **The system prompt**, which is flavour with a useful side effect.
-4. **A second-pass judge**, if we want it — see the open questions.
+4. **A second-pass judge**, if we want it — see the open questions. It runs
+   **only on replies a deterministic rule already flagged**, never on all of
+   them. 010 measured ~6.7 responses/sec, and 200 players at a message every 30
+   seconds needs ~6.7/sec: a blanket second call halves the ceiling and the
+   event no longer fits underneath it. Escalating on the small flagged fraction
+   costs almost nothing. It may only raise severity, never lower it.
 
 | Rule | Fires when | Action |
 | ---- | ---------- | ------ |
@@ -168,6 +191,10 @@ testing does not bury the real ones.
 - `/api/auth/me` drops the staff condition from `assistant_available`.
 - The panel is already reachable from every screen, which is what `Plan.md` asks
   for; this spec only widens who sees it.
+- **`user.assistant_blocked`**, settable from the admin console: take the chat
+  away from one person mid-event without taking it from the other 199. Without
+  it the only lever is the event-wide switch, and one player misbehaving should
+  not cost everyone the feature.
 - **A runtime kill switch** on `event_config`, toggleable from the admin console.
   `AI_ENABLED` remains the deployment-level off switch, but reaching for a
   redeploy is the wrong tool at 11pm on day two when the dungeon master starts
@@ -177,6 +204,7 @@ testing does not bury the real ones.
 
 `AI_FLAG_PATTERN` (default `[A-Za-z0-9_]{2,16}\{[^}]{1,120}\}`),
 `AI_ANSWER_SCAN_MIN_LENGTH` (default 8), `AI_EVENT_DOMAINS`,
+`AI_ANSWER_CACHE_SECONDS` (default 60),
 `AI_SAFETY_JUDGE_ENABLED` (default off).
 
 ## Edge cases
@@ -211,7 +239,11 @@ In CI, against a fake model, deterministic:
 - A real-world target is deflected; an in-event address is not.
 - Each layer fires independently, and one raising does not skip the other.
 - No finding row ever contains an answer value.
-- A player — not just staff — reaches every endpoint.
+- A player — not just staff — reaches every endpoint, and an
+  `assistant_blocked` player does not.
+- Ordinary CTF advice — SQL injection, a hex dump, an nmap flag — passes both
+  layers untouched. The regression that matters most: a filter which breaks
+  normal play is worse than no filter.
 - Staff findings are excluded from the review screen by default.
 
 **And the demonstration**, which is what the Definition of Done actually asks
