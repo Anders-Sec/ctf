@@ -16,9 +16,12 @@ from app.config import Settings
 from app.errors import AppError
 from app.logging import get_logger
 from app.models.assistant import AssistantConversation, AssistantMessage, MessageRole
+from app.models.guardrail import AssistantFinding, GuardrailLayer, Severity
 from app.models.user import User, UserRole
 from app.services import ai_client, assistant
 from app.services.ai_client import ChatReply
+from app.services.guardrails import judge, runner
+from app.services.guardrails.base import DEFLECTION, Finding
 
 logger = get_logger(__name__)
 
@@ -137,19 +140,44 @@ async def send(
     context = await assistant.build_context(db, user, challenge_id, now)
     prompt = assistant.build_messages(context, history, content, settings.ai_history_turns)
 
+    from_staff = user.role in (UserRole.ORGANIZER, UserRole.ADMIN)
     question = AssistantMessage(
         conversation_id=conversation.id,
         sequence=conversation.message_count,
         role=MessageRole.USER,
         content=content,
         challenge_id=challenge_id if context.challenge is not None else None,
-        from_staff=user.role in (UserRole.ORGANIZER, UserRole.ADMIN),
+        from_staff=from_staff,
     )
     db.add(question)
+    await db.flush()  # question.id, for any findings against it
 
-    reply = await ai_client.complete(settings, prompt)
+    # Screen the question first. A block-tier request never reaches the model —
+    # no point spending a call on something we will refuse — but every layer's
+    # findings are still recorded so the review sees who tried what.
+    inbound = await runner.screen_message(content, db, settings)
+    _record_findings(db, inbound.findings, question, user, from_staff)
+
+    if inbound.deflect:
+        reply = ChatReply(ok=True, content=DEFLECTION)
+        deflected = True
+    else:
+        reply = await ai_client.complete(settings, prompt)
+        deflected = False
+
     answer = _answer_row(conversation, question, reply)
     db.add(answer)
+    await db.flush()  # answer.id
+
+    # Only a genuine model reply is screened on the way out. Our own degraded
+    # copy and the inbound deflection are our text, and re-scanning them would
+    # only produce confusing self-findings.
+    if reply.ok and not deflected:
+        outbound = await runner.screen_reply(reply.content, db, settings)
+        outbound = await _maybe_escalate(reply.content, outbound, settings)
+        _record_findings(db, outbound.findings, answer, user, from_staff)
+        if outbound.deflect:
+            _withhold(answer)
 
     conversation.message_count += 2
     conversation.last_message_at = now
@@ -163,9 +191,64 @@ async def send(
             "ok": reply.ok,
             "error": reply.error,
             "latency_ms": reply.latency_ms,
+            "inbound_findings": len(inbound.findings),
+            "deflected": answer.original_content is not None or deflected,
         },
     )
     return answer
+
+
+def _withhold(answer: AssistantMessage) -> None:
+    """Swap the reply for the refusal, keeping the original for staff.
+
+    ``content`` becomes what the player sees; ``original_content`` keeps what the
+    model actually said, so an incident can be reviewed without the player ever
+    seeing the suppressed text.
+    """
+    answer.original_content = answer.content
+    answer.content = DEFLECTION
+
+
+async def _maybe_escalate(
+    reply_text: str, result: "runner.ScreenResult", settings: Settings
+) -> "runner.ScreenResult":
+    """Run the judge only when the cheap layer flagged but did not already block."""
+    if result.deflect or not result.findings:
+        return result
+    if await judge.should_escalate(reply_text, settings):
+        result.deflect = True
+        result.findings.append(
+            Finding(
+                layer=GuardrailLayer.SAFETY,
+                rule="judge_escalation",
+                severity=Severity.HIGH,
+                deflect=True,
+                detail={},
+            )
+        )
+    return result
+
+
+def _record_findings(
+    db: AsyncSession,
+    findings: list[Finding],
+    message: AssistantMessage,
+    user: User,
+    from_staff: bool,
+) -> None:
+    for finding in findings:
+        db.add(
+            AssistantFinding(
+                message_id=message.id,
+                user_id=user.id,
+                layer=finding.layer,
+                rule=finding.rule,
+                severity=finding.severity,
+                action=runner.action_for(finding),
+                detail=finding.detail,
+                from_staff=from_staff,
+            )
+        )
 
 
 def _answer_row(
