@@ -1,5 +1,11 @@
 import { api } from "./client";
-import type { Artifact, Category, ChallengeState, Difficulty, MatchType } from "./challenges";
+import type {
+  Artifact,
+  Category,
+  ChallengeState,
+  Difficulty,
+  MatchType,
+} from "./challenges";
 
 export interface AdminAnswer {
   id: string;
@@ -45,7 +51,26 @@ export interface AdminChallengeDetail {
   body: string;
   answers: AdminAnswer[];
   artifacts: Artifact[];
+  container_template_id: string | null;
+  prerequisites: { challenge_id: string; title: string }[];
   created_at: string;
+}
+
+export interface UpdateChallengeInput {
+  title?: string;
+  slug?: string;
+  category?: string;
+  body?: string;
+  difficulty?: Difficulty;
+  initial_points?: number;
+  minimum_points?: number;
+  decay_threshold?: number;
+  scoring?: "dynamic" | "static";
+  decay_basis?: "players" | "teams";
+  max_attempts?: number | null;
+  release_at?: string | null;
+  pre_release_state?: "hidden" | "locked";
+  container_template_id?: string | null;
 }
 
 export interface AnswerTestResult {
@@ -55,7 +80,8 @@ export interface AnswerTestResult {
   errors: string[];
 }
 
-export const listAdminChallenges = () => api.get<AdminChallengeSummary[]>("/admin/challenges");
+export const listAdminChallenges = () =>
+  api.get<AdminChallengeSummary[]>("/admin/challenges");
 
 export const getAdminChallenge = (id: string) =>
   api.get<AdminChallengeDetail>(`/admin/challenges/${id}`);
@@ -70,19 +96,55 @@ export const createChallenge = (input: {
   initial_points?: number;
 }) => api.post<AdminChallengeDetail>("/admin/challenges", input);
 
-export const setChallengeState = (id: string, state: ChallengeState, reason?: string) =>
-  api.post<AdminChallengeDetail>(`/admin/challenges/${id}/state`, { state, reason: reason ?? null });
+export const setChallengeState = (
+  id: string,
+  state: ChallengeState,
+  reason?: string,
+) =>
+  api.post<AdminChallengeDetail>(`/admin/challenges/${id}/state`, {
+    state,
+    reason: reason ?? null,
+  });
 
 export const addAnswer = (
   challengeId: string,
-  input: { match_type: MatchType; value: string; options?: Record<string, unknown>; label?: string },
+  input: {
+    match_type: MatchType;
+    value: string;
+    options?: Record<string, unknown>;
+    label?: string;
+  },
 ) => api.post<AdminAnswer>(`/admin/challenges/${challengeId}/answers`, input);
 
 export const deleteAnswer = (challengeId: string, answerId: string) =>
-  api.delete<{ message: string }>(`/admin/challenges/${challengeId}/answers/${answerId}`);
+  api.delete<{ message: string }>(
+    `/admin/challenges/${challengeId}/answers/${answerId}`,
+  );
 
 /** Dry run. Records nothing — the point is to try a pattern before players do. */
 export const testAnswer = (challengeId: string, candidate: string) =>
-  api.post<AnswerTestResult>(`/admin/challenges/${challengeId}/answers/test`, { candidate });
+  api.post<AnswerTestResult>(`/admin/challenges/${challengeId}/answers/test`, {
+    candidate,
+  });
 
 export const listAdminCategories = () => api.get<Category[]>("/categories");
+
+export const updateChallenge = (id: string, input: UpdateChallengeInput) =>
+  api.patch<AdminChallengeDetail>(`/admin/challenges/${id}`, input);
+
+export const addPrerequisite = (
+  challengeId: string,
+  requiredChallengeId: string,
+) =>
+  api.post<{ challenge_id: string; title: string }[]>(
+    `/admin/challenges/${challengeId}/prerequisites`,
+    { required_challenge_id: requiredChallengeId },
+  );
+
+export const removePrerequisite = (
+  challengeId: string,
+  requiredChallengeId: string,
+) =>
+  api.delete<void>(
+    `/admin/challenges/${challengeId}/prerequisites/${requiredChallengeId}`,
+  );
