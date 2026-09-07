@@ -23,3 +23,7 @@ coverage/
 *.swp
 .venv/
 uv.lock.bak
+
+# Load-test seeded sessions carry real session tokens — never commit.
+loadtest/sessions.csv
+loadtest/.venv/
