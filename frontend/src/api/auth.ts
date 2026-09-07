@@ -54,7 +54,7 @@ export interface Me {
   capabilities: Capabilities;
   event: EventSummary | null;
   /**
-   * Whether to offer the dungeon master chat at all. Resolved server-side: the
+   * Whether to offer the System AI chat at all. Resolved server-side: the
    * feature has to be configured *and* this user allowed to use it, which is
    * staff-only until spec 011 lands the guardrails.
    */

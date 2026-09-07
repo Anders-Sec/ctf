@@ -53,7 +53,7 @@ export default function AppLayout() {
                 Signals
               </NavLink>
               <NavLink to="/admin/assistant" className="text-sm hover:underline">
-                DM flags
+                AI flags
               </NavLink>
               <NavLink to="/admin/instances" className="text-sm hover:underline">
                 Dungeons

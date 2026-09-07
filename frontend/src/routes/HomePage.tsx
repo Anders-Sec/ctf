@@ -28,7 +28,7 @@ export default function HomePage() {
       {capabilities.blocked_reason === "account_pending_approval" && (
         <GateCard title="Awaiting approval">
           <p>
-            A dungeon master needs to let you in before you can play. You can still form or
+            An organiser needs to let you in before you can play. You can still form or
             join a party in the meantime.
           </p>
         </GateCard>

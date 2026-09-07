@@ -10,7 +10,7 @@ export interface AssistantMessage {
   created_at: string;
   /**
    * Set when the model could not answer, so the bubble can be styled as a
-   * hiccup rather than as the dungeon master's considered opinion.
+   * hiccup rather than as the System AI's considered opinion.
    */
   error: string | null;
 }

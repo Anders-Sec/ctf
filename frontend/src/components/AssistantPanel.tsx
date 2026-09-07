@@ -7,7 +7,7 @@ import { ApiError } from "../api/client";
 import { useSession } from "../auth/session";
 
 /**
- * The dungeon master chat, reachable from any screen.
+ * The System AI chat, reachable from any screen.
  *
  * Staff-only for now: spec 010 ships the mediator service, and spec 011 adds
  * the guardrails before players get it. The server enforces that — this only
@@ -68,13 +68,13 @@ export default function AssistantPanel() {
     <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end">
       {open && (
         <section
-          aria-label="Dungeon master"
+          aria-label="System AI"
           className="mb-2 flex h-[28rem] w-[22rem] flex-col rounded-lg border border-stone bg-parchment shadow-lg"
         >
           <header className="flex items-center gap-2 border-b border-stone px-3 py-2">
-            <h2 className="text-sm font-semibold">Dungeon Master</h2>
+            <h2 className="text-sm font-semibold">System AI</h2>
             <span className="text-xs text-muted">
-              {challengeId ? "reading this encounter" : "at the table"}
+              {challengeId ? "watching this challenge" : "watching"}
             </span>
             <button
               onClick={() => reset.mutate()}
@@ -85,11 +85,11 @@ export default function AssistantPanel() {
           </header>
 
           <div ref={transcriptRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
-            {conversation.isPending && <p className="text-sm text-muted">Gathering the scrolls…</p>}
+            {conversation.isPending && <p className="text-sm text-muted">Booting…</p>}
             {!conversation.isPending && messages.length === 0 && (
               <p className="text-sm text-muted">
-                Ask for a nudge. The dungeon master will not hand you treasure, but they know the
-                terrain.
+                Ask for a nudge. The System AI built these challenges and won't hand you the
+                answer — but it might point you somewhere if you show your work.
               </p>
             )}
             {messages.map((message) => (
@@ -108,17 +108,17 @@ export default function AssistantPanel() {
             ))}
             {send.isPending && (
               <p className="mr-6 px-3 text-sm text-muted" role="status">
-                The dungeon master considers…
+                Thinking…
               </p>
             )}
             {rateLimited && (
               <p role="alert" className="text-sm text-muted">
-                Give them a moment to think.
+                Slow down — one at a time.
               </p>
             )}
             {unavailable && (
               <p role="alert" className="text-sm text-muted">
-                The dungeon master is not holding court right now.
+                The System AI is offline right now.
               </p>
             )}
           </div>
@@ -132,7 +132,7 @@ export default function AssistantPanel() {
             }}
           >
             <label htmlFor="dm-message" className="sr-only">
-              Message the dungeon master
+              Message the System AI
             </label>
             <input
               id="dm-message"
@@ -158,7 +158,7 @@ export default function AssistantPanel() {
         aria-expanded={open}
         className="rounded-full border border-stone bg-white/80 px-4 py-2 text-sm shadow"
       >
-        {open ? "Close" : "Ask the Dungeon Master"}
+        {open ? "Close" : "Ask the System AI"}
       </button>
     </div>
   );

@@ -56,7 +56,7 @@ describe("AdminAssistantPage", () => {
     render([finding()]);
 
     expect(
-      await screen.findByText(/asking the dungeon master for the flag is a joke/i),
+      await screen.findByText(/asking the system ai for the flag is a joke/i),
     ).toBeInTheDocument();
   });
 

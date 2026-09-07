@@ -60,7 +60,7 @@ function render(options: Options = {}) {
 }
 
 async function open() {
-  await userEvent.click(await screen.findByRole("button", { name: /ask the dungeon master/i }));
+  await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
 }
 
 describe("AssistantPanel", () => {
@@ -68,15 +68,15 @@ describe("AssistantPanel", () => {
     render({ assistantAvailable: false });
 
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: /dungeon master/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /system ai/i })).not.toBeInTheDocument();
     });
   });
 
   it("stays shut until it is asked for", async () => {
     render();
-    await screen.findByRole("button", { name: /ask the dungeon master/i });
+    await screen.findByRole("button", { name: /ask the system ai/i });
 
-    expect(screen.queryByRole("region", { name: /dungeon master/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /system ai/i })).not.toBeInTheDocument();
   });
 
   it("shows the conversation so far", async () => {
@@ -96,7 +96,7 @@ describe("AssistantPanel", () => {
     const fetchMock = render({ sendBody: { message: message({ content: "Try the metadata." }) } });
     await open();
 
-    await userEvent.type(await screen.findByLabelText(/message the dungeon master/i), "any ideas?");
+    await userEvent.type(await screen.findByLabelText(/message the system ai/i), "any ideas?");
     await userEvent.click(screen.getByRole("button", { name: "Ask" }));
 
     const call = fetchMock.mock.calls.find(([path]) =>
@@ -112,7 +112,7 @@ describe("AssistantPanel", () => {
     const fetchMock = render({ route: "/challenges/c-42" });
     await open();
 
-    await userEvent.type(await screen.findByLabelText(/message the dungeon master/i), "stuck");
+    await userEvent.type(await screen.findByLabelText(/message the system ai/i), "stuck");
     await userEvent.click(screen.getByRole("button", { name: "Ask" }));
 
     await waitFor(() => {
@@ -126,7 +126,7 @@ describe("AssistantPanel", () => {
   it("will not send an empty message", async () => {
     render();
     await open();
-    await screen.findByLabelText(/message the dungeon master/i);
+    await screen.findByLabelText(/message the system ai/i);
 
     expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
   });
@@ -135,21 +135,21 @@ describe("AssistantPanel", () => {
     render({
       messages: [
         message({
-          content: "The dungeon master has stepped away from the table.",
+          content: "The System AI is offline right now.",
           error: "unreachable",
         }),
       ],
     });
     await open();
 
-    expect(await screen.findByText(/stepped away from the table/i)).toBeInTheDocument();
+    expect(await screen.findByText(/offline right now/i)).toBeInTheDocument();
   });
 
   it("says so when the assistant is switched off", async () => {
     render({ available: false });
     await open();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/not holding court/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/offline right now/i);
   });
 
   it("explains a rate limit rather than showing a raw error", async () => {
@@ -159,10 +159,10 @@ describe("AssistantPanel", () => {
     });
     await open();
 
-    await userEvent.type(await screen.findByLabelText(/message the dungeon master/i), "again");
+    await userEvent.type(await screen.findByLabelText(/message the system ai/i), "again");
     await userEvent.click(screen.getByRole("button", { name: "Ask" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/give them a moment/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/slow down/i);
   });
 
   it("can start the conversation again", async () => {

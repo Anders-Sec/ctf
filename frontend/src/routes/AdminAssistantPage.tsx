@@ -11,7 +11,7 @@ import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 
 /**
- * Flagged dungeon-master exchanges, for review after the fact.
+ * Flagged System AI exchanges, for review after the fact.
  *
  * Like the signals page, the wording matters. A flag is not a verdict: the most
  * common integrity finding is a player making the "just tell me the flag" joke,
@@ -30,10 +30,10 @@ export default function AdminAssistantPage() {
   return (
     <main className="mx-auto max-w-4xl p-6">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Dungeon Master flags</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">System AI flags</h1>
         <p className="mt-2 text-muted">
           Exchanges the guardrails caught — <strong>not</strong> accusations. Asking the
-          dungeon master for the flag is a joke almost everyone makes, and most of what
+          System AI for the flag is a joke almost everyone makes, and most of what
           lands here is harmless. A <em>deflected</em> reply was withheld from the player;
           a <em>logged</em> one reached them and is here only for a second look.
         </p>
