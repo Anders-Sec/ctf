@@ -43,9 +43,11 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
   guardrail layers demonstrably working, so 010 does not ship to players without 011.
 - **012 last** — load testing needs the flows it is testing.
 
-The container track (008/009) is the largest unknown and depends on cluster
-access. It can be lifted earlier if cluster access lands sooner; it is late here
-only because it is not a blocker for anything above it.
+**The container track (008/009) is on hold.** The cluster has NetworkPolicy
+enforcement disabled and no sandboxed runtime, so a challenge container could
+reach the database holding every answer in plaintext. Spec 008's design is
+complete and needs no rework; it becomes buildable if either changes. Nothing
+else in Phase 1 depends on it.
 
 ## Standing decision: scoring attribution
 
@@ -58,10 +60,6 @@ Phase 2 layers XP, levels and highest-skill breakdowns onto the same aggregate
 shape. Phase 1 builds none of that.
 
 ## Open Items still owed a decision
-
-Container work (008/009) is the largest remaining unknown and needs cluster
-access; it is late in the order only because nothing above it depends on it.
-
 
 Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 
@@ -78,7 +76,8 @@ Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 | ~~Dynamic scoring decay basis~~ | 003 | **Resolved** — configurable per challenge, players *or* teams |
 | ~~Artifact storage~~ | 003 | **Resolved** — MinIO in-cluster, behind a swappable storage interface |
 | ~~Scoring defaults~~ | 003 | **Resolved** — floor of 100 for now; the full modifier model is deferred to the user |
-| Which local model is hosted, and its API shape (OpenAI-compatible or custom?) | 010 | before 010 sign-off |
+| ~~Which local model, and its API shape~~ | 010 | **Resolved** — LM Studio, OpenAI-compatible, via the in-cluster `ai` Service |
+| LM Studio does not enforce its API key — restrict that port at the host | 010 | Operational, not code. Anyone on the LAN can use the model |
 | ~~Container isolation model~~ | 009 | **Resolved by spec 008** — one `ctf-instances` namespace, NetworkPolicy per instance |
 | ~~k3s NetworkPolicy enforcement~~ | 009 | **Answered: off.** Container challenges paused |
 | ~~Sandboxed RuntimeClass~~ | 009 | **Answered: none available.** Container challenges paused |
