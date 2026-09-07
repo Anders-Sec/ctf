@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     cookie_secure: bool = True
     cookie_domain: str | None = None
 
+    @field_validator("cookie_domain", mode="before")
+    @classmethod
+    def _blank_domain_is_host_only(cls, value: object) -> object:
+        # An empty env value means "host-only", not a literal empty Domain.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     #: Where the SPA lives, for building magic links and post-login redirects.
     app_public_url: str = "http://localhost:4173"
 

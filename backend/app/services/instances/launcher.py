@@ -253,6 +253,7 @@ def _exposure(settings: Settings, instance: ChallengeInstance) -> tuple[str | No
     if settings.instance_http_mode != "ingress":
         return None, None
     host = f"{instance.k8s_name}.{settings.instance_base_domain}"
+    # The per-instance name is appended to this base by the ingress manifest.
     authorise = "http://ctf-backend.ctf.svc.cluster.local:8000/api/instances/authorise"
     return host, authorise
 

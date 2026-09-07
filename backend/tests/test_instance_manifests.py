@@ -119,9 +119,12 @@ class TestIngress:
             _spec(), "dm-abc123.ctf-nm.org", "http://ctf-backend/api/instances/authorise"
         )
         ann = ing["metadata"]["annotations"]
-        assert ann["nginx.ingress.kubernetes.io/auth-url"].endswith("/api/instances/authorise")
-        # The auth check has to know which instance it is guarding.
-        assert "dm-abc123" in ann["nginx.ingress.kubernetes.io/auth-snippet"]
+        # The instance name is in the auth-url path, so no snippet annotation is
+        # needed (those are commonly disabled on ingress-nginx).
+        assert ann["nginx.ingress.kubernetes.io/auth-url"].endswith(
+            "/api/instances/authorise/dm-abc123"
+        )
+        assert "auth-snippet" not in " ".join(ann)
 
     def test_it_routes_the_subdomain_to_the_service(self) -> None:
         ing = manifests.ingress_manifest(_spec(), "dm-abc123.ctf-nm.org", "http://x/authorise")

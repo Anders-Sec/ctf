@@ -193,7 +193,14 @@ def default_deny_manifest(namespace: str) -> dict:
 
 def ingress_manifest(spec: InstanceSpec, host: str, authorise_url: str) -> dict:
     """The authorised subdomain. auth-url makes ownership an edge check, so the
-    subdomain never has to be secret."""
+    subdomain never has to be secret.
+
+    The instance name is baked into the auth-url path (``.../authorise/<name>``)
+    rather than passed via an ``auth-snippet`` header — snippet annotations are
+    commonly disabled on ingress-nginx for CVE reasons, and a per-instance Ingress
+    already has a per-instance auth-url to carry it. ``auth-url`` itself is a
+    first-class annotation and always allowed.
+    """
     return {
         "apiVersion": "networking.k8s.io/v1",
         "kind": "Ingress",
@@ -202,11 +209,7 @@ def ingress_manifest(spec: InstanceSpec, host: str, authorise_url: str) -> dict:
             "namespace": spec.namespace,
             "labels": _labels(spec),
             "annotations": {
-                "nginx.ingress.kubernetes.io/auth-url": authorise_url,
-                # The check needs to know which instance is being reached.
-                "nginx.ingress.kubernetes.io/auth-snippet": (
-                    f'proxy_set_header X-Ctf-Instance "{spec.name}";'
-                ),
+                "nginx.ingress.kubernetes.io/auth-url": f"{authorise_url.rstrip('/')}/{spec.name}",
             },
         },
         "spec": {

@@ -82,28 +82,21 @@ async def destroy_instance(
     await launcher.destroy(db, settings, _orch(request), instance)
 
 
-@router.get("/instances/authorise")
-async def authorise_instance(request: Request, db: DbSession, settings: AppSettings) -> Response:
+@router.get("/instances/authorise/{instance_name}")
+async def authorise_instance(
+    instance_name: str, request: Request, db: DbSession, settings: AppSettings
+) -> Response:
     """The ingress auth-url subrequest. Returns only 200 (allow) or 401 (deny).
 
-    Not gated by the normal auth dependency: this is a GET subrequest carrying
-    the browser's cookies, no CSRF, and it must never raise -- an exception the
-    ingress reads as a 500 could fail open, so it fails closed to 401.
+    The instance name comes from the URL path -- each instance's Ingress points
+    auth-url at its own name -- so this needs no snippet annotation. Not gated by
+    the normal auth dependency: it is a GET subrequest carrying the browser's
+    cookies, no CSRF, and it must never raise -- an exception the ingress reads as
+    a 500 could fail open, so it fails closed to 401.
     """
-    instance_name = request.headers.get("X-Ctf-Instance") or _host_label(request)
     token = request.cookies.get(ACCESS_COOKIE)
-    allowed = False
-    if instance_name:
-        allowed = await launcher.authorise(db, settings, token, instance_name)
+    allowed = await launcher.authorise(db, settings, token, instance_name)
     return Response(status_code=200 if allowed else 401)
-
-
-def _host_label(request: Request) -> str | None:
-    """Fallback when the auth-snippet header is absent: the subdomain label of
-    the original host, e.g. dm-abc123 from dm-abc123.ctf-nm.org."""
-    host = request.headers.get("X-Forwarded-Host") or request.headers.get("host", "")
-    label = host.split(":")[0].split(".")[0]
-    return label or None
 
 
 @router.post("/challenges/{challenge_id}/instance/extend")

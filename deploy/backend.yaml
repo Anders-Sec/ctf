@@ -17,6 +17,9 @@ spec:
     metadata:
       labels: { app: ctf-backend }
     spec:
+      # A named identity so the platform's namespaced RoleBinding in
+      # ctf-instances can target it (spec 009). The SA itself is created below.
+      serviceAccountName: ctf-backend
       imagePullSecrets:
         - name: ghcr-pull
       securityContext:
@@ -114,6 +117,20 @@ spec:
             - name: AI_EVENT_DOMAINS
               valueFrom:
                 secretKeyRef: { name: ctf-secrets, key: ai-event-domains, optional: true }
+
+            # --- Live challenge containers (spec 009) ------------------------
+            # Off until the cluster side (namespace, RBAC, cert, RuntimeClass)
+            # is confirmed. Flip INSTANCES_ENABLED to "true" and set COOKIE_DOMAIN
+            # to ctf-nm.org together, as the go-live step.
+            - { name: INSTANCES_ENABLED, value: "false" }
+            - { name: KUBE_NAMESPACE, value: "ctf-instances" }
+            - { name: INSTANCE_BASE_DOMAIN, value: "ctf-nm.org" }
+            - { name: INSTANCE_HTTP_MODE, value: "ingress" }
+            - { name: INSTANCE_RUNTIME_CLASS, value: "gvisor" }
+            # Widen session cookies to the parent domain so the per-instance
+            # ingress auth check receives them. Empty = host-only (current). Set
+            # to "ctf-nm.org" at go-live, alongside INSTANCES_ENABLED.
+            - { name: COOKIE_DOMAIN, value: "" }
           resources:
             requests: { cpu: 250m, memory: 512Mi }
             limits: { cpu: "2", memory: 1Gi }
@@ -149,3 +166,9 @@ spec:
   selector: { app: ctf-backend }
   ports:
     - { name: http, port: 8000, targetPort: http }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ctf-backend
+  namespace: ctf

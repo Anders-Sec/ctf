@@ -58,9 +58,7 @@ class TestAuthorise:
         challenge = await make_container_challenge(db_session, template)
         instance = await _launch(client, db_session, challenge.id)
 
-        resp = await client.get(
-            "/api/instances/authorise", headers={"X-Ctf-Instance": instance.k8s_name}
-        )
+        resp = await client.get(f"/api/instances/authorise/{instance.k8s_name}")
 
         assert resp.status_code == 200
 
@@ -82,9 +80,7 @@ class TestAuthorise:
         intruder = await _signed_in(db_session, client, sign_in)
         assert intruder.id != owner.id
 
-        resp = await client.get(
-            "/api/instances/authorise", headers={"X-Ctf-Instance": instance.k8s_name}
-        )
+        resp = await client.get(f"/api/instances/authorise/{instance.k8s_name}")
 
         assert resp.status_code == 401
 
@@ -110,9 +106,7 @@ class TestAuthorise:
         )
         assert instance.owner_team_id == team.id
 
-        resp = await client.get(
-            "/api/instances/authorise", headers={"X-Ctf-Instance": instance.k8s_name}
-        )
+        resp = await client.get(f"/api/instances/authorise/{instance.k8s_name}")
 
         assert resp.status_code == 200
 
@@ -120,9 +114,7 @@ class TestAuthorise:
         self, app: FastAPI, client: AsyncClient, db_session: AsyncSession
     ) -> None:
         _enable(app)
-        resp = await client.get(
-            "/api/instances/authorise", headers={"X-Ctf-Instance": "dm-whatever"}
-        )
+        resp = await client.get("/api/instances/authorise/dm-whatever")
         assert resp.status_code == 401
 
     async def test_an_unknown_instance_is_denied(
@@ -131,8 +123,6 @@ class TestAuthorise:
         _enable(app)
         await _signed_in(db_session, client, sign_in)
 
-        resp = await client.get(
-            "/api/instances/authorise", headers={"X-Ctf-Instance": "dm-does-not-exist"}
-        )
+        resp = await client.get("/api/instances/authorise/dm-does-not-exist")
 
         assert resp.status_code == 401
