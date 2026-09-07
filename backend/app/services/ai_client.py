@@ -307,9 +307,7 @@ async def health(settings: Settings) -> AIHealth:
         average_latency_ms=None,
     )
     if not settings.ai_configured:
-        return replace(
-            state, error=REASON_UNCONFIGURED if settings.ai_enabled else REASON_DISABLED
-        )
+        return replace(state, error=REASON_UNCONFIGURED if settings.ai_enabled else REASON_DISABLED)
 
     endpoint = _endpoint(settings)
     now = time.monotonic()

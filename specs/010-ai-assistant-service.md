@@ -117,10 +117,16 @@ was asked about what.
 
 ### `assistant_message`
 
-`conversation_id`, `role` (`user` | `assistant`), `content`,
+`conversation_id`, `sequence`, `role` (`user` | `assistant`), `content`,
 `challenge_id` (nullable — what they were looking at), `model`,
 `prompt_tokens`, `completion_tokens`, `latency_ms`, `reasoning_content`
 (nullable), `error` (nullable), `created_at`.
+
+`sequence` was **added during implementation**, and the deviation is worth
+recording: `created_at` cannot order these rows. Postgres stamps `now()` at
+transaction start, so a question and the answer it produced always carry an
+identical timestamp and sorted arbitrarily — the history came back reversed
+about half the time. It is unique per conversation.
 
 **`reasoning_content` is stored and never returned.** The model exposes its
 scratchpad in a separate field; it may contain the model reasoning aloud about a

@@ -11,6 +11,7 @@ from app.api.routes import (
     admin_challenges,
     admin_hints,
     admin_ops,
+    assistant,
     auth,
     challenges,
     health,
@@ -92,6 +93,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(admin_challenges.router)
     api.include_router(admin_hints.router)
     api.include_router(admin_ops.router)
+    api.include_router(assistant.router)
     api.include_router(challenges.router)
     api.include_router(scoreboard.router)
     api.include_router(signals.router)

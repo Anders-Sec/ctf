@@ -77,3 +77,38 @@ async def check_submission_limits(redis: Redis, user_id: UUID, challenge_id: UUI
             code="rate_limiter_unavailable",
             status_code=503,
         ) from exc
+
+
+#: The assistant's hourly window. Limits themselves are configurable, because
+#: what counts as a conversation is a judgement call the event owner may revise.
+HOUR_SECONDS = 3600
+
+
+async def check_assistant_limits(
+    redis: Redis, user_id: UUID, per_minute: int, per_hour: int
+) -> LimitDecision:
+    """**Fails open**, unlike the submission limiter above.
+
+    Deliberate, and the reasoning is the stakes rather than the mechanism: if
+    Redis is down the worst case here is somebody talking to a chatbot more
+    often than intended. There, it was the integrity of the scoreboard.
+    """
+    try:
+        allowed, retry = await _hit(redis, f"ai:m:{user_id}", per_minute)
+        if not allowed:
+            return LimitDecision(False, retry, "minute")
+
+        key = f"ai:h:{user_id}"
+        count = await redis.incr(key)
+        if count == 1:
+            await redis.expire(key, HOUR_SECONDS)
+        if count > per_hour:
+            return LimitDecision(False, max(await redis.ttl(key), 1), "hour")
+
+        return LimitDecision(True)
+    except Exception as exc:
+        logger.warning(
+            "assistant_rate_limiter_unavailable",
+            extra={"error_type": type(exc).__name__},
+        )
+        return LimitDecision(True)
