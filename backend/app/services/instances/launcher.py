@@ -333,3 +333,45 @@ async def count_live(db: AsyncSession) -> int:
             )
         )
     ) or 0
+
+
+async def authorise(
+    db: AsyncSession, settings: Settings, token: str | None, instance_name: str
+) -> bool:
+    """Whether the session behind `token` owns the instance named `instance_name`.
+
+    The ingress calls this on every request to an instance subdomain, so ownership
+    is enforced at the edge and the subdomain never has to be secret. Fails closed:
+    anything unexpected is a no, never a 500 that the ingress would treat as allow.
+    """
+    from app.services.security import TokenError, access_token_subject
+    from app.services.user_cache import load_user
+
+    if not token:
+        return False
+    try:
+        user_id = access_token_subject(settings, token)
+    except TokenError:
+        return False
+
+    instance = (
+        await db.execute(
+            select(ChallengeInstance).where(
+                ChallengeInstance.k8s_name == instance_name,
+                ChallengeInstance.status.in_(LIVE_STATUSES),
+            )
+        )
+    ).scalar_one_or_none()
+    if instance is None:
+        return False
+
+    if instance.owner_user_id is not None:
+        return instance.owner_user_id == user_id
+
+    # Team-owned: any current member of the owning party may reach it — sharing
+    # the target is the point of a party holding it.
+    user = await load_user(db, user_id)
+    if user is None:
+        return False
+    team = await load_active_team(db, user_id)
+    return team is not None and team.id == instance.owner_team_id

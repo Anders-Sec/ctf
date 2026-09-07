@@ -163,6 +163,15 @@ is no un-authorisable path, which is the point of dropping raw TCP.
 > Recommendation: default `ingress`, and if the answer is no, treat the NodePort
 > fallback as the same "stated, not hidden" limitation 008 applied to TCP.
 
+**Deployment caveat for the ingress path.** The `auth-url` subrequest carries the
+browser's cookies for the instance *subdomain*, so the check only sees the
+session cookie if that cookie is scoped to the parent domain
+(`Domain=ctf-nm.org`), not host-only to the apex. If the platform enables the
+subdomain path, the session cookies from spec 002 must be widened to the parent
+domain — a one-line cookie change, but it belongs with turning the path on, and
+until then the endpoint correctly denies (fails closed) because it sees no
+cookie. Flagged here so it is a decision, not a surprise.
+
 ## Reconciliation
 
 Two background loops, started once per process like the scoreboard broadcaster,
