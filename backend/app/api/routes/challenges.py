@@ -88,6 +88,9 @@ async def get_challenge(challenge_id: UUID, db: DbSession, current: Player) -> C
             for artifact in challenge.artifacts
         ],
         hints=[_hint_response(view) for view in hints],
+        # Only advertise the container when it is actually reachable — a locked
+        # challenge shows nothing about how it is played.
+        has_container=(not locked and challenge.container_template_id is not None),
     )
 
 

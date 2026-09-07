@@ -59,6 +59,8 @@ export interface ChallengeDetail extends ChallengeListItem {
   body: string | null;
   artifacts: Artifact[];
   hints: Hint[];
+  /** Whether this challenge has a live container the player can summon. */
+  has_container: boolean;
 }
 
 export interface UnlockHintResult {

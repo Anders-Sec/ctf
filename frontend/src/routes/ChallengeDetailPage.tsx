@@ -6,6 +6,7 @@ import { artifactUrl, getChallenge, submitAnswer } from "../api/challenges";
 import { ApiError } from "../api/client";
 import ErrorMessage from "../components/ErrorMessage";
 import HintList from "../components/HintList";
+import InstancePanel from "../components/InstancePanel";
 import ReportChallenge from "../components/ReportChallenge";
 import Spinner from "../components/Spinner";
 
@@ -103,6 +104,8 @@ export default function ChallengeDetailPage() {
           </ul>
         </section>
       )}
+
+      {detail.has_container && <InstancePanel challengeId={detail.id} />}
 
       <HintList challengeId={detail.id} hints={detail.hints} />
 

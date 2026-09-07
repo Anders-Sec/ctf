@@ -52,6 +52,8 @@ class ChallengeDetail(ChallengeListItem):
     body: str | None
     artifacts: list[ArtifactResponse]
     hints: list["HintResponse"]
+    #: Whether this challenge has a live container the player can summon.
+    has_container: bool = False
 
 
 class SubmitAnswerRequest(BaseModel):

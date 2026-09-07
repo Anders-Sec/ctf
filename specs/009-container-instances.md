@@ -1,6 +1,6 @@
 # Spec 009 — Live Challenge Containers: Implementation
 
-Status: **approved** (2026-09-07) — decisions recorded below
+Status: **done** (2026-09-07) — 650 backend tests, 104 frontend tests
 Phase: 1
 Covers: `Plan.md` → Live Isolated Challenge Containers (**implementation**)
 Depends on: 008 (the isolation design, now unblocked), 003 (`container_template_id`,

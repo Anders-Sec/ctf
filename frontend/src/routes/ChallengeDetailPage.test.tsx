@@ -35,6 +35,7 @@ function detail(overrides: Partial<ChallengeDetail> = {}): ChallengeDetail {
     body: "Find the flag in the capture.",
     artifacts: [],
     hints: [],
+    has_container: false,
     ...overrides,
   };
 }

@@ -18,7 +18,7 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | **done** |
 | 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | **done** |
 | 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | **done** — unblocked 2026-09-07 (NetworkPolicy on, gVisor installed) |
-| 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | not written — **next** |
+| 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | **done** — HTTP-only, behind a fake orchestrator in CI |
 | 010 | `010-ai-assistant-service.md` | AI Assistant — mediator service + model client | **done** (staff-gated until 011) |
 | 011 | `011-ai-guardrails.md` | AI Assistant — challenge-integrity + real-world-safety layers | **draft** — awaiting sign-off |
 | 012 | `012-load-and-nfr-verification.md` | Non-Functional Requirements | not written |
