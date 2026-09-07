@@ -1,6 +1,6 @@
 # Spec 011 — AI Assistant: Guardrails
 
-Status: **draft — awaiting sign-off**
+Status: **approved** — decisions recorded below
 Phase: 1
 Covers: `Plan.md` → AI Assistant (both guardrail layers, and opening the chat to players)
 Depends on: 010 (the mediator), 003 (plaintext answers), 007 (review framing), 006 (console)
@@ -262,21 +262,39 @@ someone asks whether the guardrails work.
 6. Open the gate to players, and the event kill switch
 7. The red-team demonstration script
 
-## Open questions
+## Decisions
 
-1. **Keep the uncensored model?** Recommended: yes, with everything above
-   compensating. A guarded model refusing legitimate challenge questions would
-   damage the event more than the residual risk does, given a named corporate
-   audience. But it is your call, and it is the most consequential one here.
-2. **The second-pass safety judge.** Recommended: ship it, default **off**. The
-   same uncensored 8B judging its own output is a weak control, and I would
-   rather ship an honest deterministic layer than a reassuring one. It costs
-   about a second per reply when enabled.
-3. **Deflect or log-only for medium-severity safety hits?** Recommended: deflect
-   only on high, log the rest, and revisit after seeing a day of real traffic.
-4. **Staff transcript access.** Recommended: flagged exchanges plus context only.
-   Say if you want organisers to be able to read any conversation.
-5. **Is the runtime kill switch in scope for 011**, or a separate small change?
-6. **Retention.** Conversations currently persist indefinitely. Should they be
-   purged some period after the event ends? Not needed for correctness, but it is
-   a reasonable thing to decide before 200 people start typing.
+All six were put to the project owner and answered.
+
+1. **Keep the uncensored model.** A guarded model refusing legitimate challenge
+   questions would damage the event more than the residual risk does, given a
+   named corporate audience with every message attributed. Every control in
+   layer B is therefore ours, and this spec does not pretend otherwise.
+2. **Ship the second-pass judge, default off.** It runs only on replies a
+   deterministic rule already flagged, and may raise severity but never lower
+   it. Turning it on is a config change once the log shows how the deterministic
+   layer behaves in practice.
+3. **Deflect on high severity only; log medium and low.** This is `Plan.md`'s
+   "logged without necessarily blocking gameplay flow" taken literally. Revisit
+   after a day of real traffic.
+4. **Staff see flagged exchanges and their immediate context**, not a general
+   transcript browser.
+5. **The runtime kill switch is in scope**, as is **`user.assistant_blocked`**.
+6. **Retention is in scope** — see below.
+
+## Retention
+
+Conversations are the most personal thing this platform stores, and nothing else
+in Phase 1 keeps a record of what a colleague typed. They should not outlive
+their purpose.
+
+`AI_RETENTION_DAYS` (default 30) is the age past which a conversation is
+purged. There is no scheduler in this application and this spec does not add
+one: the purge is an **admin action in the console** that reports how many
+conversations it removed, plus the same routine run once at startup. That is
+enough for an event that lasts days, and a cron that nobody notices failing
+would be worse than a button somebody presses.
+
+Findings are **not** purged with the conversations. They are the record of what
+happened and they never contain answer values or the reply text — only what
+matched and where. `original_content` on a purged message goes with it.
