@@ -196,6 +196,31 @@ class Settings(BaseSettings):
             return [d.strip().lower().lstrip("@") for d in value.split(",") if d.strip()]
         return value
 
+    # --- Live challenge containers (spec 009) --------------------------------
+    #: The pre-created, isolated namespace instances run in (spec 008).
+    kube_namespace: str = "ctf-instances"
+    #: Where instance subdomains live: <name>.<domain>. Not a secret.
+    instance_base_domain: str = "ctf-nm.org"
+    #: The sandboxed runtime every instance uses. The platform session's exact
+    #: RuntimeClass name; a wrong value fails the pod at scheduling.
+    instance_runtime_class: str = "gvisor"
+    #: How HTTP instances are exposed. "ingress" authorises at the edge and needs
+    #: wildcard DNS; "nodeport" is the unauthorised fallback if that is absent.
+    instance_http_mode: str = "ingress"
+    #: Concurrent live instances one owner (party, or lone player) may hold.
+    instance_max_per_owner: int = 2
+    instance_default_ttl_seconds: int = 3600
+    #: TTL granted by an extend, while under the cap.
+    instance_extend_seconds: int = 1800
+    #: The image-pull secret the platform copied into the instance namespace.
+    instance_image_pull_secret: str = "ghcr-pull"
+    #: Turns the whole feature off cleanly, like AI_ENABLED.
+    instances_enabled: bool = False
+
+    @property
+    def instances_configured(self) -> bool:
+        return bool(self.instances_enabled and self.kube_namespace)
+
     @property
     def ai_configured(self) -> bool:
         return bool(self.ai_enabled and self.ai_base_url and self.ai_model)

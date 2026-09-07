@@ -115,11 +115,15 @@ mirroring `score_adjustment`), `k8s_name`, `status`
 `node_port`, `generated_answer`, `expires_at`, `destroyed_at`, `last_error`,
 timestamps.
 
-**A partial unique index** enforces the per-owner concurrent cap's correctness at
-the database, not only in application logic: at most the configured number of
-non-terminal (`pending`/`running`) instances per owner. The app checks the cap in
-the same transaction that inserts the row; the index is the backstop against a
-double-click race, the same belt-and-braces used for team joins in spec 002.
+**The per-owner concurrent cap is serialized by a row lock, not a unique index.**
+(Correction to the draft: a plain unique index can enforce *at most one* per
+owner, not the configured N, so it is the wrong tool for a cap of two.) A launch
+takes `SELECT ... FOR UPDATE` on the owning `user`/`team` row before counting
+that owner's live (`pending`/`running`) instances, so two concurrent launches for
+the same owner serialize rather than both passing a stale count — the same
+mechanism spec 002 uses for the last party seat. The namespace `ResourceQuota` is
+the independent hard backstop: even a logic bug cannot exceed the node's pod
+budget.
 
 ## The per-instance answer
 

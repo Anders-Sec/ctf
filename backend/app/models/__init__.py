@@ -29,6 +29,13 @@ from app.models.guardrail import (
     Severity,
 )
 from app.models.hint import Hint, HintUnlock
+from app.models.instance import (
+    ChallengeInstance,
+    ContainerTemplate,
+    EgressPolicy,
+    InstanceProtocol,
+    InstanceStatus,
+)
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.signal import SignalDismissal
@@ -48,6 +55,8 @@ __all__ = [
     "AuthSession",
     "Base",
     "Category",
+    "ChallengeInstance",
+    "ContainerTemplate",
     "ChallengeReport",
     "Challenge",
     "ChallengeAnswer",
@@ -67,8 +76,11 @@ __all__ = [
     "SignalDismissal",
     "Solve",
     "Submission",
+    "EgressPolicy",
     "EventConfig",
     "Hint",
+    "InstanceProtocol",
+    "InstanceStatus",
     "HintUnlock",
     "MagicLinkToken",
     "Team",
