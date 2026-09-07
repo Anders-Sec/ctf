@@ -19,7 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.logging import get_logger
+from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.instance import LIVE_STATUSES, ChallengeInstance, InstanceStatus
+from app.models.team import Team
 from app.services.instances import launcher
 from app.services.instances.orchestrator import InstanceOrchestrator
 
@@ -43,18 +45,24 @@ async def reconcile_expiry(
 ) -> int:
     """Destroy every live instance past its TTL. Returns how many."""
     now = now or datetime.now(UTC)
-    expired = (
-        (
-            await db.execute(
-                select(ChallengeInstance).where(
-                    ChallengeInstance.status.in_(LIVE_STATUSES),
-                    ChallengeInstance.expires_at < now,
-                )
-            )
+    event = await db.get(EventConfig, EVENT_CONFIG_ID)
+    event_over = event is not None and event.has_ended(now)
+
+    # Disbanded parties' instances are torn down here rather than threading the
+    # orchestrator through the teams service: a 30-second lag on cleanup is fine,
+    # and it keeps instance lifecycle in one place.
+    disbanded = select(Team.id).where(Team.disbanded_at.is_not(None))
+
+    condition = ChallengeInstance.status.in_(LIVE_STATUSES)
+    if event_over:
+        # The crawl is over; nothing should still be running.
+        filters = condition
+    else:
+        filters = condition & (
+            (ChallengeInstance.expires_at < now) | (ChallengeInstance.owner_team_id.in_(disbanded))
         )
-        .scalars()
-        .all()
-    )
+
+    expired = (await db.execute(select(ChallengeInstance).where(filters))).scalars().all()
     for instance in expired:
         await launcher.destroy(
             db, settings, orchestrator, instance, status=InstanceStatus.EXPIRED, now=now

@@ -30,3 +30,27 @@ class AdminInstanceResponse(BaseModel):
     created_at: datetime
     expires_at: datetime
     error: str | None
+
+
+class CreateTemplateRequest(BaseModel):
+    name: str
+    image: str
+    image_tag: str = "latest"
+    container_port: int = 80
+    protocol: str = "http"
+    ttl_seconds: int = 3600
+    injects_answer: bool = True
+    readiness_path: str = "/"
+    cpu_limit: str = "250m"
+    memory_limit: str = "256Mi"
+
+
+class TemplateResponse(BaseModel):
+    id: UUID
+    name: str
+    image: str
+    image_tag: str
+    container_port: int
+    protocol: str
+    ttl_seconds: int
+    injects_answer: bool
