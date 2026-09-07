@@ -122,7 +122,7 @@ spec:
             # Off until the cluster side (namespace, RBAC, cert, RuntimeClass)
             # is confirmed. Flip INSTANCES_ENABLED to "true" and set COOKIE_DOMAIN
             # to ctf-nm.org together, as the go-live step.
-            - { name: INSTANCES_ENABLED, value: "false" }
+            - { name: INSTANCES_ENABLED, value: "true" }
             - { name: KUBE_NAMESPACE, value: "ctf-instances" }
             - { name: INSTANCE_BASE_DOMAIN, value: "ctf-nm.org" }
             - { name: INSTANCE_HTTP_MODE, value: "ingress" }
@@ -130,7 +130,7 @@ spec:
             # Widen session cookies to the parent domain so the per-instance
             # ingress auth check receives them. Empty = host-only (current). Set
             # to "ctf-nm.org" at go-live, alongside INSTANCES_ENABLED.
-            - { name: COOKIE_DOMAIN, value: "" }
+            - { name: COOKIE_DOMAIN, value: "ctf-nm.org" }
           resources:
             requests: { cpu: 250m, memory: 512Mi }
             limits: { cpu: "2", memory: 1Gi }
