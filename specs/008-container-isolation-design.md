@@ -1,20 +1,25 @@
 # Spec 008 — Live Challenge Containers: Isolation Design
 
-Status: **on hold** (2026-09-06) — design complete, implementation paused
+Status: **unblocked** (2026-09-07) — design complete, cleared to implement in spec 009
 
-> **Why paused.** The platform session confirmed **NetworkPolicy enforcement is
-> off** on this k3s and **no sandboxed RuntimeClass is available**. Those were
-> questions 1 and 2 below, and the spec's own recommendation was not to run
-> container-backed challenges if both came back unfavourable — so we are not.
+> **Both blockers are now cleared.** The platform session has since enabled
+> **NetworkPolicy enforcement** on the k3s and **verified that `ctf-instances`
+> cannot reach `postgres.ctf`** — the exact test that mattered, since Postgres
+> holds every answer in plaintext. **gVisor is installed** as a sandboxed
+> `RuntimeClass`, so a container escape is contained to the sandbox rather than
+> the node's shared kernel.
 >
-> Without policy enforcement, an instance can reach `postgres.ctf`, which holds
-> every challenge answer in plaintext. Without a sandboxed runtime, a container
-> escape on a single node reaches everything. A challenge category is not worth
-> either, and nothing else in Phase 1 depends on this.
+> These were questions 1 and 2 below, and both came back favourable, which is the
+> condition the spec set for building. The design stands unchanged apart from one
+> addition folded in below: instances now run under the sandboxed runtime
+> (Decision 2), because it exists.
 >
-> The design below stands and needs no rework — it becomes buildable the moment
-> policy enforcement is turned on, or instances move to a node that is not also
-> hosting the database. Spec 009 is deferred behind that.
+> The project owner's standing guidance on the residual single-node risk:
+> *"It doesn't have to be perfect as no one will be burning a zero-day on a work
+> CTF."* That is the right posture and it matches this spec's own framing — depth
+> and honesty rather than a claim of perfection. NetworkPolicy closes the cheap
+> path, gVisor makes the expensive one expensive, and the rest is stated plainly
+> rather than hidden. Spec 009 implements what follows.
 
 Phase: 1
 Covers: `Plan.md` → Live Isolated Challenge Containers (**design only**)
@@ -121,6 +126,16 @@ depth and honesty rather than a claim of safety:
 - **CPU and memory limits** on every instance, plus the namespace quota.
 - **No secrets, no volumes from the host**, ever.
 
+- **`runtimeClassName: gvisor`** — the sandboxed runtime the platform session
+  installed. A container escape lands in gVisor's user-space kernel, not the
+  host's, which is the difference between "owns a sandbox" and "owns the node
+  that holds every answer". Every instance runs under it; if a template ever
+  needs the host runtime (a challenge that gVisor's syscall surface cannot run),
+  that is a deliberate per-template opt-out recorded on the template, not a
+  default. **The exact `RuntimeClass` name must be confirmed with the platform
+  session** — `gvisor` is the conventional name (handler `runsc`), but it is
+  whatever they named the object, and a wrong name fails the pod at scheduling.
+
 And three rules that are policy, not configuration:
 
 1. **We only run images we build.** No player-supplied images, no arbitrary
@@ -128,11 +143,6 @@ And three rules that are policy, not configuration:
 2. **Instance images live in GHCR alongside the app**, reviewed like app code.
 3. **A container-backed challenge is a deliberate decision each time**, not a
    default.
-
-**Worth raising with the platform session:** if a sandboxed runtime (gVisor,
-Kata) is available as a `RuntimeClass`, instances should use it, and that turns
-a kernel escape from "owns the event" into "owns a sandbox". We cannot install
-one ourselves. Question 2 below.
 
 ## Decision 3 — How players reach an instance
 
@@ -235,7 +245,9 @@ working, while the correct string is necessarily unique per instance.
 `name`, `image`, `image_tag`, `container_port`, `protocol` (`http` | `tcp`),
 `cpu_request`/`cpu_limit`, `memory_request`/`memory_limit`, `ttl_seconds`,
 `env` (jsonb, non-secret only), `egress_policy` (`none` | `dns` | `cidr`),
-`egress_cidrs`, `injects_answer` (bool), `readiness_path`.
+`egress_cidrs`, `injects_answer` (bool), `readiness_path`,
+`runtime_class` (default `gvisor`; the sandbox opt-out is setting this to the
+host runtime, which is visible in review rather than silent).
 
 `challenge.container_template_id` already exists and is currently unused.
 
@@ -280,28 +292,36 @@ Everything here is a one-time setup; nothing is needed per instance.
 
 ## Questions for the platform session
 
-1. **Is NetworkPolicy enforcement enabled on this k3s?** If k3s was started with
-   `--disable-network-policy`, every policy in this design silently does nothing
-   and instances are not isolated at all. This is the single most important
-   answer in the spec.
-2. **Is a sandboxed `RuntimeClass` (gVisor / Kata) available?** On a single node
-   sharing a kernel with the database that holds every answer, it is the
-   difference between a contained escape and a total one.
+1. ~~**Is NetworkPolicy enforcement enabled on this k3s?**~~ **Resolved
+   (2026-09-07): yes, enabled and verified** — `ctf-instances` cannot reach
+   `postgres.ctf`. The load-bearing control is real.
+2. ~~**Is a sandboxed `RuntimeClass` available?**~~ **Resolved: yes, gVisor is
+   installed.** Instances run under it (Decision 2). Spec 009 needs the exact
+   `RuntimeClass` name to put in `runtimeClassName`.
 3. **Does the ingress controller allow per-instance Ingress objects in a second
-   namespace**, and can `*.ctf-nm.org` resolve? If not, HTTP instances fall back
-   to NodePort with the authorisation caveat above.
-4. **What is the real node capacity?** The 40-pod quota and 250m/256Mi limits
-   are placeholders until someone who can see the node picks numbers.
+   namespace**, and can `*.ctf-nm.org` resolve? Still open. If not, HTTP
+   instances fall back to NodePort with the authorisation caveat above. Spec 009
+   is written to work either way, but the answer decides which path is the
+   default.
+4. **What is the real node capacity?** Still open. The 40-pod quota and
+   250m/256Mi limits stay placeholders until someone who can see the node picks
+   numbers; they live in config, so this is not a code change when it lands.
+
+Items 1–4 of *What the platform session must provide* (the `ctf-instances`
+namespace with quota/limits, the namespaced `Role`, the `ghcr-pull` copy, and
+wildcard DNS/cert) still need confirmation that they are provisioned. Spec 009
+can be built and unit-tested against a fake Kubernetes client without them, but
+a live instance cannot launch until they exist.
 
 ## Open questions for the project
 
 1. **Accept the raw-TCP exposure limitation?** Recommended: yes, prefer HTTP
-   challenges, and state it in the brief for any TCP challenge.
-2. **Should container-backed challenges run at all if answers 1 and 2 both come
-   back unfavourable** — no NetworkPolicy enforcement and no sandboxed runtime?
-   My recommendation would be no: a live target on a node that also holds every
-   answer in plaintext is a bad trade for one challenge category, and the rest of
-   the platform does not depend on it.
+   challenges, and state it in the brief for any TCP challenge. Unchanged by the
+   unblocking — NetworkPolicy and gVisor protect the node, but neither puts a
+   session cookie into a raw TCP connection.
+2. ~~**Should container-backed challenges run at all** if there is no policy
+   enforcement and no sandbox?~~ **Resolved: yes.** Both came back favourable,
+   and the project owner has accepted the residual single-node risk explicitly.
 
 ## Non-goals
 

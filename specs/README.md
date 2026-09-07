@@ -17,8 +17,8 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
 | 005 | `005-scoreboard-realtime.md` | Real-Time Scoreboard | **done** |
 | 006 | `006-admin-tooling.md` | Admin Tooling (CRUD, score overrides, audit log, live dashboard) | **done** |
 | 007 | `007-anticheat-visibility.md` | Admin Tooling (anti-cheat surfacing) | **done** |
-| 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | **on hold** — design done, blocked on cluster isolation |
-| 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | **deferred** behind 008 |
+| 008 | `008-container-isolation-design.md` | Live Isolated Challenge Containers — **design/decision spec only**, resolves the Open Item | **done** — unblocked 2026-09-07 (NetworkPolicy on, gVisor installed) |
+| 009 | `009-container-instances.md` | Live Isolated Challenge Containers — implementation | not written — **next** |
 | 010 | `010-ai-assistant-service.md` | AI Assistant — mediator service + model client | **done** (staff-gated until 011) |
 | 011 | `011-ai-guardrails.md` | AI Assistant — challenge-integrity + real-world-safety layers | **draft** — awaiting sign-off |
 | 012 | `012-load-and-nfr-verification.md` | Non-Functional Requirements | not written |
@@ -43,11 +43,11 @@ Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` 
   guardrail layers demonstrably working, so 010 does not ship to players without 011.
 - **012 last** — load testing needs the flows it is testing.
 
-**The container track (008/009) is on hold.** The cluster has NetworkPolicy
-enforcement disabled and no sandboxed runtime, so a challenge container could
-reach the database holding every answer in plaintext. Spec 008's design is
-complete and needs no rework; it becomes buildable if either changes. Nothing
-else in Phase 1 depends on it.
+**The container track (008/009) is unblocked (2026-09-07).** The cluster now
+enforces NetworkPolicy — verified that `ctf-instances` cannot reach the database —
+and gVisor is installed as a sandboxed runtime. Both were spec 008's blocking
+conditions. Spec 008's design needed no rework beyond folding the sandbox runtime
+in; spec 009 (implementation) is next.
 
 ## Standing decision: scoring attribution
 
@@ -79,6 +79,6 @@ Tracked from `Plan.md`; each is needed *before* the spec that consumes it.
 | ~~Which local model, and its API shape~~ | 010 | **Resolved** — LM Studio, OpenAI-compatible, via the in-cluster `ai` Service |
 | LM Studio does not enforce its API key — restrict that port at the host | 010 | Operational, not code. Anyone on the LAN can use the model |
 | ~~Container isolation model~~ | 009 | **Resolved by spec 008** — one `ctf-instances` namespace, NetworkPolicy per instance |
-| ~~k3s NetworkPolicy enforcement~~ | 009 | **Answered: off.** Container challenges paused |
-| ~~Sandboxed RuntimeClass~~ | 009 | **Answered: none available.** Container challenges paused |
-| Wildcard DNS for `*.ctf-nm.org` | 009 | Moot while 009 is deferred |
+| ~~k3s NetworkPolicy enforcement~~ | 009 | **Answered (2026-09-07): on and verified** — `ctf-instances` cannot reach the DB |
+| ~~Sandboxed RuntimeClass~~ | 009 | **Answered: gVisor installed.** Instances run under it |
+| Wildcard DNS for `*.ctf-nm.org` | 009 | **Still open** — decides HTTP-subdomain vs. NodePort default |
