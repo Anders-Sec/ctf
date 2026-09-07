@@ -1,5 +1,7 @@
 """Reading challenges, and submitting answers to them."""
 
+import re
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -308,3 +310,58 @@ async def list_categories(db: AsyncSession) -> list[Category]:
         .scalars()
         .all()
     )
+
+
+def _slugify(name: str) -> str:
+    """A DNS-ish slug from a display name: lowercase, non-alphanumerics to hyphens."""
+    slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+    return slug or "category"
+
+
+async def resolve_or_create_category(db: AsyncSession, name: str) -> Category:
+    """Find a category by name (case-insensitively) or create it (spec 013).
+
+    ``Category.name`` is CITEXT, so "web", "Web" and "WEB" resolve to one row and
+    the caller gets its canonical spelling back. A genuinely new name is created
+    with a derived slug; a concurrent create of the same name is caught and the
+    winner's row returned, so two admins cannot make duplicates.
+    """
+    name = name.strip()
+    existing = (
+        await db.execute(select(Category).where(Category.name == name))
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    slug = _slugify(name)
+    if await db.scalar(select(Category.id).where(Category.slug == slug)):
+        # Two different names can derive the same slug; keep it unique.
+        slug = f"{slug}-{uuid.uuid4().hex[:6]}"
+
+    category = Category(name=name, slug=slug)
+    db.add(category)
+    try:
+        async with db.begin_nested():
+            await db.flush()
+    except IntegrityError:
+        return (await db.execute(select(Category).where(Category.name == name))).scalar_one()
+    return category
+
+
+async def prune_category_if_empty(db: AsyncSession, category_id: UUID) -> bool:
+    """Delete a category once its last challenge is gone (spec 013).
+
+    Categories exist exactly as long as something is in them. The challenge FK is
+    ON DELETE RESTRICT, so this can only ever remove a genuinely empty one.
+    """
+    remaining = await db.scalar(
+        select(func.count()).select_from(Challenge).where(Challenge.category_id == category_id)
+    )
+    if remaining:
+        return False
+    category = await db.get(Category, category_id)
+    if category is None:
+        return False
+    await db.delete(category)
+    await db.flush()
+    return True

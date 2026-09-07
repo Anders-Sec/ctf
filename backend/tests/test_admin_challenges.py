@@ -46,7 +46,7 @@ class TestAccessControl:
         assert (await client.get("/api/admin/challenges")).status_code == 200
         response = await client.post(
             "/api/admin/challenges",
-            json={"title": "Nope", "slug": "nope", "category_id": str(category.id)},
+            json={"title": "Nope", "slug": "nope", "category": category.name},
         )
         assert response.status_code == 403
 
@@ -73,7 +73,7 @@ class TestChallengeCrud:
             json={
                 "title": "Packet Puzzle",
                 "slug": "packet-puzzle",
-                "category_id": str(category.id),
+                "category": category.name,
                 "body": "Find the flag in the pcap.",
                 "initial_points": 400,
             },
@@ -90,7 +90,7 @@ class TestChallengeCrud:
     ) -> None:
         await as_role(db_session, client, sign_in, UserRole.ADMIN)
         category = await make_category(db_session)
-        payload = {"title": "First", "slug": "taken", "category_id": str(category.id)}
+        payload = {"title": "First", "slug": "taken", "category": category.name}
 
         await client.post("/api/admin/challenges", json=payload)
         second = await client.post("/api/admin/challenges", json={**payload, "title": "Second"})
@@ -110,7 +110,7 @@ class TestChallengeCrud:
             json={
                 "title": "Bad",
                 "slug": "bad-curve",
-                "category_id": str(category.id),
+                "category": category.name,
                 "decay_threshold": 1,
             },
         )
@@ -129,7 +129,7 @@ class TestChallengeCrud:
             json={
                 "title": "Inverted",
                 "slug": "inverted",
-                "category_id": str(category.id),
+                "category": category.name,
                 "initial_points": 100,
                 "minimum_points": 500,
             },
@@ -444,3 +444,89 @@ class TestArtifacts:
 
         assert response.status_code == 413
         assert response.json()["error"]["code"] == "artifact_too_large"
+
+
+class TestDerivedCategories:
+    """Categories are typed on the challenge form and live only while a challenge
+    is in them (spec 013)."""
+
+    async def _create(self, client: AsyncClient, category: str, slug: str = "c") -> dict:
+        response = await client.post(
+            "/api/admin/challenges",
+            json={"title": f"Ch {slug}", "slug": slug, "category": category},
+        )
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    async def test_a_new_name_creates_the_category(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+
+        body = await self._create(client, "Web Exploitation", "web-1")
+
+        assert body["category"]["name"] == "Web Exploitation"
+        assert body["category"]["slug"] == "web-exploitation"
+
+    async def test_an_existing_name_is_reused_regardless_of_case(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """One category, not three, whatever the capitalisation — CITEXT enforces it."""
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+
+        first = await self._create(client, "Forensics", "f-1")
+        second = await self._create(client, "forensics", "f-2")
+        third = await self._create(client, "FORENSICS", "f-3")
+
+        ids = {first["category"]["id"], second["category"]["id"], third["category"]["id"]}
+        assert len(ids) == 1
+        # The canonical spelling is the one first created.
+        assert second["category"]["name"] == "Forensics"
+
+    async def test_deleting_the_last_challenge_removes_the_category(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from app.models.challenge import Category
+
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        created = await self._create(client, "Lonely", "lonely-1")
+        category_id = created["category"]["id"]
+
+        deleted = await client.delete(f"/api/admin/challenges/{created['id']}")
+        assert deleted.status_code == 200
+
+        assert await db_session.get(Category, uuid.UUID(category_id)) is None
+
+    async def test_a_category_with_other_challenges_survives(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from app.models.challenge import Category
+
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        first = await self._create(client, "Crypto", "crypto-1")
+        second = await self._create(client, "Crypto", "crypto-2")
+        category_id = first["category"]["id"]
+
+        await client.delete(f"/api/admin/challenges/{first['id']}")
+
+        # The second challenge keeps the category alive.
+        assert await db_session.get(Category, uuid.UUID(category_id)) is not None
+        assert second["category"]["id"] == category_id
+
+    async def test_moving_a_challenge_prunes_the_emptied_category(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from app.models.challenge import Category
+
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        created = await self._create(client, "Misc", "misc-1")
+        old_category_id = created["category"]["id"]
+
+        moved = await client.patch(
+            f"/api/admin/challenges/{created['id']}", json={"category": "Pwn"}
+        )
+        assert moved.status_code == 200
+        assert moved.json()["category"]["name"] == "Pwn"
+
+        # "Misc" is now empty and gone.
+        assert await db_session.get(Category, uuid.UUID(old_category_id)) is None

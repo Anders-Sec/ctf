@@ -28,7 +28,9 @@ class CreateCategoryRequest(BaseModel):
 class CreateChallengeRequest(BaseModel):
     title: str = Field(min_length=3, max_length=200)
     slug: str = Field(min_length=3, max_length=200, pattern=r"^[a-z0-9-]+$")
-    category_id: UUID
+    #: The category name, typed on the form. Resolved to an existing category
+    #: (case-insensitively) or created (spec 013).
+    category: str = Field(min_length=2, max_length=60)
     body: str = ""
     difficulty: Difficulty = Difficulty.MEDIUM
     state: ChallengeState = ChallengeState.DRAFT
@@ -46,7 +48,7 @@ class CreateChallengeRequest(BaseModel):
 class UpdateChallengeRequest(BaseModel):
     title: str | None = Field(default=None, min_length=3, max_length=200)
     slug: str | None = Field(default=None, min_length=3, max_length=200, pattern=r"^[a-z0-9-]+$")
-    category_id: UUID | None = None
+    category: str | None = Field(default=None, min_length=2, max_length=60)
     body: str | None = None
     difficulty: Difficulty | None = None
     release_at: datetime | None = None

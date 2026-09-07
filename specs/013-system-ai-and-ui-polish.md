@@ -1,6 +1,6 @@
 # Spec 013 — System AI persona, navigation split, inline categories
 
-Status: **draft — awaiting sign-off**
+Status: **done** — 658 backend tests, 110 frontend tests
 Phase: 1 (polish release on top of 010/011, 006, 003)
 Covers: three feature requests bundled as one release
 Depends on: 010/011 (the assistant), 006 (admin console + challenge CRUD), 002 (capabilities)

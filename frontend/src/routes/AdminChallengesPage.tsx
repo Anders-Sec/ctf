@@ -108,16 +108,17 @@ function CreateChallengeForm() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [category, setCategory] = useState("");
 
   const categories = useQuery({ queryKey: ["categories"], queryFn: listAdminCategories });
 
   const create = useMutation({
     mutationFn: () =>
-      createChallenge({ title: title.trim(), slug: slug.trim(), category_id: categoryId }),
+      createChallenge({ title: title.trim(), slug: slug.trim(), category: category.trim() }),
     onSuccess: async () => {
       setTitle("");
       setSlug("");
+      setCategory("");
       setOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["admin", "challenges"] });
     },
@@ -174,19 +175,19 @@ function CreateChallengeForm() {
         </label>
         <label className="text-sm sm:col-span-2">
           Category
-          <select
+          <input
             required
-            value={categoryId}
-            onChange={(event) => setCategoryId(event.target.value)}
+            list="category-options"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+            placeholder="Type a category — an existing one is reused, a new one is created"
             className="mt-1 w-full rounded border border-stone px-3 py-2"
-          >
-            <option value="">Choose one…</option>
-            {(categories.data ?? []).map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
+          />
+          <datalist id="category-options">
+            {(categories.data ?? []).map((c) => (
+              <option key={c.id} value={c.name} />
             ))}
-          </select>
+          </datalist>
         </label>
       </div>
 

@@ -63,7 +63,8 @@ export const getAdminChallenge = (id: string) =>
 export const createChallenge = (input: {
   title: string;
   slug: string;
-  category_id: string;
+  /** Category name, typed on the form. The backend reuses or creates it. */
+  category: string;
   body?: string;
   difficulty?: Difficulty;
   initial_points?: number;

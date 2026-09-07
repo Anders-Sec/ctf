@@ -38,6 +38,7 @@ from app.schemas.auth import MessageResponse
 from app.schemas.challenges import ArtifactResponse, CategoryResponse
 from app.services import answers as answer_service
 from app.services import artifacts as artifact_service
+from app.services import challenges as challenge_service
 from app.services import scoring
 from app.services.identity import record_audit
 
@@ -138,15 +139,17 @@ async def create_challenge(
     db: DbSession,
     current: Admin,
 ) -> AdminChallengeDetail:
-    if await db.scalar(select(Category.id).where(Category.id == payload.category_id)) is None:
-        raise NotFoundError("No such category.")
     if await db.scalar(select(Challenge.id).where(Challenge.slug == payload.slug)):
         raise ConflictError("That slug is already taken.", code="slug_taken")
 
     _validate_scoring(payload.initial_points, payload.minimum_points, payload.decay_threshold)
 
+    data = payload.model_dump()
+    category = await challenge_service.resolve_or_create_category(db, data.pop("category"))
+
     challenge = Challenge(
-        **payload.model_dump(),
+        **data,
+        category_id=category.id,
         author_user_id=current.user.id,
     )
     db.add(challenge)
@@ -205,9 +208,23 @@ async def update_challenge(
     if renaming and await db.scalar(select(Challenge.id).where(Challenge.slug == changes["slug"])):
         raise ConflictError("That slug is already taken.", code="slug_taken")
 
+    # Category is a name, resolved to (or creating) a row. Remember the old one so
+    # a category left empty by the move is cleaned up.
+    new_category_name = changes.pop("category", None)
+    old_category_id = challenge.category_id
+
     for field, value in changes.items():
         setattr(challenge, field, value)
+    if new_category_name is not None:
+        category = await challenge_service.resolve_or_create_category(db, new_category_name)
+        # Assign the relationship, not just the FK, so the reloaded detail (and
+        # the prune check below) see the new category rather than the stale one.
+        challenge.category = category
+        changes["category"] = category.name
     await db.flush()
+
+    if new_category_name is not None and challenge.category_id != old_category_id:
+        await challenge_service.prune_category_if_empty(db, old_category_id)
 
     await record_audit(
         db,
@@ -219,7 +236,7 @@ async def update_challenge(
         request_id=_request_id(request),
     )
     count = await scoring.solve_count(db, challenge)
-    return _detail(challenge, count, scoring.challenge_value(challenge, count))
+    return _detail(await _load(db, challenge.id), count, scoring.challenge_value(challenge, count))
 
 
 @router.post("/challenges/{challenge_id}/state")
@@ -272,14 +289,20 @@ async def delete_challenge(
             code="challenge_has_solves",
         )
 
+    category_id = challenge.category_id
+    slug = challenge.slug
     await db.delete(challenge)
+    await db.flush()
+    # A category exists only as long as it holds a challenge (spec 013).
+    await challenge_service.prune_category_if_empty(db, category_id)
+
     await record_audit(
         db,
         action="challenge.delete",
         target_type="challenge",
         target_id=challenge_id,
         actor_user_id=current.user.id,
-        meta={"slug": challenge.slug},
+        meta={"slug": slug},
         request_id=_request_id(request),
     )
     await db.flush()
