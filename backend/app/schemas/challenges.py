@@ -25,6 +25,15 @@ class ArtifactResponse(BaseModel):
     checksum_sha256: str
 
 
+class UnlockRequirementResponse(BaseModel):
+    """A prerequisite challenge, shown on a locked challenge so the player knows
+    what to solve to open it."""
+
+    challenge_id: UUID
+    title: str
+    solved: bool
+
+
 class ChallengeListItem(BaseModel):
     """A challenge as it appears on the board.
 
@@ -45,6 +54,8 @@ class ChallengeListItem(BaseModel):
     attempts_remaining: int | None
     max_attempts: int | None
     release_at: datetime | None
+    #: Present on a challenge locked by prerequisites, listing what unlocks it.
+    unlock_requirements: list[UnlockRequirementResponse] = []
 
 
 class ChallengeDetail(ChallengeListItem):

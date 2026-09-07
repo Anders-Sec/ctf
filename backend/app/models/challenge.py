@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import CITEXT, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -245,3 +245,49 @@ class ChallengeArtifact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     challenge: Mapped["Challenge"] = relationship(back_populates="artifacts", lazy="raise")
+
+
+class RequirementType(enum.StrEnum):
+    """What kind of condition unlocks a challenge.
+
+    Open by design: Phase 2 adds ``min_xp``, ``skill_level`` and the like without
+    touching the gating logic. Only ``challenge_solved`` is implemented in Phase 1
+    (spec 014), because the XP/skill system does not exist yet.
+    """
+
+    CHALLENGE_SOLVED = "challenge_solved"
+
+
+class ChallengeUnlockRequirement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A condition a player must meet before a challenge unlocks for them.
+
+    A challenge unlocks when **all** of its requirements are met. Deleting either
+    the gated challenge or the required one drops the row (both FKs cascade), so a
+    prerequisite that is removed simply stops gating its dependents.
+    """
+
+    __tablename__ = "challenge_unlock_requirement"
+    __table_args__ = (
+        UniqueConstraint(
+            "challenge_id",
+            "required_challenge_id",
+            name="uq_unlock_requirement_pair",
+        ),
+        Index("ix_unlock_requirement_challenge", "challenge_id"),
+        Index("ix_unlock_requirement_required", "required_challenge_id"),
+    )
+
+    challenge_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("challenge.id", ondelete="CASCADE"), nullable=False
+    )
+    requirement_type: Mapped[RequirementType] = mapped_column(
+        _enum(RequirementType, "requirement_type"),
+        nullable=False,
+        default=RequirementType.CHALLENGE_SOLVED,
+        server_default=RequirementType.CHALLENGE_SOLVED.value,
+    )
+    #: Set for ``challenge_solved``. Nullable so Phase 2's value-based types (min
+    #: XP, skill level) fit the same table without one.
+    required_challenge_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("challenge.id", ondelete="CASCADE"), nullable=True
+    )

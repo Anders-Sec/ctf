@@ -59,6 +59,17 @@ class UpdateChallengeRequest(BaseModel):
     scoring: ScoringMode | None = None
     decay_basis: DecayBasis | None = None
     max_attempts: int | None = Field(default=None, ge=1, le=1000)
+    #: Attach (or, with an explicit null, detach) a container template. spec 014.
+    container_template_id: UUID | None = None
+
+
+class PrerequisiteResponse(BaseModel):
+    challenge_id: UUID
+    title: str
+
+
+class AddPrerequisiteRequest(BaseModel):
+    required_challenge_id: UUID
 
 
 class SetStateRequest(BaseModel):
@@ -134,6 +145,8 @@ class AdminChallengeDetail(BaseModel):
     body: str
     answers: list[AdminAnswerResponse]
     artifacts: list[ArtifactResponse]
+    container_template_id: UUID | None = None
+    prerequisites: list[PrerequisiteResponse] = []
     created_at: datetime
 
 

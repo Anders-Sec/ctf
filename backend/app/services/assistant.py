@@ -113,6 +113,15 @@ async def _challenge_context(
     if challenge is None or challenge.effective_state(now) not in CONTEXT_VISIBLE:
         return None
 
+    # A challenge the player has not unlocked (unmet prerequisites) is off-limits
+    # to the System AI too, so it cannot describe something still locked for them.
+    from app.services import challenges as challenge_service
+
+    prereqs = await challenge_service.prerequisite_status(db, user_id, [challenge.id], now)
+    status = prereqs.get(challenge.id)
+    if status is not None and status.locked:
+        return None
+
     solved = bool(
         await db.scalar(
             select(Solve.id).where(Solve.user_id == user_id, Solve.challenge_id == challenge.id)

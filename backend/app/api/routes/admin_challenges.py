@@ -22,6 +22,7 @@ from app.models.challenge import (
 )
 from app.models.play import Solve, Submission
 from app.schemas.admin_challenges import (
+    AddPrerequisiteRequest,
     AdminAnswerResponse,
     AdminChallengeDetail,
     AdminChallengeSummary,
@@ -30,6 +31,7 @@ from app.schemas.admin_challenges import (
     CreateAnswerRequest,
     CreateCategoryRequest,
     CreateChallengeRequest,
+    PrerequisiteResponse,
     SetStateRequest,
     SubmissionLogEntry,
     UpdateChallengeRequest,
@@ -66,7 +68,12 @@ async def _load(db: DbSession, challenge_id: UUID) -> Challenge:
     return challenge
 
 
-def _detail(challenge: Challenge, solve_count: int, value: int) -> AdminChallengeDetail:
+def _detail(
+    challenge: Challenge,
+    solve_count: int,
+    value: int,
+    prerequisites: list[Challenge] | None = None,
+) -> AdminChallengeDetail:
     return AdminChallengeDetail(
         id=challenge.id,
         title=challenge.title,
@@ -95,8 +102,19 @@ def _detail(challenge: Challenge, solve_count: int, value: int) -> AdminChalleng
             ArtifactResponse.model_validate(artifact, from_attributes=True)
             for artifact in challenge.artifacts
         ],
+        container_template_id=challenge.container_template_id,
+        prerequisites=[
+            PrerequisiteResponse(challenge_id=p.id, title=p.title) for p in (prerequisites or [])
+        ],
         created_at=challenge.created_at,
     )
+
+
+async def _detail_response(
+    db: DbSession, challenge: Challenge, solve_count: int, value: int
+) -> AdminChallengeDetail:
+    prereqs = await challenge_service.list_prerequisites(db, challenge.id)
+    return _detail(challenge, solve_count, value, prereqs)
 
 
 @router.get("/challenges")
@@ -164,7 +182,9 @@ async def create_challenge(
         meta={"slug": challenge.slug},
         request_id=_request_id(request),
     )
-    return _detail(await _load(db, challenge.id), 0, scoring.challenge_value(challenge, 0))
+    return await _detail_response(
+        db, await _load(db, challenge.id), 0, scoring.challenge_value(challenge, 0)
+    )
 
 
 def _validate_scoring(initial: int, minimum: int, threshold: int) -> None:
@@ -184,7 +204,7 @@ def _validate_scoring(initial: int, minimum: int, threshold: int) -> None:
 async def get_challenge(challenge_id: UUID, db: DbSession, current: Staff) -> AdminChallengeDetail:
     challenge = await _load(db, challenge_id)
     count = await scoring.solve_count(db, challenge)
-    return _detail(challenge, count, scoring.challenge_value(challenge, count))
+    return await _detail_response(db, challenge, count, scoring.challenge_value(challenge, count))
 
 
 @router.patch("/challenges/{challenge_id}")
@@ -207,6 +227,13 @@ async def update_challenge(
     renaming = "slug" in changes and changes["slug"] != challenge.slug
     if renaming and await db.scalar(select(Challenge.id).where(Challenge.slug == changes["slug"])):
         raise ConflictError("That slug is already taken.", code="slug_taken")
+
+    # A container template must exist (or be explicitly detached with null).
+    if changes.get("container_template_id") is not None:
+        from app.models.instance import ContainerTemplate
+
+        if await db.get(ContainerTemplate, changes["container_template_id"]) is None:
+            raise NotFoundError("No such container template.")
 
     # Category is a name, resolved to (or creating) a row. Remember the old one so
     # a category left empty by the move is cleaned up.
@@ -236,7 +263,9 @@ async def update_challenge(
         request_id=_request_id(request),
     )
     count = await scoring.solve_count(db, challenge)
-    return _detail(await _load(db, challenge.id), count, scoring.challenge_value(challenge, count))
+    return await _detail_response(
+        db, await _load(db, challenge.id), count, scoring.challenge_value(challenge, count)
+    )
 
 
 @router.post("/challenges/{challenge_id}/state")
@@ -269,7 +298,7 @@ async def set_state(
         request_id=_request_id(request),
     )
     count = await scoring.solve_count(db, challenge)
-    return _detail(challenge, count, scoring.challenge_value(challenge, count))
+    return await _detail_response(db, challenge, count, scoring.challenge_value(challenge, count))
 
 
 @router.delete("/challenges/{challenge_id}")
@@ -404,6 +433,58 @@ async def test_answer(
         matched_answer_id=verdict.matched_answer.id if verdict.matched_answer else None,
         matched_label=verdict.matched_answer.label if verdict.matched_answer else None,
         errors=list(verdict.errors),
+    )
+
+
+# --------------------------------------------------------------------------
+# Prerequisites (spec 014)
+# --------------------------------------------------------------------------
+
+
+@router.post("/challenges/{challenge_id}/prerequisites", status_code=status.HTTP_201_CREATED)
+async def add_prerequisite(
+    challenge_id: UUID,
+    payload: AddPrerequisiteRequest,
+    request: Request,
+    db: DbSession,
+    current: Admin,
+) -> list[PrerequisiteResponse]:
+    await _load(db, challenge_id)
+    await challenge_service.add_prerequisite(db, challenge_id, payload.required_challenge_id)
+    await record_audit(
+        db,
+        action="challenge.prerequisite_add",
+        target_type="challenge",
+        target_id=challenge_id,
+        actor_user_id=current.user.id,
+        meta={"required": str(payload.required_challenge_id)},
+        request_id=_request_id(request),
+    )
+    prereqs = await challenge_service.list_prerequisites(db, challenge_id)
+    return [PrerequisiteResponse(challenge_id=p.id, title=p.title) for p in prereqs]
+
+
+@router.delete(
+    "/challenges/{challenge_id}/prerequisites/{required_challenge_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_prerequisite(
+    challenge_id: UUID,
+    required_challenge_id: UUID,
+    request: Request,
+    db: DbSession,
+    current: Admin,
+) -> None:
+    await _load(db, challenge_id)
+    await challenge_service.remove_prerequisite(db, challenge_id, required_challenge_id)
+    await record_audit(
+        db,
+        action="challenge.prerequisite_remove",
+        target_type="challenge",
+        target_id=challenge_id,
+        actor_user_id=current.user.id,
+        meta={"required": str(required_challenge_id)},
+        request_id=_request_id(request),
     )
 
 

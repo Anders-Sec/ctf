@@ -530,3 +530,46 @@ class TestDerivedCategories:
 
         # "Misc" is now empty and gone.
         assert await db_session.get(Category, uuid.UUID(old_category_id)) is None
+
+
+class TestContainerAssignment:
+    async def test_a_template_can_be_attached_and_detached(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from tests.factories import make_template
+
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        template = await make_template(db_session)
+        created = await client.post(
+            "/api/admin/challenges",
+            json={"title": "Boxed", "slug": "boxed", "category": "Web"},
+        )
+        challenge_id = created.json()["id"]
+
+        attached = await client.patch(
+            f"/api/admin/challenges/{challenge_id}",
+            json={"container_template_id": str(template.id)},
+        )
+        assert attached.status_code == 200
+        assert attached.json()["container_template_id"] == str(template.id)
+
+        detached = await client.patch(
+            f"/api/admin/challenges/{challenge_id}", json={"container_template_id": None}
+        )
+        assert detached.json()["container_template_id"] is None
+
+    async def test_an_unknown_template_is_rejected(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        import uuid
+
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        created = await client.post(
+            "/api/admin/challenges",
+            json={"title": "Boxed2", "slug": "boxed2", "category": "Web"},
+        )
+        response = await client.patch(
+            f"/api/admin/challenges/{created.json()['id']}",
+            json={"container_template_id": str(uuid.uuid4())},
+        )
+        assert response.status_code == 404

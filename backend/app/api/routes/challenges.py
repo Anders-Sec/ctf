@@ -26,6 +26,7 @@ from app.schemas.challenges import (
     SubmitAnswerRequest,
     SubmitAnswerResponse,
     UnlockHintResponse,
+    UnlockRequirementResponse,
 )
 from app.services import artifacts as artifact_service
 from app.services import challenges as challenge_service
@@ -55,6 +56,12 @@ def _list_item(row: dict) -> ChallengeListItem:
         attempts_remaining=row["attempts_remaining"],
         max_attempts=challenge.max_attempts,
         release_at=challenge.release_at,
+        unlock_requirements=[
+            UnlockRequirementResponse(
+                challenge_id=req.challenge_id, title=req.title, solved=req.solved
+            )
+            for req in row.get("unlock_requirements", [])
+        ],
     )
 
 

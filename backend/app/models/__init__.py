@@ -15,10 +15,12 @@ from app.models.challenge import (
     ChallengeAnswer,
     ChallengeArtifact,
     ChallengeState,
+    ChallengeUnlockRequirement,
     DecayBasis,
     Difficulty,
     MatchType,
     PreReleaseState,
+    RequirementType,
     ScoringMode,
 )
 from app.models.event import EVENT_CONFIG_ID, EventConfig
@@ -61,6 +63,7 @@ __all__ = [
     "Challenge",
     "ChallengeAnswer",
     "ChallengeArtifact",
+    "ChallengeUnlockRequirement",
     "ChallengeState",
     "DecayBasis",
     "Difficulty",
@@ -70,6 +73,7 @@ __all__ = [
     "MessageRole",
     "Severity",
     "PreReleaseState",
+    "RequirementType",
     "ReportStatus",
     "ScoreAdjustment",
     "ScoringMode",

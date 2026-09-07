@@ -2,6 +2,7 @@
 
 import re
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -14,7 +15,13 @@ from sqlalchemy.orm import selectinload
 
 from app.errors import AppError, NotFoundError
 from app.logging import get_logger
-from app.models.challenge import Category, Challenge, ChallengeState
+from app.models.challenge import (
+    Category,
+    Challenge,
+    ChallengeState,
+    ChallengeUnlockRequirement,
+    RequirementType,
+)
 from app.models.play import MAX_SUBMISSION_LENGTH, Solve, Submission
 from app.models.user import User
 from app.services import answers as answer_service
@@ -40,6 +47,77 @@ class AttemptsExhausted(AppError):
 
 #: What a player is allowed to see at each effective state.
 PLAYER_VISIBLE = (ChallengeState.LOCKED, ChallengeState.PUBLISHED)
+
+
+@dataclass(frozen=True)
+class RequirementView:
+    """One prerequisite of a challenge, for the player-facing 'why locked' hint."""
+
+    challenge_id: UUID
+    title: str
+    solved: bool
+
+
+@dataclass(frozen=True)
+class PrereqStatus:
+    #: True when the player has NOT met every requirement of the gated challenge.
+    locked: bool
+    #: Only the requirements the player is allowed to see, for the unlock hint.
+    visible_requirements: list[RequirementView]
+
+
+async def prerequisite_status(
+    db: AsyncSession, user_id: UUID, challenge_ids: list[UUID], now: datetime
+) -> dict[UUID, PrereqStatus]:
+    """For each gated challenge, whether this player has unmet prerequisites.
+
+    Locking considers *all* requirements (a hidden prerequisite can never be
+    solved, so the gate holds); the returned hint lists only the prerequisites the
+    player may see, so a locked challenge does not reveal a hidden one.
+    """
+    if not challenge_ids:
+        return {}
+
+    rows = (
+        await db.execute(
+            select(ChallengeUnlockRequirement.challenge_id, Challenge)
+            .join(Challenge, Challenge.id == ChallengeUnlockRequirement.required_challenge_id)
+            .where(
+                ChallengeUnlockRequirement.challenge_id.in_(challenge_ids),
+                ChallengeUnlockRequirement.requirement_type == RequirementType.CHALLENGE_SOLVED,
+            )
+        )
+    ).all()
+    if not rows:
+        return {}
+
+    required_ids = {required.id for _, required in rows}
+    solved = set(
+        (
+            await db.execute(
+                select(Solve.challenge_id).where(
+                    Solve.user_id == user_id, Solve.challenge_id.in_(required_ids)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    grouped: dict[UUID, list[tuple[Challenge, bool]]] = defaultdict(list)
+    for gated_id, required in rows:
+        grouped[gated_id].append((required, required.id in solved))
+
+    result: dict[UUID, PrereqStatus] = {}
+    for gated_id, reqs in grouped.items():
+        locked = not all(is_solved for _, is_solved in reqs)
+        visible = [
+            RequirementView(challenge_id=req.id, title=req.title, solved=is_solved)
+            for req, is_solved in reqs
+            if req.effective_state(now) in PLAYER_VISIBLE
+        ]
+        result[gated_id] = PrereqStatus(locked=locked, visible_requirements=visible)
+    return result
 
 
 @dataclass(frozen=True)
@@ -92,10 +170,19 @@ async def _decorate(
         .all()
     )
     attempt_counts = await _attempt_counts(db, user_id, ids)
+    prereqs = await prerequisite_status(db, user_id, ids, now)
 
     rows = []
     for challenge in challenges:
         state = challenge.effective_state(now)
+        status = prereqs.get(challenge.id)
+        # Prerequisites make "locked" per-player: a published challenge whose
+        # requirements this player has not met is experienced as locked.
+        requirements: list[RequirementView] = []
+        if state == ChallengeState.PUBLISHED and status is not None and status.locked:
+            state = ChallengeState.LOCKED
+            requirements = status.visible_requirements
+
         counts = team_counts if challenge.decay_basis.value == "teams" else player_counts
         count = counts.get(challenge.id, 0)
         rows.append(
@@ -108,6 +195,7 @@ async def _decorate(
                 "solve_count": player_counts.get(challenge.id, 0),
                 "solved": challenge.id in solved_ids,
                 "attempts_remaining": _remaining(challenge, attempt_counts.get(challenge.id, 0)),
+                "unlock_requirements": requirements,
             }
         )
     return rows
@@ -192,6 +280,13 @@ async def submit_answer(
 
     if state == ChallengeState.LOCKED:
         # Logged anyway: someone probing locked challenges is worth seeing in 007.
+        await _record(db, user, challenge, raw_answer, False, None, ip, request_id, now)
+        raise ChallengeLocked
+
+    # Prerequisite gate, enforced server-side so the lock is real, not cosmetic.
+    prereqs = await prerequisite_status(db, user.id, [challenge.id], now)
+    status_row = prereqs.get(challenge.id)
+    if status_row is not None and status_row.locked:
         await _record(db, user, challenge, raw_answer, False, None, ip, request_id, now)
         raise ChallengeLocked
 
@@ -365,3 +460,115 @@ async def prune_category_if_empty(db: AsyncSession, category_id: UUID) -> bool:
     await db.delete(category)
     await db.flush()
     return True
+
+
+# --------------------------------------------------------------------------
+# Prerequisite management (admin, spec 014)
+# --------------------------------------------------------------------------
+
+
+class InvalidPrerequisite(AppError):
+    status_code = 409
+    code = "invalid_prerequisite"
+    message = "That prerequisite is not allowed."
+
+
+async def list_prerequisites(db: AsyncSession, challenge_id: UUID) -> list[Challenge]:
+    return list(
+        (
+            await db.execute(
+                select(Challenge)
+                .join(
+                    ChallengeUnlockRequirement,
+                    ChallengeUnlockRequirement.required_challenge_id == Challenge.id,
+                )
+                .where(ChallengeUnlockRequirement.challenge_id == challenge_id)
+                .order_by(Challenge.title)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+async def add_prerequisite(
+    db: AsyncSession, challenge_id: UUID, required_challenge_id: UUID
+) -> None:
+    """Require ``required_challenge_id`` be solved before ``challenge_id`` unlocks.
+
+    Rejects self-reference and any cycle: if the required challenge already depends
+    (transitively) on this one, adding the edge would make both permanently
+    unsolvable. Idempotent — a duplicate pair is a no-op.
+    """
+    if challenge_id == required_challenge_id:
+        raise InvalidPrerequisite("A challenge cannot require itself.", code="self_prerequisite")
+
+    if await db.scalar(select(Challenge.id).where(Challenge.id == required_challenge_id)) is None:
+        raise NotFoundError("No such challenge.")
+
+    if await _would_cycle(db, challenge_id, required_challenge_id):
+        raise InvalidPrerequisite(
+            "That would create a prerequisite cycle.", code="prerequisite_cycle"
+        )
+
+    existing = await db.scalar(
+        select(ChallengeUnlockRequirement.id).where(
+            ChallengeUnlockRequirement.challenge_id == challenge_id,
+            ChallengeUnlockRequirement.required_challenge_id == required_challenge_id,
+        )
+    )
+    if existing is not None:
+        return
+
+    db.add(
+        ChallengeUnlockRequirement(
+            challenge_id=challenge_id,
+            requirement_type=RequirementType.CHALLENGE_SOLVED,
+            required_challenge_id=required_challenge_id,
+        )
+    )
+    await db.flush()
+
+
+async def remove_prerequisite(
+    db: AsyncSession, challenge_id: UUID, required_challenge_id: UUID
+) -> None:
+    from sqlalchemy import delete as sql_delete
+
+    await db.execute(
+        sql_delete(ChallengeUnlockRequirement).where(
+            ChallengeUnlockRequirement.challenge_id == challenge_id,
+            ChallengeUnlockRequirement.required_challenge_id == required_challenge_id,
+        )
+    )
+    await db.flush()
+
+
+async def _would_cycle(db: AsyncSession, challenge_id: UUID, required_challenge_id: UUID) -> bool:
+    """True if requiring ``required_challenge_id`` reaches back to ``challenge_id``.
+
+    Walks the prerequisite graph from the proposed requirement; if the gated
+    challenge is reachable, the edge closes a loop.
+    """
+    seen: set[UUID] = set()
+    frontier = [required_challenge_id]
+    while frontier:
+        current = frontier.pop()
+        if current == challenge_id:
+            return True
+        if current in seen:
+            continue
+        seen.add(current)
+        parents = (
+            (
+                await db.execute(
+                    select(ChallengeUnlockRequirement.required_challenge_id).where(
+                        ChallengeUnlockRequirement.challenge_id == current
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        frontier.extend(p for p in parents if p is not None)
+    return False
