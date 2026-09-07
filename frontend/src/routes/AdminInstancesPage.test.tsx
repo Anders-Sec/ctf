@@ -36,6 +36,9 @@ function render(instances: AdminInstance[]) {
     if (path.endsWith("/admin/instances")) {
       return { status: 200, body: instances };
     }
+    if (path.endsWith("/admin/templates")) {
+      return { status: 200, body: [] };
+    }
     return { status: 200, body: {} };
   });
   renderApp(<AdminInstancesPage />);
