@@ -22,8 +22,13 @@ spec:
           image: ghcr.io/anders-sec/ctf-frontend:v1
           imagePullPolicy: IfNotPresent
           ports:
-            - { name: http, containerPort: 80 }
+            - { name: http, containerPort: 8080 }
           securityContext:
+            # The image already runs as uid 101; stating it here means the
+            # cluster refuses the pod if that ever regresses, rather than
+            # quietly running a root nginx.
+            runAsNonRoot: true
+            runAsUser: 101
             allowPrivilegeEscalation: false
             capabilities: { drop: ["ALL"] }
             seccompProfile: { type: RuntimeDefault }

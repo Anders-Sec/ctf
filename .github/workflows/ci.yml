@@ -4,8 +4,9 @@ on:
   pull_request:
   push:
     branches: [main]
-    # Release tags are what deploy/ pins. Pushing v1 is what puts
-    # ghcr.io/anders-sec/ctf-*:v1 in the registry for ArgoCD to pull.
+    # deploy/ pins the immutable sha-<gitsha> tag, so a release is a manifest
+    # bump rather than a git tag. This trigger stays for the occasional named
+    # tag; nothing in deploy/ depends on one existing.
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -152,8 +153,10 @@ jobs:
             type=ref,event=tag
             type=sha,format=short,prefix=sha-
             type=raw,value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.tag != '' }}
-          # deploy/ pins explicit tags and the pods run imagePullPolicy:
-          # IfNotPresent, so a moving :latest would be both unpinned and unpulled.
+          # No moving tags, ever. deploy/ pins sha-<gitsha> and the pods run
+          # imagePullPolicy: IfNotPresent, so a tag that silently repoints would
+          # leave the cluster on an old image with no way to tell from the
+          # manifest -- and ArgoCD would report the sync as healthy.
           flavor: latest=false
 
       - name: Build and push
