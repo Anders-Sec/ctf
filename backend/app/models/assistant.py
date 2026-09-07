@@ -9,7 +9,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,7 +39,10 @@ class AssistantConversation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class AssistantMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "assistant_message"
-    __table_args__ = (Index("ix_assistant_message_conversation", "conversation_id", "created_at"),)
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "sequence", name="uq_assistant_message_sequence"),
+        Index("ix_assistant_message_conversation", "conversation_id", "sequence"),
+    )
 
     conversation_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True),
@@ -50,6 +53,10 @@ class AssistantMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Enum(MessageRole, name="assistant_role", values_callable=lambda e: [m.value for m in e]),
         nullable=False,
     )
+    #: Position in the conversation. ``created_at`` cannot order these: Postgres
+    #: stamps ``now()`` at transaction start, so the question and the answer it
+    #: produced always carry an identical timestamp and would sort arbitrarily.
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
     #: What the player was looking at when they asked, so the assistant gets

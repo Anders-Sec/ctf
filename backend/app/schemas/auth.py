@@ -57,6 +57,10 @@ class MeResponse(BaseModel):
     team: TeamSummary | None
     capabilities: CapabilitiesResponse
     event: "EventSummary | None"
+    #: Whether to offer the dungeon master chat at all: the feature has to be
+    #: configured *and* this user has to be allowed to use it. Staff-only until
+    #: spec 011 lands the guardrails.
+    assistant_available: bool = False
 
 
 class EventSummary(BaseModel):

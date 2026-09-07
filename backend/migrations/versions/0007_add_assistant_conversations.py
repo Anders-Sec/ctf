@@ -2,7 +2,7 @@
 
 Revision ID: 0007
 Revises: 0006
-Create Date: 2026-09-06 19:03:31.959437
+Create Date: 2026-09-06 19:17:57.496908
 """
 
 from collections.abc import Sequence
@@ -44,6 +44,7 @@ def upgrade() -> None:
         "assistant_message",
         sa.Column("conversation_id", sa.UUID(), nullable=False),
         sa.Column("role", sa.Enum("user", "assistant", name="assistant_role"), nullable=False),
+        sa.Column("sequence", sa.Integer(), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("challenge_id", sa.UUID(), nullable=True),
         sa.Column("from_staff", sa.Boolean(), server_default="false", nullable=False),
@@ -71,11 +72,12 @@ def upgrade() -> None:
             ["conversation_id"], ["assistant_conversation.id"], ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("conversation_id", "sequence", name="uq_assistant_message_sequence"),
     )
     op.create_index(
         "ix_assistant_message_conversation",
         "assistant_message",
-        ["conversation_id", "created_at"],
+        ["conversation_id", "sequence"],
         unique=False,
     )
     # ### end Alembic commands ###
@@ -87,3 +89,6 @@ def downgrade() -> None:
     op.drop_table("assistant_message")
     op.drop_table("assistant_conversation")
     # ### end Alembic commands ###
+    # Alembic does not drop the enum type it created above, and leaving it
+    # behind makes the next upgrade fail on a duplicate type.
+    sa.Enum(name="assistant_role").drop(op.get_bind(), checkfirst=True)

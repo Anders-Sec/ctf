@@ -7,7 +7,7 @@ advisory locks) that a substitute engine would not reproduce.
 """
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
 import pytest
@@ -241,7 +241,7 @@ def no_outbound_mail(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _reset_ai_client() -> AsyncIterator[None]:
+def _reset_ai_client() -> Iterator[None]:
     """Breakers and connection pools are module state; do not leak them between tests."""
     ai_client.reset_state()
     yield
