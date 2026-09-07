@@ -8,19 +8,25 @@ deliberately one name changed in one place.
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
-from app.api.deps import AppSettings, DbSession, RedisClient, Staff
+from app.api.deps import Admin, AppSettings, DbSession, RedisClient, Staff
 from app.models.assistant import AssistantMessage
+from app.models.guardrail import FindingAction, GuardrailLayer, Severity
 from app.schemas.assistant import (
     AssistantHealthResponse,
     AssistantMessageResponse,
     ConversationResponse,
+    FindingResponse,
+    FindingsPage,
+    PurgeResponse,
     SendMessageRequest,
     SendMessageResponse,
 )
 from app.services import ai_client
 from app.services import assistant_chat as chat
+from app.services import assistant_review as review
+from app.services.identity import record_audit
 from app.services.rate_limit import RateLimited, check_assistant_limits
 
 #: Spec 011 changes this to `Player`. Everything else stays as it is.
@@ -104,3 +110,61 @@ async def assistant_health(settings: AppSettings, current: Staff) -> AssistantHe
         average_latency_ms=state.average_latency_ms,
         error=state.error,
     )
+
+
+@router.get("/admin/assistant/findings", tags=["admin"])
+async def list_findings(
+    db: DbSession,
+    current: Staff,
+    layer: GuardrailLayer | None = None,
+    action: FindingAction | None = None,
+    severity: Severity | None = None,
+    include_staff: bool = False,
+    limit: int = 100,
+    offset: int = 0,
+) -> FindingsPage:
+    rows, total = await review.list_findings(
+        db,
+        layer=layer,
+        action=action,
+        severity=severity,
+        include_staff=include_staff,
+        limit=min(limit, 200),
+        offset=offset,
+    )
+    return FindingsPage(
+        total=total,
+        findings=[
+            FindingResponse(
+                id=row.finding.id,
+                created_at=row.finding.created_at,
+                layer=row.finding.layer.value,
+                rule=row.finding.rule,
+                severity=row.finding.severity.value,
+                action=row.finding.action.value,
+                player_name=row.player_name,
+                challenge_id=row.challenge_id,
+                question=row.question,
+                reply=row.reply,
+                detail=row.finding.detail,
+            )
+            for row in rows
+        ],
+    )
+
+
+@router.post("/admin/assistant/purge", tags=["admin"], status_code=200)
+async def purge_conversations(
+    request: Request, db: DbSession, settings: AppSettings, current: Admin
+) -> PurgeResponse:
+    """Admin action rather than a scheduler this application does not run."""
+    purged = await review.purge_expired(db, settings.ai_retention_days)
+    await record_audit(
+        db,
+        action="assistant.purge",
+        target_type="assistant_conversation",
+        actor_user_id=current.user.id,
+        meta={"purged": purged, "retention_days": settings.ai_retention_days},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return PurgeResponse(purged=purged)

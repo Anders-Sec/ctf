@@ -55,3 +55,36 @@ class AssistantHealthResponse(BaseModel):
     in_flight: int
     average_latency_ms: int | None
     error: str | None
+
+
+class FindingResponse(BaseModel):
+    id: UUID
+    created_at: datetime
+    layer: str
+    rule: str
+    severity: str
+    action: str
+    player_name: str
+    challenge_id: UUID | None
+    #: The exchange, so a reviewer sees both halves. The reply is the model's
+    #: real text when it was withheld — that is the point of looking.
+    question: str | None
+    reply: str | None
+    detail: dict
+
+
+class FindingsPage(BaseModel):
+    findings: list[FindingResponse]
+    total: int
+
+
+class PurgeResponse(BaseModel):
+    purged: int
+
+
+class ToggleAssistantRequest(BaseModel):
+    enabled: bool
+
+
+class BlockPlayerRequest(BaseModel):
+    blocked: bool

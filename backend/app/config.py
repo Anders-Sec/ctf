@@ -131,6 +131,10 @@ class Settings(BaseSettings):
     #: matches the whole field and reads as damning to someone who does not
     #: know that.
     signal_shared_ip_enabled: bool = False
+    #: A player with at least this many integrity flags becomes a signal on the
+    #: spec 007 review page, so repeated extraction attempts surface alongside
+    #: the other anti-cheat findings rather than only in the flag log.
+    signal_assistant_extraction_min: int = 5
 
     # --- AI assistant (spec 010) --------------------------------------------
     #: The in-cluster `ai` Service, so this value survives the host address

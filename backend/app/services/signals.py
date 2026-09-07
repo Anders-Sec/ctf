@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import Settings
 from app.models.challenge import Challenge
 from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.guardrail import AssistantFinding, GuardrailLayer
 from app.models.play import Solve, Submission
 from app.models.signal import SignalDismissal
 from app.models.team import Team, TeamMembership
@@ -39,6 +40,7 @@ FIRST_TRY = "first_try_solver"
 LATE_RECRUIT = "late_recruitment"
 CADENCE = "steady_cadence"
 SHARED_IP = "shared_ip"
+ASSISTANT_EXTRACTION = "assistant_extraction"
 
 #: Strings that mean nothing — everybody types these.
 _OBVIOUS = {"test", "flag", "password", "admin", "asdf", "guess", "unknown", "none"}
@@ -412,6 +414,48 @@ async def shared_addresses(db: AsyncSession, context: _Context) -> list[Finding]
     ]
 
 
+async def assistant_extraction(db: AsyncSession, context: _Context) -> list[Finding]:
+    """A player who keeps trying to talk the dungeon master out of an answer.
+
+    Computed from `assistant_finding` the same way the other six are computed
+    from submissions — no new tracking, and it inherits the dismissal, the
+    innocent explanation and the review page. Staff findings are excluded at the
+    source (`from_staff`), so our own testing of the filters does not appear.
+    """
+    settings = context.settings
+    rows = (
+        await db.execute(
+            select(AssistantFinding.user_id, func.count(AssistantFinding.id))
+            .where(
+                AssistantFinding.layer == GuardrailLayer.INTEGRITY,
+                AssistantFinding.from_staff.is_(False),
+            )
+            .group_by(AssistantFinding.user_id)
+        )
+    ).all()
+
+    findings = []
+    for user_id, count in rows:
+        if user_id not in context.players:
+            continue
+        if count < settings.signal_assistant_extraction_min:
+            continue
+        findings.append(
+            Finding(
+                signal_type=ASSISTANT_EXTRACTION,
+                subject_key=_key(ASSISTANT_EXTRACTION, user_id),
+                participants=[_person(context, user_id)],
+                challenge_title=None,
+                evidence={"integrity_flags": count},
+                innocent_explanation=(
+                    "Often harmless. Asking the dungeon master for the flag is a "
+                    "joke nearly everyone makes, and every repeat counts here."
+                ),
+            )
+        )
+    return findings
+
+
 _COMPUTERS = {
     SHARED_ANSWER: shared_wrong_answers,
     CLOSE_SOLVE: close_behind_solves,
@@ -419,6 +463,7 @@ _COMPUTERS = {
     LATE_RECRUIT: late_recruitment,
     CADENCE: steady_cadence,
     SHARED_IP: shared_addresses,
+    ASSISTANT_EXTRACTION: assistant_extraction,
 }
 
 
