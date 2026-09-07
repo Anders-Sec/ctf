@@ -56,6 +56,7 @@ export function me(overrides: Partial<Me> = {}): Me {
       registration_open: true,
       server_time: "2026-09-02T12:00:00Z",
     },
+    assistant_available: false,
     ...overrides,
   };
 }

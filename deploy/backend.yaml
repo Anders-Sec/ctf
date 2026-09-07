@@ -48,6 +48,10 @@ spec:
             # the Endpoints pointed at the right address, so this value never
             # changes here even when the host address does.
             - { name: AI_BASE_URL, value: "http://ai.ctf.svc.cluster.local:1235/v1" }
+            # The loaded model's id, not a secret and not an address. Without it
+            # the assistant reports itself unconfigured and the chat is hidden.
+            - name: AI_MODEL
+              value: "llama3.3-8b-instruct-thinking-heretic-uncensored-claude-4.5-opus-high-reasoning-i1"
 
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: ctf-secrets, key: database-url } }

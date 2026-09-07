@@ -1,6 +1,6 @@
 # Spec 010 — AI Assistant: Mediator Service
 
-Status: **draft — awaiting sign-off**
+Status: **done** — 54 backend tests, 10 frontend tests
 Phase: 1
 Covers: `Plan.md` → AI Assistant (the service, the model client, conversations)
 Depends on: 002 (identity, the `play` gate), 003 (challenges), 004 (hints)

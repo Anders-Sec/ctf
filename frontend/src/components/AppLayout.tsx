@@ -4,6 +4,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { logout } from "../api/auth";
 import { useSession } from "../auth/session";
+import AssistantPanel from "./AssistantPanel";
 import Avatar from "./Avatar";
 
 export default function AppLayout() {
@@ -76,6 +77,7 @@ export default function AppLayout() {
         </div>
       </nav>
       <Outlet />
+      <AssistantPanel />
     </div>
   );
 }

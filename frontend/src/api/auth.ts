@@ -53,6 +53,12 @@ export interface Me {
   team: TeamSummary | null;
   capabilities: Capabilities;
   event: EventSummary | null;
+  /**
+   * Whether to offer the dungeon master chat at all. Resolved server-side: the
+   * feature has to be configured *and* this user allowed to use it, which is
+   * staff-only until spec 011 lands the guardrails.
+   */
+  assistant_available: boolean;
 }
 
 export const getMe = () => api.get<Me>("/auth/me");
