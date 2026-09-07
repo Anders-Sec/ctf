@@ -20,6 +20,7 @@ dependencies = [
     "regex>=2024.11.6",
     "boto3>=1.35",
     "python-multipart>=0.0.20",
+    "kubernetes-asyncio>=32.0",
 ]
 
 [dependency-groups]

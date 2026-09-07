@@ -48,6 +48,10 @@ def get_app_settings(request: Request) -> Settings:
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
 
 
+def get_orchestrator(request: Request):  # noqa: ANN201 - InstanceOrchestrator, kept import-light here
+    return request.app.state.orchestrator
+
+
 async def get_redis_client(settings: AppSettings) -> AsyncIterator[Redis]:
     yield get_redis(settings)
 

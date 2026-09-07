@@ -29,6 +29,7 @@ from app.services.cookies import (
     REFRESH_COOKIE,
     REFRESH_COOKIE_PATH,
 )
+from app.services.instances.fake import FakeOrchestrator
 from app.services.sessions import IssuedSession, issue_session
 
 TEST_DATABASE_NAME = "ctf_test"
@@ -164,7 +165,16 @@ def app(settings: Settings, db_session: AsyncSession) -> FastAPI:
         yield db_session
 
     application.dependency_overrides[get_db_session] = _override_session
+    # A controllable fake so instance tests can drive readiness and inspect what
+    # would have been applied, with no cluster in the loop.
+    application.state.orchestrator = FakeOrchestrator()
     return application
+
+
+@pytest.fixture
+def orchestrator(app: FastAPI) -> FakeOrchestrator:
+    """The fake the test app is using, for driving and inspecting instances."""
+    return app.state.orchestrator
 
 
 @pytest.fixture

@@ -27,9 +27,23 @@ from app.logging import configure_logging, get_logger
 from app.middleware import RequestContextMiddleware
 from app.redis import close_redis, get_redis
 from app.services.ai_client import close_clients as close_ai_clients
+from app.services.instances.factory import build_orchestrator
 from app.services.scoreboard_cache import broadcaster
 
 logger = get_logger(__name__)
+
+
+async def _ensure_instance_isolation(app: FastAPI) -> None:
+    """Assert the namespace default-deny at boot. Best-effort: the platform
+    session should also ship it, so a failure here (or the feature being off) is
+    logged, never fatal."""
+    settings: Settings = app.state.settings
+    if not settings.instances_configured:
+        return
+    try:
+        await app.state.orchestrator.ensure_default_deny(settings.kube_namespace)
+    except Exception as exc:  # noqa: BLE001 - never block startup on the cluster
+        logger.warning("instance_default_deny_failed", extra={"error_type": type(exc).__name__})
 
 
 async def _purge_stale_conversations(settings: Settings) -> None:
@@ -65,6 +79,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # accumulate stale transcripts just because nobody pressed it. Never fatal:
     # the assistant is optional and a failed purge must not stop the app serving.
     await _purge_stale_conversations(settings)
+    await _ensure_instance_isolation(app)
     try:
         yield
     finally:
@@ -89,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=None if settings.is_production else "/api/openapi.json",
     )
     app.state.settings = settings
+    app.state.orchestrator = build_orchestrator(settings)
 
     app.add_middleware(RequestContextMiddleware)
     if settings.cors_allowed_origins:
