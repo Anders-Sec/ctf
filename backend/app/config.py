@@ -132,6 +132,36 @@ class Settings(BaseSettings):
     #: know that.
     signal_shared_ip_enabled: bool = False
 
+    # --- AI assistant (spec 010) --------------------------------------------
+    #: The in-cluster `ai` Service, so this value survives the host address
+    #: changing. A secret rather than a manifest value: the project rules keep
+    #: the model's address out of a public repo.
+    ai_base_url: str | None = None
+    #: Sent on every call. Measured: LM Studio is not currently enforcing it,
+    #: so the real control is restricting that port at the host.
+    ai_api_key: str | None = None
+    ai_model: str = ""
+    ai_enabled: bool = True
+    #: Measured latency is around a second; this catches a wedged host.
+    ai_timeout_seconds: float = 30.0
+    ai_max_tokens: int = 400
+    ai_temperature: float = 0.7
+    #: Matches the measured concurrency sweet spot of ~6.7 responses/sec.
+    ai_max_concurrency: int = 8
+    #: Turns of history replayed to the model. An 8B context degrades quietly
+    #: before it errors, which is worse than erroring.
+    ai_history_turns: int = 10
+    ai_max_message_length: int = 2000
+    ai_messages_per_minute: int = 6
+    ai_messages_per_hour: int = 100
+    #: Consecutive failures before the breaker opens, and how long it stays open.
+    ai_breaker_threshold: int = 5
+    ai_breaker_cooldown_seconds: int = 60
+
+    @property
+    def ai_configured(self) -> bool:
+        return bool(self.ai_enabled and self.ai_base_url and self.ai_model)
+
     @model_validator(mode="after")
     def _check_production_secrets(self) -> "Settings":
         """A shared default signing key would let anyone mint an admin session."""
