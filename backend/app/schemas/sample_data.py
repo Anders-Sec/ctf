@@ -9,7 +9,6 @@ class SampleDataSummary(BaseModel):
     categories: int
     challenges: int
     skills: int
-    classes: int
     hints: int
     players: int
     teams: int

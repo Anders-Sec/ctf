@@ -31,7 +31,6 @@ from app.models.challenge import (
     minimum_points_for,
     points_for,
 )
-from app.models.character_class import CharacterClass
 from app.models.hint import Hint
 from app.models.play import Solve
 from app.models.skill import ChallengeSkill, Skill
@@ -42,9 +41,6 @@ from app.services import unlocks as unlock_service
 #: Marks everything this module creates, so a purge is precise.
 SAMPLE_PREFIX = "sample-"
 SAMPLE_EMAIL_DOMAIN = "sample.invalid"
-
-#: Classes are still sample-only — the real list is being written (spec 018).
-CLASSES = ["Rogue", "Seer", "Wizard"]
 
 #: Difficulty now derives the value, so the plan says how hard, not how many
 #: points (spec 018). Skills are real seeded ones, so the sample exercises the
@@ -74,7 +70,6 @@ class SampleSummary:
     categories: int = 0
     challenges: int = 0
     skills: int = 0
-    classes: int = 0
     hints: int = 0
     players: int = 0
     teams: int = 0
@@ -87,8 +82,11 @@ def _slug(*parts: str) -> str:
 
 
 async def generate(db: AsyncSession) -> SampleSummary:
-    """Build a small but complete event: skills, classes, four zones of
-    challenges with prerequisites and gates, hints, players, a party, and solves.
+    """Build a small but complete event: four zones of challenges with
+    prerequisites and gates, hints, players, a party, and solves.
+
+    Classes are **not** created here — the real 48-class roster is seeded by
+    migration (spec 024), and sample players draw from it like anyone else.
 
     Idempotent by way of ``purge``: generating twice replaces rather than
     duplicates, so the button is safe to press repeatedly.
@@ -96,17 +94,6 @@ async def generate(db: AsyncSession) -> SampleSummary:
     await purge(db)
     summary = SampleSummary()
     now = datetime.now(UTC)
-
-    for order, name in enumerate(CLASSES):
-        db.add(
-            CharacterClass(
-                name=name,
-                display_order=order,
-                description=f"A sample {name.lower()}.",
-            )
-        )
-        summary.classes += 1
-    await db.flush()
 
     # Four wings: an open starter area, then progressively gated ones — the
     # shape the dungeon map is meant to show off.
@@ -377,10 +364,258 @@ async def purge(db: AsyncSession) -> None:
         )
         await db.execute(sql_delete(Category).where(Category.id.in_(category_ids)))
 
-    await db.execute(sql_delete(CharacterClass).where(CharacterClass.name.in_(CLASSES)))
+    # Deliberately does not touch character_class. The sample data used to own
+    # three classes named Rogue, Seer and Wizard, from before the real roster
+    # existed; 024 seeded a real Rogue and Wizard, so this delete would have
+    # taken two roster entries with it and returned their players to Classless.
     await db.flush()
 
 
 def ensure_allowed(is_production: bool) -> None:
     if is_production:
         raise SampleDataUnavailable
+
+
+# --- Dungeon mode (spec 025) -------------------------------------------------
+
+
+class DungeonNotSeeded(AppError):
+    status_code = 409
+    code = "dungeon_not_seeded"
+    message = "The real categories and skills are not seeded yet."
+
+
+#: Three or four per zone. Demo scale deliberately: the goal is seeing every
+#: area in use, not load — a load-shaped dataset is the 012 harness's job.
+_TITLES = ("Foothold", "Deeper In", "The Locked Door", "What Waits Below")
+
+#: Rises with the zone's depth in the progression graph, so the early wings are
+#: approachable and the deep ones are not.
+_DIFFICULTY_BY_DEPTH = {
+    0: (Difficulty.VERY_EASY, Difficulty.VERY_EASY, Difficulty.EASY),
+    1: (Difficulty.VERY_EASY, Difficulty.EASY, Difficulty.EASY, Difficulty.MEDIUM),
+    2: (Difficulty.EASY, Difficulty.MEDIUM, Difficulty.MEDIUM, Difficulty.HARD),
+    3: (Difficulty.MEDIUM, Difficulty.MEDIUM, Difficulty.HARD, Difficulty.HARD),
+}
+_DEEP = (Difficulty.MEDIUM, Difficulty.HARD, Difficulty.HARD, Difficulty.VERY_HARD)
+
+
+async def generate_dungeon(db: AsyncSession) -> SampleSummary:
+    """Fill the **real** dungeon: sample challenges in the real 22 zones, with
+    the real skills attached (spec 025).
+
+    Creates no categories, no skills and no classes — it reads them. That is the
+    whole point: the existing generator builds a world of its own, which cannot
+    show you whether the actual progression graph, gates and class roster work.
+    """
+    await purge(db)
+    summary = SampleSummary()
+    now = datetime.now(UTC)
+
+    categories = list(
+        (
+            await db.execute(
+                select(Category)
+                .where(~Category.slug.startswith(SAMPLE_PREFIX))
+                .order_by(Category.display_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not categories:
+        raise DungeonNotSeeded()
+
+    depths = await _zone_depths(db, categories)
+    skills_by_category = await _skills_by_category(db)
+    all_skill_ids = [sid for group in skills_by_category.values() for sid in group]
+
+    xp_base = get_settings().xp_base
+    built: list[Challenge] = []
+    for category in categories:
+        depth = depths.get(category.id, 0)
+        ladder = _DIFFICULTY_BY_DEPTH.get(depth, _DEEP)
+        for index, difficulty in enumerate(ladder):
+            title = f"{category.name}: {_TITLES[index % len(_TITLES)]}"
+            challenge = Challenge(
+                title=f"{title} (sample)",
+                slug=_slug(category.slug, str(index)),
+                category_id=category.id,
+                body=f"Sample challenge in {category.name}.",
+                difficulty=difficulty,
+                state=ChallengeState.PUBLISHED,
+                initial_points=points_for(difficulty, xp_base),
+                minimum_points=minimum_points_for(difficulty, xp_base),
+                scoring=default_scoring_for(difficulty),
+            )
+            db.add(challenge)
+            built.append(challenge)
+            summary.challenges += 1
+    await db.flush()
+
+    for index, challenge in enumerate(built):
+        db.add(
+            ChallengeAnswer(
+                challenge_id=challenge.id,
+                match_type=MatchType.CASE_INSENSITIVE,
+                value=f"flag{{{challenge.slug}}}",
+                options={},
+                display_order=0,
+            )
+        )
+        # This zone's own skills, plus one from elsewhere every few challenges so
+        # the overlap rule is visible: one solve feeds every attached skill in
+        # full, which is what lets a skill level move at all.
+        attach = list(skills_by_category.get(challenge.category_id, []))[:3]
+        if all_skill_ids and index % 3 == 0:
+            attach.append(all_skill_ids[index % len(all_skill_ids)])
+        for skill_id in dict.fromkeys(attach):
+            db.add(ChallengeSkill(challenge_id=challenge.id, skill_id=skill_id))
+            summary.skills += 1
+
+        if index % 7 == 0:
+            db.add(
+                Hint(
+                    challenge_id=challenge.id,
+                    title="Where to look",
+                    body=f"Sample hint for {challenge.title}.",
+                    cost=50,
+                    display_order=0,
+                )
+            )
+            summary.hints += 1
+    await db.flush()
+
+    await _build_dungeon_players(db, categories, depths, built, now, summary)
+    return summary
+
+
+async def _zone_depths(db: AsyncSession, categories: list[Category]) -> dict:
+    """How far each zone sits from a starting zone, along the real gate graph.
+
+    Depth drives the difficulty ladder, so the sample content matches the shape
+    the progression graph already describes rather than inventing its own.
+    """
+    rows = (
+        await db.execute(
+            select(UnlockRequirement.required_category_id, UnlockRequirement.category_id).where(
+                UnlockRequirement.category_id.is_not(None),
+                UnlockRequirement.required_category_id.is_not(None),
+            )
+        )
+    ).all()
+    forward: dict = {}
+    gated = set()
+    for source, target in rows:
+        forward.setdefault(source, []).append(target)
+        gated.add(target)
+
+    depths = {c.id: 0 for c in categories if c.id not in gated}
+    frontier = list(depths)
+    while frontier:
+        node = frontier.pop(0)
+        for nxt in forward.get(node, []):
+            if nxt not in depths:
+                depths[nxt] = depths[node] + 1
+                frontier.append(nxt)
+    # A zone nothing reaches still needs a depth; treat it as deep.
+    for category in categories:
+        depths.setdefault(category.id, 3)
+    return depths
+
+
+async def _skills_by_category(db: AsyncSession) -> dict:
+    rows = (await db.execute(select(Skill.id, Skill.category_id))).all()
+    grouped: dict = {}
+    for skill_id, category_id in rows:
+        if category_id is not None:
+            grouped.setdefault(category_id, []).append(skill_id)
+    return grouped
+
+
+async def _build_dungeon_players(
+    db: AsyncSession,
+    categories: list[Category],
+    depths: dict,
+    challenges: list[Challenge],
+    now: datetime,
+    summary: SampleSummary,
+) -> None:
+    """Players at a spread of depths, so the map, the gates and the class roster
+    all have something to show.
+
+    Progress is expressed as "how deep this player has pushed": a player only
+    ever holds solves in zones at or above their reach, so nobody carries a solve
+    in a wing they could not have opened.
+    """
+    by_category: dict = {}
+    for challenge in challenges:
+        by_category.setdefault(challenge.category_id, []).append(challenge)
+
+    # (name, how deep they have pushed, how much of each reachable zone they cleared)
+    roster = [
+        ("Thorin Flagsplitter", 3, 1.0),
+        ("Mira Nullbyte", 2, 0.8),
+        ("Garrick Overflow", 2, 0.5),
+        ("Sable Ciphersong", 1, 0.7),
+        ("Pip Rootward", 1, 0.4),
+        ("Bex Hexdump", 0, 1.0),
+        ("Quill Ashgrove", 0, 0.5),
+    ]
+
+    players: list[User] = []
+    for display_name, _, _ in roster:
+        user = User(
+            email=f"{SAMPLE_PREFIX}{display_name.split()[0].lower()}@{SAMPLE_EMAIL_DOMAIN}",
+            display_name=display_name,
+            source=UserSource.GUEST,
+            status=UserStatus.ACTIVE,
+            role=UserRole.PLAYER,
+            approved_at=now,
+        )
+        db.add(user)
+        players.append(user)
+        summary.players += 1
+    await db.flush()
+
+    party = Team(
+        name="The Sample Delvers",
+        visibility=TeamVisibility.PUBLIC,
+        leader_user_id=players[0].id,
+        max_members=8,
+    )
+    db.add(party)
+    summary.teams += 1
+    await db.flush()
+
+    for index, user in enumerate(players[:3]):
+        db.add(
+            TeamMembership(
+                team_id=party.id,
+                user_id=user.id,
+                role=MembershipRole.LEADER if index == 0 else MembershipRole.MEMBER,
+                joined_at=now,
+            )
+        )
+
+    solved_at = now - timedelta(hours=6)
+    for user, (_, reach, share) in zip(players, roster, strict=True):
+        member_of = party.id if user in players[:3] else None
+        offset = 0
+        for category in categories:
+            if depths.get(category.id, 0) > reach:
+                continue
+            in_zone = by_category.get(category.id, [])
+            for challenge in in_zone[: max(1, round(len(in_zone) * share))]:
+                db.add(
+                    Solve(
+                        user_id=user.id,
+                        challenge_id=challenge.id,
+                        team_id_at_solve=member_of,
+                        submitted_at=solved_at + timedelta(minutes=offset * 5),
+                        xp_awarded=challenge.initial_points,
+                    )
+                )
+                summary.solves += 1
+                offset += 1
+    await db.flush()
