@@ -63,32 +63,50 @@ class TestMySheet:
         assert sheet["xp_into_level"] == 0
         assert sheet["xp_to_next"] == 400
 
-    async def test_skill_xp_is_grouped_and_partitions_the_total(
+    async def test_abilities_partition_the_pool(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        user = await player(db_session, client, sign_in)
-        hacking = await make_skill(db_session, "Hacking", order=1)
-        # Two categories feeding one skill.
-        ai = await make_category(db_session, name="AI Prompt Injection")
-        red = await make_category(db_session, name="Red Teaming")
-        ai.skill_id = hacking.id
-        red.skill_id = hacking.id
-        # A category mapped to no skill: counts toward total, under no skill.
-        loose = await make_category(db_session, name="Trivia")
-        await db_session.flush()
+        """Every category feeds exactly one ability, so the scores partition the
+        player's solve XP (spec 018)."""
+        from app.models.challenge import Ability
 
-        for cat, pts in ((ai, 300), (red, 300), (loose, 100)):
+        user = await player(db_session, client, sign_in)
+        # Names the seed migration does not already use (spec 018 seeds 21).
+        brawn = await make_category(db_session, name="Test Brawn", ability=Ability.STR)
+        brains = await make_category(db_session, name="Test Brains", ability=Ability.INT)
+
+        for cat, pts in ((brawn, 448), (brains, 112)):
             ch = await make_challenge(
                 db_session, category=cat, scoring=ScoringMode.STATIC, initial_points=pts
             )
             await record_solve(db_session, user, ch)
 
         sheet = (await client.get("/api/character/me")).json()
+        scores = {a["ability"]: a["score"] for a in sheet["abilities"]}
 
-        assert sheet["total_xp"] == 700
-        hacking_slice = next(s for s in sheet["skills"] if s["name"] == "Hacking")
-        assert hacking_slice["xp"] == 600  # 300 + 300, the loose 100 is not here
-        assert hacking_slice["level"] == 3  # 600 is the L3 threshold
+        assert sheet["total_xp"] == 560
+        # 448 -> 12, 112 -> 10, and an untouched ability stays at the floor of 8.
+        assert scores["str"] == 12
+        assert scores["int"] == 10
+        assert scores["cha"] == 8
+        # Never an XP number for a skill, anywhere in the payload.
+        assert all("xp" not in row for row in sheet["skills"])
+
+    async def test_an_undiscovered_skill_is_redacted(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """The real name must not reach the browser at all — some skills are meant
+        to be rare surprises (spec 018)."""
+        await player(db_session, client, sign_in)
+        # A real seeded skill, unearned: exactly the case that must not leak.
+        secret = "Reckless Double-Clicking"
+
+        response = await client.get("/api/character/me")
+
+        assert secret not in response.text
+        row = next(r for r in response.json()["skills"] if not r["discovered"])
+        assert row["level"] == 0
+        assert row["name"] == "Undiscovered skill"
 
     async def test_the_sheet_carries_board_rank(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -110,23 +128,34 @@ class TestPublicSheet:
     async def test_another_players_sheet_shows_level_and_skills(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        from app.models.skill import ChallengeSkill
+
         await player(db_session, client, sign_in)
-        hacking = await make_skill(db_session, "Hacking")
-        cat = await make_category(db_session, name="Web")
-        cat.skill_id = hacking.id
-        await db_session.flush()
+        hacking = await make_skill(db_session, "Test Lockpicking")
+        cat = await make_category(db_session, name="Test Wing")
         other = await make_user(db_session, display_name="Sir Solves", status=UserStatus.ACTIVE)
         ch = await make_challenge(
             db_session, category=cat, scoring=ScoringMode.STATIC, initial_points=200
         )
+        db_session.add(ChallengeSkill(challenge_id=ch.id, skill_id=hacking.id))
+        await db_session.flush()
         await record_solve(db_session, other, ch)
 
         sheet = (await client.get(f"/api/character/{other.id}")).json()
 
         assert sheet["display_name"] == "Sir Solves"
         assert sheet["level"] == 2
-        skill = next(s for s in sheet["skills"] if s["name"] == "Hacking")
-        assert skill["level"] == 2
+        # Everything is fair game on a public sheet except undiscovered skills,
+        # which are omitted rather than placeholdered (spec 018).
+        assert {a["ability"] for a in sheet["abilities"]} == {
+            "str",
+            "dex",
+            "con",
+            "int",
+            "wis",
+            "cha",
+        }
+        assert all(row["discovered"] for row in sheet["skills"])
 
     async def test_a_public_sheet_omits_rank_and_progress(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -138,7 +167,6 @@ class TestPublicSheet:
 
         assert "rank" not in sheet
         assert "total_xp" not in sheet
-        assert all("xp_to_next" not in s for s in sheet["skills"])
 
     async def test_an_unknown_player_is_a_404(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

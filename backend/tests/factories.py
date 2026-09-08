@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.challenge import (
+    Ability,
     Category,
     Challenge,
     ChallengeAnswer,
@@ -89,13 +90,18 @@ async def add_member(
 
 
 async def make_category(
-    session: AsyncSession, *, name: str | None = None, display_order: int = 0
+    session: AsyncSession,
+    *,
+    name: str | None = None,
+    display_order: int = 0,
+    ability: Ability = Ability.INT,
 ) -> Category:
     suffix = uuid.uuid4().hex[:8]
     category = Category(
         name=name or f"Category {suffix}",
         slug=(name or f"category-{suffix}").lower().replace(" ", "-"),
         display_order=display_order,
+        ability=ability,
     )
     session.add(category)
     await session.flush()

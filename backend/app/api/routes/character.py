@@ -15,13 +15,12 @@ from app.api.deps import DbSession, Player, RedisClient
 from app.errors import NotFoundError
 from app.models.user import User, UserStatus
 from app.schemas.character import (
+    AbilityResponse,
     CharacterSheetResponse,
     ClassResponse,
     PublicCharacterResponse,
-    PublicSkillResponse,
     SetClassRequest,
-    SkillSliceResponse,
-    SuggestedClassResponse,
+    SkillRowResponse,
 )
 from app.services import character as character_service
 from app.services import classes as class_service
@@ -47,9 +46,6 @@ def _class_response(character_class) -> ClassResponse | None:
 
 
 def _sheet_response(sheet, rank: int | None) -> CharacterSheetResponse:
-    suggested = (
-        SuggestedClassResponse(**vars(sheet.suggested_class)) if sheet.suggested_class else None
-    )
     return CharacterSheetResponse(
         user_id=sheet.user_id,
         display_name=sheet.display_name,
@@ -59,9 +55,9 @@ def _sheet_response(sheet, rank: int | None) -> CharacterSheetResponse:
         xp_into_level=sheet.xp_into_level,
         xp_to_next=sheet.xp_to_next,
         rank=rank,
-        skills=[SkillSliceResponse(**vars(s)) for s in sheet.skills],
+        abilities=[AbilityResponse(**vars(a)) for a in sheet.abilities],
+        skills=[SkillRowResponse(**vars(s)) for s in sheet.skills],
         character_class=_class_response(sheet.character_class),
-        suggested_class=suggested,
         class_unlocked=sheet.class_unlocked,
         class_unlock_level=sheet.class_unlock_level,
     )
@@ -108,9 +104,9 @@ async def public_character(
         display_name=sheet.display_name,
         has_avatar=sheet.has_avatar,
         level=sheet.level,
-        skills=[
-            PublicSkillResponse(skill_id=s.skill_id, name=s.name, level=s.level)
-            for s in sheet.skills
-        ],
+        abilities=[AbilityResponse(**vars(a)) for a in sheet.abilities],
+        # Undiscovered skills are omitted entirely rather than placeholdered:
+        # there is nothing to tease a stranger with.
+        skills=[SkillRowResponse(**vars(s)) for s in sheet.skills if s.discovered],
         character_class=_class_response(sheet.character_class),
     )

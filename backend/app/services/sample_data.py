@@ -15,8 +15,10 @@ from sqlalchemy import delete as sql_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.errors import AppError
 from app.models.challenge import (
+    Ability,
     Category,
     Challenge,
     ChallengeAnswer,
@@ -24,13 +26,15 @@ from app.models.challenge import (
     Difficulty,
     MatchType,
     RequirementType,
-    ScoringMode,
     UnlockRequirement,
+    default_scoring_for,
+    minimum_points_for,
+    points_for,
 )
 from app.models.character_class import CharacterClass
 from app.models.hint import Hint
 from app.models.play import Solve
-from app.models.skill import Skill
+from app.models.skill import ChallengeSkill, Skill
 from app.models.team import MembershipRole, Team, TeamMembership, TeamVisibility
 from app.models.user import User, UserRole, UserSource, UserStatus
 from app.services import unlocks as unlock_service
@@ -39,8 +43,24 @@ from app.services import unlocks as unlock_service
 SAMPLE_PREFIX = "sample-"
 SAMPLE_EMAIL_DOMAIN = "sample.invalid"
 
-SKILLS = ["Hacking", "Forensics", "Cryptography"]
-CLASSES = [("Rogue", "Hacking"), ("Seer", "Forensics"), ("Wizard", "Cryptography")]
+#: Classes are still sample-only — the real list is being written (spec 018).
+CLASSES = ["Rogue", "Seer", "Wizard"]
+
+#: Difficulty now derives the value, so the plan says how hard, not how many
+#: points (spec 018). Skills are real seeded ones, so the sample exercises the
+#: per-challenge skill system rather than inventing its own.
+CHALLENGE_PLAN = [
+    ("Warm-Up", "First Steps", Difficulty.VERY_EASY),
+    ("Warm-Up", "Second Steps", Difficulty.VERY_EASY),
+    ("Warm-Up", "Third Steps", Difficulty.EASY),
+    ("Web", "Cookie Jar", Difficulty.EASY),
+    ("Web", "Injection Point", Difficulty.MEDIUM),
+    ("Web", "Broken Auth", Difficulty.HARD),
+    ("Forensics", "Packet Trace", Difficulty.MEDIUM),
+    ("Forensics", "Deleted Evidence", Difficulty.HARD),
+    ("Crypto", "Caesar's Ghost", Difficulty.EASY),
+    ("Crypto", "Weak Keys", Difficulty.NEARLY_IMPOSSIBLE),
+]
 
 
 class SampleDataUnavailable(AppError):
@@ -77,21 +97,12 @@ async def generate(db: AsyncSession) -> SampleSummary:
     summary = SampleSummary()
     now = datetime.now(UTC)
 
-    skills = {}
-    for order, name in enumerate(SKILLS):
-        skill = Skill(name=name, display_order=order, description=f"Sample {name} skill.")
-        db.add(skill)
-        skills[name] = skill
-        summary.skills += 1
-    await db.flush()
-
-    for order, (name, skill_name) in enumerate(CLASSES):
+    for order, name in enumerate(CLASSES):
         db.add(
             CharacterClass(
                 name=name,
                 display_order=order,
                 description=f"A sample {name.lower()}.",
-                affinity_skill_id=skills[skill_name].id,
             )
         )
         summary.classes += 1
@@ -100,19 +111,19 @@ async def generate(db: AsyncSession) -> SampleSummary:
     # Four wings: an open starter area, then progressively gated ones — the
     # shape the dungeon map is meant to show off.
     zones = [
-        ("Warm-Up", "Hacking", 1),
-        ("Web", "Hacking", 2),
-        ("Forensics", "Forensics", 3),
-        ("Crypto", "Cryptography", 4),
+        ("Warm-Up", Ability.INT, 1),
+        ("Web", Ability.STR, 2),
+        ("Forensics", Ability.DEX, 3),
+        ("Crypto", Ability.INT, 4),
     ]
     categories: dict[str, Category] = {}
-    for name, skill_name, order in zones:
+    for name, ability, order in zones:
         category = Category(
             name=f"{name} (sample)",
             slug=_slug(name),
             display_order=order,
             description=f"Sample {name} challenges.",
-            skill_id=skills[skill_name].id,
+            ability=ability,
         )
         db.add(category)
         categories[name] = category
@@ -132,22 +143,9 @@ async def _build_challenges(
     now: datetime,
     summary: SampleSummary,
 ) -> dict[str, Challenge]:
-    #: (zone, title, points, difficulty, scoring, state)
-    plan = [
-        ("Warm-Up", "First Steps", 100, Difficulty.EASY, ScoringMode.STATIC),
-        ("Warm-Up", "Second Steps", 150, Difficulty.EASY, ScoringMode.STATIC),
-        ("Warm-Up", "Third Steps", 200, Difficulty.EASY, ScoringMode.DYNAMIC),
-        ("Web", "Cookie Jar", 300, Difficulty.MEDIUM, ScoringMode.DYNAMIC),
-        ("Web", "Injection Point", 400, Difficulty.MEDIUM, ScoringMode.DYNAMIC),
-        ("Web", "Broken Auth", 500, Difficulty.HARD, ScoringMode.DYNAMIC),
-        ("Forensics", "Packet Trace", 300, Difficulty.MEDIUM, ScoringMode.DYNAMIC),
-        ("Forensics", "Deleted Evidence", 450, Difficulty.HARD, ScoringMode.DYNAMIC),
-        ("Crypto", "Caesar's Ghost", 250, Difficulty.EASY, ScoringMode.STATIC),
-        ("Crypto", "Weak Keys", 600, Difficulty.INSANE, ScoringMode.DYNAMIC),
-    ]
-
     built: dict[str, Challenge] = {}
-    for zone, title, points, difficulty, scoring in plan:
+    xp_base = get_settings().xp_base
+    for zone, title, difficulty in CHALLENGE_PLAN:
         flag = f"flag{{{title.lower().replace(' ', '_')}}}"
         challenge = Challenge(
             title=f"{title} (sample)",
@@ -156,9 +154,10 @@ async def _build_challenges(
             body=f"Sample challenge: {title}. The flag is `{flag}`.",
             difficulty=difficulty,
             state=ChallengeState.PUBLISHED,
-            initial_points=points,
-            minimum_points=max(50, points // 4),
-            scoring=scoring,
+            # Derived from difficulty, exactly as the admin editor does.
+            initial_points=points_for(difficulty, xp_base),
+            minimum_points=minimum_points_for(difficulty, xp_base),
+            scoring=default_scoring_for(difficulty),
         )
         db.add(challenge)
         built[title] = challenge
@@ -175,6 +174,28 @@ async def _build_challenges(
                 display_order=0,
             )
         )
+
+    # Attach real (seeded) skills, so the skills table has something in it and
+    # the overlap rule is visible: one solve feeds several skills at full value.
+    wanted = {
+        "Injection Point": ["Injection Artistry", "Reflexive Inspect Element"],
+        "Cookie Jar": ["Auth Bypass", "Chronic URL Bar Tinkering"],
+        "Weak Keys": ["Cryptanalysis", "Whiteboard Math Anxiety"],
+        "Packet Trace": ["Evidence Handling", "Compulsive Ctrl+F"],
+    }
+    names = {n for group in wanted.values() for n in group}
+    seeded = {
+        name: skill_id
+        for skill_id, name in (
+            await db.execute(select(Skill.id, Skill.name).where(Skill.name.in_(names)))
+        ).all()
+    }
+    for title, skill_names in wanted.items():
+        for skill_name in skill_names:
+            skill_id = seeded.get(skill_name)
+            if skill_id is not None:
+                db.add(ChallengeSkill(challenge_id=built[title].id, skill_id=skill_id))
+                summary.skills += 1
 
     # A couple of hints, so the deferred-hint economy has something to show.
     for title, cost in (("Injection Point", 50), ("Weak Keys", 100)):
@@ -233,11 +254,9 @@ async def _build_gates(
         (
             "Crypto",
             {
-                "requirement_type": RequirementType.SKILL_LEVEL,
-                "required_skill_id": (
-                    await db.scalar(select(Skill.id).where(Skill.name == "Hacking"))
-                ),
-                "threshold": 2,
+                "requirement_type": RequirementType.SOLVES_IN_CATEGORY,
+                "required_category_id": categories["Web"].id,
+                "threshold": 1,
             },
         ),
     ]
@@ -358,9 +377,7 @@ async def purge(db: AsyncSession) -> None:
         )
         await db.execute(sql_delete(Category).where(Category.id.in_(category_ids)))
 
-    class_names = [name for name, _ in CLASSES]
-    await db.execute(sql_delete(CharacterClass).where(CharacterClass.name.in_(class_names)))
-    await db.execute(sql_delete(Skill).where(Skill.name.in_(SKILLS)))
+    await db.execute(sql_delete(CharacterClass).where(CharacterClass.name.in_(CLASSES)))
     await db.flush()
 
 

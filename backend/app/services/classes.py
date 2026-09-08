@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import ConflictError, NotFoundError
 from app.models.character_class import CharacterClass
-from app.models.skill import Skill
 
 
 async def list_classes(db: AsyncSession) -> list[CharacterClass]:
@@ -35,28 +34,20 @@ async def get_class(db: AsyncSession, class_id: UUID) -> CharacterClass:
     return character_class
 
 
-async def _check_affinity_skill(db: AsyncSession, skill_id: UUID | None) -> None:
-    if skill_id is not None and await db.get(Skill, skill_id) is None:
-        raise NotFoundError("No such skill.")
-
-
 async def create_class(
     db: AsyncSession,
     *,
     name: str,
     display_order: int = 0,
     description: str | None = None,
-    affinity_skill_id: UUID | None = None,
 ) -> CharacterClass:
     if await db.scalar(select(CharacterClass.id).where(CharacterClass.name == name)):
         raise ConflictError("A class with that name already exists.", code="class_exists")
-    await _check_affinity_skill(db, affinity_skill_id)
 
     character_class = CharacterClass(
         name=name,
         display_order=display_order,
         description=description,
-        affinity_skill_id=affinity_skill_id,
     )
     db.add(character_class)
     await db.flush()
@@ -75,9 +66,6 @@ async def update_class(db: AsyncSession, class_id: UUID, *, changes: dict) -> Ch
         )
         if clash:
             raise ConflictError("A class with that name already exists.", code="class_exists")
-
-    if "affinity_skill_id" in changes:
-        await _check_affinity_skill(db, changes["affinity_skill_id"])
 
     for field, value in changes.items():
         setattr(character_class, field, value)

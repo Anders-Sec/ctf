@@ -67,14 +67,13 @@ class TestSkillLevel:
     async def test_only_that_skill_opens_it(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """Skills are per-challenge now (spec 018), so XP only reaches a skill
+        through a challenge the skill is attached to."""
+        from app.models.skill import ChallengeSkill
+
         user = await player(db_session, client, sign_in)
         hacking = await make_skill(db_session, "Hacking")
         crypto = await make_skill(db_session, "Crypto")
-        hack_cat = await make_category(db_session, name="Web")
-        hack_cat.skill_id = hacking.id
-        crypto_cat = await make_category(db_session, name="Ciphers")
-        crypto_cat.skill_id = crypto.id
-        await db_session.flush()
 
         gated = await make_challenge(db_session, title="Deep Vault")
         await gate(
@@ -85,11 +84,16 @@ class TestSkillLevel:
             threshold=2,
         )
 
-        # 200 XP in the *wrong* skill: level 2 Crypto, still level 1 Hacking.
-        await bank_xp(db_session, user, 200, category=crypto_cat)
+        wrong = await bank_xp(db_session, user, 200)
+        db_session.add(ChallengeSkill(challenge_id=wrong.id, skill_id=crypto.id))
+        await db_session.flush()
         assert (await client.get(f"/api/challenges/{gated.id}")).json()["locked"] is True
 
-        await bank_xp(db_session, user, 200, category=hack_cat)
+        right = await make_challenge(db_session, scoring=ScoringMode.STATIC, initial_points=200)
+        db_session.add(ChallengeSkill(challenge_id=right.id, skill_id=hacking.id))
+        await db_session.flush()
+        await record_solve(db_session, user, right, xp=200)
+
         assert (await client.get(f"/api/challenges/{gated.id}")).json()["locked"] is False
 
     async def test_deleting_the_skill_drops_the_gate(

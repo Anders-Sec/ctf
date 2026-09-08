@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 
 import {
@@ -6,8 +7,10 @@ import {
   getClasses,
   getMyCharacter,
   setMyClass,
+  type AbilityScore,
   type CharacterSheet,
   type PublicCharacter,
+  type SkillRow,
 } from "../api/character";
 import { useSession } from "../auth/session";
 import Avatar from "../components/Avatar";
@@ -15,10 +18,12 @@ import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 
 /**
- * The character sheet (spec 015, 016). Viewed for yourself at /character —
- * overall level, skills, and your class (with the System AI's suggested-class
- * nudge) — or for another player at /character/:userId, which shows their level,
- * skills and class without the picker or the nudge.
+ * The character sheet (specs 015, 016, 018). Your level and XP bar, a D&D stat
+ * block of ability scores, your skills, and your class.
+ *
+ * Abilities show a score but never their progress, and skills show a level but
+ * never their XP — both deliberate (spec 018). Another player's sheet at
+ * /character/:userId shows the same, minus the class picker.
  */
 export default function CharacterSheetPage() {
   const { userId } = useParams<{ userId?: string }>();
@@ -74,26 +79,8 @@ function OwnSheet({ sheet }: { sheet: CharacterSheet }) {
         </p>
       </section>
 
-      <h2 className="mt-8 text-lg font-semibold">Skills</h2>
-      {sheet.skills.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">
-          No skills defined yet — an organizer maps categories to skills.
-        </p>
-      ) : (
-        <ul className="mt-3 space-y-3">
-          {sheet.skills.map((skill) => (
-            <li key={skill.skill_id} className="rounded border border-stone bg-white/40 p-4">
-              <div className="flex items-baseline justify-between">
-                <span className="font-medium">{skill.name}</span>
-                <span className="text-sm text-muted tabular-nums">
-                  Level {skill.level} · {skill.xp} XP
-                </span>
-              </div>
-              <XpBar into={skill.xp_into_level} toNext={skill.xp_to_next} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <StatBlock abilities={sheet.abilities} />
+      <SkillTable skills={sheet.skills} />
     </main>
   );
 }
@@ -139,24 +126,8 @@ function ClassSection({ sheet }: { sheet: CharacterSheet }) {
         )}
       </div>
 
-      {sheet.suggested_class && (
-        <SystemAiNudge text={sheet.suggested_class.narration} />
-      )}
       <ErrorMessage error={choose.error} />
     </section>
-  );
-}
-
-/** The System AI's voiced nudge (spec 016), attributed to it like the assistant. */
-function SystemAiNudge({ text }: { text: string }) {
-  return (
-    <aside
-      aria-label="System AI"
-      className="mt-3 rounded border border-stone bg-parchment px-3 py-2"
-    >
-      <p className="text-xs font-semibold text-muted">System AI</p>
-      <p className="mt-0.5 text-sm">{text}</p>
-    </aside>
   );
 }
 
@@ -172,23 +143,107 @@ function PublicSheet({ sheet }: { sheet: PublicCharacter }) {
         rank={null}
       />
 
-      <h2 className="mt-8 text-lg font-semibold">Skills</h2>
-      {sheet.skills.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">No skills to show yet.</p>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {sheet.skills.map((skill) => (
-            <li
-              key={skill.skill_id}
-              className="flex items-baseline justify-between rounded border border-stone bg-white/40 px-4 py-3"
-            >
-              <span className="font-medium">{skill.name}</span>
-              <span className="text-sm text-muted">Level {skill.level}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <StatBlock abilities={sheet.abilities} />
+      <SkillTable skills={sheet.skills} />
     </main>
+  );
+}
+
+const ABILITY_LABEL: Record<string, string> = {
+  str: "Strength",
+  dex: "Dexterity",
+  con: "Constitution",
+  int: "Intelligence",
+  wis: "Wisdom",
+  cha: "Charisma",
+};
+
+/** The D&D stat block. Scores only — how close the next point is stays hidden,
+ *  so abilities tick up quietly (spec 018). */
+function StatBlock({ abilities }: { abilities: AbilityScore[] }) {
+  if (abilities.length === 0) return null;
+  return (
+    <section className="mt-8">
+      <h2 className="text-lg font-semibold">Abilities</h2>
+      <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {abilities.map((a) => (
+          <li
+            key={a.ability}
+            className="rounded border border-stone bg-white/40 p-3 text-center"
+          >
+            <div className="text-xs uppercase tracking-wide text-muted">
+              {ABILITY_LABEL[a.ability] ?? a.ability}
+            </div>
+            <div className="mt-1 text-3xl font-semibold tabular-nums">{a.score}</div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Name and level, nothing else. Undiscovered skills arrive already redacted
+ *  from the server and render blurred, so the shape of what is left to find is
+ *  visible without the content. */
+function SkillTable({ skills }: { skills: SkillRow[] }) {
+  const [query, setQuery] = useState("");
+  const [hideFunny, setHideFunny] = useState(false);
+
+  const rows = skills
+    .filter((s) => (hideFunny ? s.kind !== "funny" : true))
+    // A placeholder has nothing to match, so search only finds discovered ones.
+    .filter((s) => (query ? s.discovered && s.name.toLowerCase().includes(query.toLowerCase()) : true));
+
+  const found = skills.filter((s) => s.discovered).length;
+
+  if (skills.length === 0) return null;
+
+  return (
+    <section className="mt-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="text-lg font-semibold">Skills</h2>
+        <span className="text-sm text-muted">
+          {found} of {skills.length} discovered
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search skills"
+          aria-label="Search skills"
+          className="flex-1 rounded border border-stone px-3 py-1.5 text-sm"
+        />
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={hideFunny}
+            onChange={(e) => setHideFunny(e.target.checked)}
+          />
+          Hide funny skills
+        </label>
+      </div>
+
+      <ul className="mt-3 divide-y divide-stone rounded border border-stone bg-white/40">
+        {rows.map((skill) => (
+          <li key={skill.skill_id} className="flex items-center justify-between px-4 py-2">
+            <span
+              className={skill.discovered ? "" : "select-none blur-sm"}
+              aria-label={skill.discovered ? undefined : "Undiscovered skill"}
+            >
+              {skill.name}
+              {skill.kind === "funny" && skill.discovered && (
+                <span className="ml-2 text-xs text-muted">funny</span>
+              )}
+            </span>
+            <span className="text-sm text-muted tabular-nums">
+              {skill.discovered ? `Level ${skill.level}` : "—"}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

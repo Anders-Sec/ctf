@@ -11,35 +11,29 @@ class ClassResponse(BaseModel):
     description: str | None
 
 
-class SuggestedClassResponse(BaseModel):
-    """The System AI's suggested class, with its voiced narration (spec 016)."""
-
-    class_id: UUID
-    name: str
-    from_skill: str
-    narration: str
-
-
 class SetClassRequest(BaseModel):
     #: The class to adopt, or null to return to Classless.
     class_id: UUID | None
 
 
-class SkillSliceResponse(BaseModel):
+class AbilityResponse(BaseModel):
+    """A D&D ability score. The score shows; progress toward the next point does
+    not — abilities tick up quietly (spec 018)."""
+
+    ability: str
+    score: int
+
+
+class SkillRowResponse(BaseModel):
+    """Name and level only. There is deliberately **no XP field** — the numbers
+    cannot leak through the API if they are never carried. ``name`` is a
+    placeholder while ``discovered`` is false."""
+
     skill_id: UUID
     name: str
-    xp: int
+    kind: str
     level: int
-    xp_into_level: int
-    xp_to_next: int
-
-
-class PublicSkillResponse(BaseModel):
-    """A skill on someone else's sheet — level without the fine-grained progress."""
-
-    skill_id: UUID
-    name: str
-    level: int
+    discovered: bool
 
 
 class CharacterSheetResponse(BaseModel):
@@ -53,23 +47,22 @@ class CharacterSheetResponse(BaseModel):
     xp_into_level: int
     xp_to_next: int
     rank: int | None
-    skills: list[SkillSliceResponse]
+    abilities: list[AbilityResponse]
+    skills: list[SkillRowResponse]
     character_class: ClassResponse | None
-    suggested_class: SuggestedClassResponse | None
     class_unlocked: bool
     class_unlock_level: int
 
 
 class PublicCharacterResponse(BaseModel):
-    """Another player's public sheet: identity, overall level, skill levels, class.
-
-    Rank, the fine-grained XP-to-next progress, and the suggested-class nudge are
-    left off — the board is where ranks live, and the suggestion is the player's
-    own business."""
+    """Another player's sheet. Everything is fair game (spec 018) except skills
+    they have not discovered, which are omitted rather than placeholdered — there
+    is nothing to tease a stranger with."""
 
     user_id: UUID
     display_name: str
     has_avatar: bool
     level: int
-    skills: list[PublicSkillResponse]
+    abilities: list[AbilityResponse]
+    skills: list[SkillRowResponse]
     character_class: ClassResponse | None

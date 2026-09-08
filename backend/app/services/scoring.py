@@ -15,8 +15,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models.challenge import Category, Challenge, DecayBasis, ScoringMode
+from app.models.challenge import Ability, Category, Challenge, DecayBasis, ScoringMode
 from app.models.play import ScoreAdjustment, Solve
+from app.models.skill import ChallengeSkill
 
 
 def challenge_value(challenge: Challenge, solve_count: int) -> int:
@@ -137,21 +138,68 @@ async def total_xp(db: AsyncSession, user_id: UUID) -> int:
     return banked + adjustments
 
 
-async def skill_xp_for_user(db: AsyncSession, user_id: UUID) -> dict[UUID, int]:
-    """Banked XP grouped by the skill each solve's category maps to.
+async def ability_xp_for_user(db: AsyncSession, user_id: UUID) -> dict[Ability, int]:
+    """Banked XP grouped by the ability each solve's category feeds (spec 018).
 
-    A category with no skill is left out here but still counts in ``total_xp``,
-    so the skill slices partition only the mapped part of the pool.
+    Every category has exactly one ability, so these totals **partition** the
+    player's solve XP: each solve lands in one ability and no other.
     """
     rows = await db.execute(
-        select(Category.skill_id, func.coalesce(func.sum(Solve.xp_awarded), 0))
+        select(Category.ability, func.coalesce(func.sum(Solve.xp_awarded), 0))
         .select_from(Solve)
         .join(Challenge, Challenge.id == Solve.challenge_id)
         .join(Category, Category.id == Challenge.category_id)
-        .where(Solve.user_id == user_id, Category.skill_id.is_not(None))
-        .group_by(Category.skill_id)
+        .where(Solve.user_id == user_id)
+        .group_by(Category.ability)
     )
-    return {skill_id: xp for skill_id, xp in rows}
+    return {ability: xp for ability, xp in rows.all()}
+
+
+async def skill_xp_for_user(db: AsyncSession, user_id: UUID) -> dict[UUID, int]:
+    """Banked XP grouped by skill (spec 018).
+
+    Skills **overlap**: a challenge with three skills gives its whole XP to each
+    of them, so these totals sum to more than the player's XP. That is deliberate
+    — splitting would punish a challenge for carrying more jokes — and it is safe
+    only because skill XP is never shown to a player.
+    """
+    rows = await db.execute(
+        select(ChallengeSkill.skill_id, func.coalesce(func.sum(Solve.xp_awarded), 0))
+        .select_from(Solve)
+        .join(ChallengeSkill, ChallengeSkill.challenge_id == Solve.challenge_id)
+        .where(Solve.user_id == user_id)
+        .group_by(ChallengeSkill.skill_id)
+    )
+    return {skill_id: xp for skill_id, xp in rows.all()}
+
+
+def ability_score(xp: int, divisor: int | None = None, cap: int | None = None) -> int:
+    """A D&D ability score from banked XP: ``8 + sqrt(xp / divisor)``.
+
+    Quadratic, so each point costs more than the last. At player level 10 a
+    focused player reaches 20 and a broad one sits around 14 (spec 018).
+    """
+    settings = get_settings()
+    divisor = divisor if divisor is not None else settings.ability_score_divisor
+    cap = cap if cap is not None else settings.ability_score_cap
+    if xp <= 0 or divisor <= 0:
+        return 8
+    return min(cap, 8 + int(math.sqrt(xp / divisor)))
+
+
+def skill_level(xp: int, base: int | None = None, cap: int | None = None) -> int:
+    """A skill level from its banked XP: level L costs ``base * (L-1) ** 1.25``.
+
+    0 until the first XP arrives — an undiscovered skill, which the API redacts.
+    Gentler than a square root at the bottom, so one hard challenge is worth a
+    few levels rather than half the ladder.
+    """
+    settings = get_settings()
+    base = base if base is not None else settings.skill_level_base
+    cap = cap if cap is not None else settings.skill_level_cap
+    if xp <= 0 or base <= 0:
+        return 0
+    return min(cap, 1 + int((xp / base) ** 0.8))
 
 
 def xp_for_level(level: int, base: int | None = None) -> int:

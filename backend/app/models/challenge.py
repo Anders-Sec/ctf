@@ -61,6 +61,30 @@ def default_scoring_for(difficulty: Difficulty) -> "ScoringMode":
     return ScoringMode.DYNAMIC if difficulty in DECAYING_DIFFICULTIES else ScoringMode.STATIC
 
 
+class Ability(enum.StrEnum):
+    """The D&D six (spec 018).
+
+    Every category maps to exactly one, so abilities *partition* the XP pool: a
+    solve's XP lands in one ability and no other. Scores run 8-20 and their
+    progress is deliberately hidden from players.
+    """
+
+    STR = "str"
+    DEX = "dex"
+    CON = "con"
+    INT = "int"
+    WIS = "wis"
+    CHA = "cha"
+
+
+class SkillKind(enum.StrEnum):
+    """Useful skills are the real competencies; funny ones are the joke that makes
+    the sheet worth reading. Players can filter the funny ones out."""
+
+    USEFUL = "useful"
+    FUNNY = "funny"
+
+
 class ChallengeState(enum.StrEnum):
     """Four genuinely different situations, not a boolean.
 
@@ -139,11 +163,13 @@ class Category(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
-    #: The skill this category feeds (spec 015). Nullable: a freshly typed
-    #: category contributes to overall XP but no named skill until an admin maps
-    #: it. SET NULL on skill delete un-maps rather than destroying the category.
-    skill_id: Mapped[uuid.UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("skill.id", ondelete="SET NULL"), nullable=True
+    #: The ability this category feeds (spec 018). Required: an unmapped category
+    #: would silently drop its XP out of the stat block.
+    ability: Mapped[Ability] = mapped_column(
+        _enum(Ability, "ability"),
+        nullable=False,
+        default=Ability.INT,
+        server_default=Ability.INT.value,
     )
 
 

@@ -119,11 +119,8 @@ async def load_progress(
 
     skill_levels: dict[UUID, int] = {}
     if RequirementType.SKILL_LEVEL in types:
-        base = scoring.get_settings().xp_level_base
         by_skill = await scoring.skill_xp_for_user(db, user_id)
-        skill_levels = {
-            skill_id: scoring.level_for_xp(xp, base) for skill_id, xp in by_skill.items()
-        }
+        skill_levels = {skill_id: scoring.skill_level(xp) for skill_id, xp in by_skill.items()}
 
     per_category: dict[UUID, int] = {}
     if RequirementType.SOLVES_IN_CATEGORY in types:
@@ -209,9 +206,12 @@ def _evaluate(
 
     if kind == RequirementType.SKILL_LEVEL:
         skill_id = requirement.required_skill_id
-        name = skills.get(skill_id, "a skill") if skill_id else "a skill"
-        # A skill with no banked XP is level 1, the floor of the curve.
-        level = progress.skill_levels.get(skill_id, 1) if skill_id else 1
+        # An undiscovered skill keeps its name (spec 018): a locked challenge must
+        # not be the thing that reveals a rare skill exists.
+        level = progress.skill_levels.get(skill_id, 0) if skill_id else 0
+        name = (
+            skills.get(skill_id, "a skill") if skill_id and level > 0 else "an undiscovered skill"
+        )
         return RequirementView(
             type=kind,
             met=level >= threshold,

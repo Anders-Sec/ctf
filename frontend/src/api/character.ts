@@ -1,26 +1,26 @@
 import { api } from "./client";
 
-export interface SkillSlice {
+/** A D&D ability score. Progress toward the next point is deliberately hidden —
+ *  abilities tick up quietly (spec 018). */
+export interface AbilityScore {
+  ability: string;
+  score: number;
+}
+
+/** Name and level only. There is no XP field by design, and `name` is a
+ *  placeholder until `discovered` (the real one never leaves the server). */
+export interface SkillRow {
   skill_id: string;
   name: string;
-  xp: number;
+  kind: "useful" | "funny";
   level: number;
-  xp_into_level: number;
-  xp_to_next: number;
+  discovered: boolean;
 }
 
 export interface ClassInfo {
   id: string;
   name: string;
   description: string | null;
-}
-
-export interface SuggestedClass {
-  class_id: string;
-  name: string;
-  from_skill: string;
-  /** The System AI's voiced line (spec 016) — deterministic persona copy. */
-  narration: string;
 }
 
 export interface CharacterSheet {
@@ -32,17 +32,11 @@ export interface CharacterSheet {
   xp_into_level: number;
   xp_to_next: number;
   rank: number | null;
-  skills: SkillSlice[];
+  abilities: AbilityScore[];
+  skills: SkillRow[];
   character_class: ClassInfo | null;
-  suggested_class: SuggestedClass | null;
   class_unlocked: boolean;
   class_unlock_level: number;
-}
-
-export interface PublicSkill {
-  skill_id: string;
-  name: string;
-  level: number;
 }
 
 export interface PublicCharacter {
@@ -50,7 +44,8 @@ export interface PublicCharacter {
   display_name: string;
   has_avatar: boolean;
   level: number;
-  skills: PublicSkill[];
+  abilities: AbilityScore[];
+  skills: SkillRow[];
   character_class: ClassInfo | null;
 }
 

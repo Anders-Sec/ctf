@@ -4,10 +4,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.challenge import Category
-from app.models.skill import Skill
 from app.models.user import UserRole, UserStatus
-from tests.factories import make_category, make_user
+from tests.factories import make_user
 
 pytestmark = pytest.mark.usefixtures("running_event")
 
@@ -31,7 +29,8 @@ class TestSkillCrud:
         assert created.json()["name"] == "Hacking"
 
         listed = await client.get("/api/admin/skills")
-        assert [s["name"] for s in listed.json()] == ["Hacking"]
+        # Seeded content means the list is never just ours (spec 018).
+        assert "Hacking" in [s["name"] for s in listed.json()]
 
     async def test_a_duplicate_name_is_refused(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -72,73 +71,3 @@ class TestSkillCrud:
 
         assert (await client.get("/api/admin/skills")).status_code == 200
         assert (await client.post("/api/admin/skills", json={"name": "Hacking"})).status_code == 403
-
-
-class TestCategoryMapping:
-    async def test_a_category_is_mapped_to_a_skill(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        await as_role(db_session, client, sign_in, UserRole.ADMIN)
-        category = await make_category(db_session, name="AI Prompt Injection")
-        skill_id = (await client.post("/api/admin/skills", json={"name": "Hacking"})).json()["id"]
-
-        mapped = await client.patch(
-            f"/api/admin/categories/{category.id}/skill", json={"skill_id": skill_id}
-        )
-
-        assert mapped.status_code == 200
-        assert mapped.json()["skill_id"] == skill_id
-
-        await db_session.refresh(category)
-        assert str(category.skill_id) == skill_id
-
-    async def test_two_categories_can_feed_one_skill(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        await as_role(db_session, client, sign_in, UserRole.ADMIN)
-        ai = await make_category(db_session, name="AI Prompt Injection")
-        red = await make_category(db_session, name="Red Teaming")
-        skill_id = (await client.post("/api/admin/skills", json={"name": "Hacking"})).json()["id"]
-
-        for cat in (ai, red):
-            await client.patch(f"/api/admin/categories/{cat.id}/skill", json={"skill_id": skill_id})
-
-        rows = (await client.get("/api/admin/categories")).json()
-        mapped = {r["name"]: r["skill_id"] for r in rows}
-        assert mapped["AI Prompt Injection"] == skill_id
-        assert mapped["Red Teaming"] == skill_id
-
-    async def test_a_mapping_can_be_cleared(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        await as_role(db_session, client, sign_in, UserRole.ADMIN)
-        category = await make_category(db_session)
-        skill_id = (await client.post("/api/admin/skills", json={"name": "Hacking"})).json()["id"]
-        await client.patch(
-            f"/api/admin/categories/{category.id}/skill", json={"skill_id": skill_id}
-        )
-
-        cleared = await client.patch(
-            f"/api/admin/categories/{category.id}/skill", json={"skill_id": None}
-        )
-
-        assert cleared.json()["skill_id"] is None
-
-    async def test_deleting_a_skill_unmaps_its_categories_without_losing_them(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        await as_role(db_session, client, sign_in, UserRole.ADMIN)
-        category = await make_category(db_session, name="Steganography")
-        skill_id = (await client.post("/api/admin/skills", json={"name": "Forensics"})).json()["id"]
-        await client.patch(
-            f"/api/admin/categories/{category.id}/skill", json={"skill_id": skill_id}
-        )
-
-        deleted = await client.delete(f"/api/admin/skills/{skill_id}")
-        assert deleted.status_code == 200
-
-        # The category survives, un-mapped.
-        await db_session.refresh(category)
-        assert category.skill_id is None
-        assert await db_session.get(Category, category.id) is not None
-        assert await db_session.get(Skill, skill_id) is None

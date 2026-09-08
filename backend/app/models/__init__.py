@@ -10,6 +10,7 @@ from app.models.audit import AuditLog
 from app.models.auth import AuthSession, MagicLinkToken
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.challenge import (
+    Ability,
     Category,
     Challenge,
     ChallengeAnswer,
@@ -21,6 +22,7 @@ from app.models.challenge import (
     PreReleaseState,
     RequirementType,
     ScoringMode,
+    SkillKind,
     UnlockRequirement,
 )
 from app.models.character_class import CharacterClass
@@ -42,7 +44,7 @@ from app.models.instance import (
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.signal import SignalDismissal
-from app.models.skill import Skill
+from app.models.skill import ChallengeSkill, Skill
 from app.models.team import (
     Team,
     TeamJoinRequest,
@@ -58,6 +60,7 @@ __all__ = [
     "AuditLog",
     "AuthSession",
     "Base",
+    "Ability",
     "Category",
     "CharacterClass",
     "ChallengeInstance",
@@ -82,6 +85,8 @@ __all__ = [
     "ScoringMode",
     "SignalDismissal",
     "Skill",
+    "SkillKind",
+    "ChallengeSkill",
     "Solve",
     "Submission",
     "EgressPolicy",

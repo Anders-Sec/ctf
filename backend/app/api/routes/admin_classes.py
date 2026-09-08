@@ -38,7 +38,6 @@ async def create_class(
         name=payload.name,
         display_order=payload.display_order,
         description=payload.description,
-        affinity_skill_id=payload.affinity_skill_id,
     )
     await record_audit(
         db,

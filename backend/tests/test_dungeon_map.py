@@ -164,8 +164,9 @@ class TestZones:
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
         user = await player(db_session, client, sign_in)
-        web = await make_category(db_session, name="Web", display_order=1)
-        crypto = await make_category(db_session, name="Crypto", display_order=2)
+        # Names the seed migration does not use (spec 018 seeds 21 real ones).
+        web = await make_category(db_session, name="Test Web", display_order=1)
+        crypto = await make_category(db_session, name="Test Crypto", display_order=2)
         done = await make_challenge(db_session, category=web, title="Done")
         await make_challenge(db_session, category=web, title="Todo")
         await make_challenge(db_session, category=crypto, title="Cipher")
@@ -173,7 +174,7 @@ class TestZones:
 
         zones = (await fetch(client))["zones"]
 
-        assert [z["name"] for z in zones] == ["Web", "Crypto"]
+        assert [z["name"] for z in zones] == ["Test Web", "Test Crypto"]
         assert (zones[0]["cleared"], zones[0]["total"]) == (1, 2)
         assert (zones[1]["cleared"], zones[1]["total"]) == (0, 1)
 

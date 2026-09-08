@@ -30,6 +30,7 @@ class TestGeneration:
 
         assert summary.challenges > 0
         assert summary.categories > 0
+        # Skills come from the seed migration; the sample attaches real ones.
         assert summary.skills > 0
         assert summary.classes > 0
         assert summary.players > 0
@@ -64,7 +65,9 @@ class TestPurge:
             await count(db_session, Category, Category.slug.startswith(sample_data.SAMPLE_PREFIX))
             == 0
         )
-        assert await count(db_session, Skill, Skill.name.in_(sample_data.SKILLS)) == 0
+        # Skills are seeded content now, not sample content — the purge must
+        # leave them alone (spec 018).
+        assert await count(db_session, Skill, Skill.name == "Cryptanalysis") == 1
         assert (
             await count(
                 db_session,

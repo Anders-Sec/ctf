@@ -19,25 +19,28 @@ const OWN_SHEET = {
   xp_into_level: 0,
   xp_to_next: 600,
   rank: 2,
+  abilities: [
+    { ability: "str", score: 14 },
+    { ability: "dex", score: 8 },
+    { ability: "con", score: 8 },
+    { ability: "int", score: 12 },
+    { ability: "wis", score: 8 },
+    { ability: "cha", score: 8 },
+  ],
   skills: [
-    { skill_id: "s1", name: "Hacking", xp: 600, level: 3, xp_into_level: 0, xp_to_next: 600 },
+    { skill_id: "s1", name: "Injection Artistry", kind: "useful", level: 3, discovered: true },
+    { skill_id: "s2", name: "Magic Smoke Attraction", kind: "funny", level: 1, discovered: true },
+    { skill_id: "s3", name: "Undiscovered skill", kind: "useful", level: 0, discovered: false },
   ],
   character_class: null,
-  suggested_class: {
-    class_id: "cl1",
-    name: "Rogue",
-    from_skill: "Hacking",
-    narration: "You keep hammering Hacking problems. The Rogue build fits the pattern — take it or don't.",
-  },
   class_unlocked: true,
-  class_unlock_level: 3,
+  class_unlock_level: 5,
 };
 
 const LOCKED_SHEET = {
   ...OWN_SHEET,
   level: 1,
   total_xp: 0,
-  suggested_class: null,
   class_unlocked: false,
 };
 
@@ -46,7 +49,10 @@ const PUBLIC_SHEET = {
   display_name: "Sir Solves",
   has_avatar: false,
   level: 2,
-  skills: [{ skill_id: "s1", name: "Hacking", level: 2 }],
+  abilities: [{ ability: "str", score: 10 }],
+  skills: [
+    { skill_id: "s1", name: "Injection Artistry", kind: "useful", level: 2, discovered: true },
+  ],
   character_class: { id: "cl1", name: "Rogue", description: null },
 };
 
@@ -62,24 +68,31 @@ describe("CharacterSheetPage", () => {
     renderApp(<CharacterSheetPage />, { route: "/character" });
 
     expect(await screen.findByText("600 XP total")).toBeInTheDocument();
-    expect(screen.getByText("Hacking")).toBeInTheDocument();
+    expect(screen.getByText("Injection Artistry")).toBeInTheDocument();
     expect(screen.getByText(/rank #2/)).toBeInTheDocument();
+    // The stat block shows scores, and never a progress figure.
+    expect(screen.getByText("Strength")).toBeInTheDocument();
+    expect(screen.getByText("14")).toBeInTheDocument();
   });
 
-  it("shows the System AI's suggested-class nudge, attributed to it", async () => {
+  it("hides funny skills when asked, and blurs undiscovered ones", async () => {
     stubFetch((path) => {
       if (path.endsWith("/auth/me")) return { status: 200, body: me() };
       if (path.endsWith("/character/me")) return { status: 200, body: OWN_SHEET };
-      if (path.endsWith("/character/classes")) {
-        return { status: 200, body: [{ id: "cl1", name: "Rogue", description: null }] };
-      }
+      if (path.endsWith("/character/classes")) return { status: 200, body: [] };
       return { status: 200, body: {} };
     });
 
     renderApp(<CharacterSheetPage />, { route: "/character" });
 
-    const nudge = await screen.findByLabelText("System AI");
-    expect(nudge).toHaveTextContent(/The Rogue build fits the pattern/);
+    // Undiscovered rows are present but carry only the server's placeholder —
+    // the real name never reached the browser.
+    expect(await screen.findByText("2 of 3 discovered")).toBeInTheDocument();
+    expect(screen.getByLabelText("Undiscovered skill")).toBeInTheDocument();
+
+    expect(screen.getByText("Magic Smoke Attraction")).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Hide funny skills"));
+    expect(screen.queryByText("Magic Smoke Attraction")).not.toBeInTheDocument();
   });
 
   it("sets the player's class from the picker", async () => {
@@ -124,7 +137,7 @@ describe("CharacterSheetPage", () => {
 
     renderApp(<CharacterSheetPage />, { route: "/character" });
 
-    expect(await screen.findByText(/Reach level 3 to choose a class/)).toBeInTheDocument();
+    expect(await screen.findByText(/Reach level 5 to choose a class/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Class")).not.toBeInTheDocument();
   });
 
