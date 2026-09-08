@@ -43,11 +43,12 @@ lore, art, a wider tone pass) is intentionally not started.
 | 014 | `014-challenge-editor-and-prerequisites.md` | Editor completion, prerequisite locks, event settings | **done** |
 | 015 | `015-character-xp-and-skills.md` | Phase 2 — character sheet, banked XP, levels, skills (deferred-hint economy) | **done** |
 | 016 | `016-classes.md` | Phase 2 — character classes, level-gated, with the System AI's suggested-class nudge | **done** |
-| 017 | `017-dungeon-map-board.md` | Phase 2 — dungeon map, value-based unlock gates, zone gating + fog of war | **built** — admin gate-editing UI still to do |
+| 017 | `017-dungeon-map-board.md` | Phase 2 — dungeon map, value-based unlock gates, zone gating + fog of war | **done** — gate-editing UI landed in 022 |
 | 018 | `018-abilities-and-skills.md` | Phase 2 — difficulty-driven XP, D&D ability scores, per-challenge skills, real seed content | **done** |
 | 019 | `019-zone-map-and-progression.md` | Phase 2 — map of 22 zones, the progression graph, percentage and level gates | **done** |
 | 020 | `020-illustrated-map.md` | Phase 2/3 — the art pass over the zone map (prompts in `art.md`) | **draft** — awaiting artwork |
 | 021 | `021-map-editor.md` | Phase 2/3 — authored zone positions, drag-to-place admin editor, organic corridors | **done** |
+| 022 | `022-connection-editor.md` | Phase 2/3 — zone gate & connection editor, cycle detection, reachability warnings | **done** |
 
 ## Sequencing rationale
 
