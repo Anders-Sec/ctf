@@ -5,6 +5,7 @@ import AppLayout from "./components/AppLayout";
 import AdminChallengesPage from "./routes/AdminChallengesPage";
 import AdminClassesPage from "./routes/AdminClassesPage";
 import AdminDashboardPage from "./routes/AdminDashboardPage";
+import AdminMapPage from "./routes/AdminMapPage";
 import AdminOpsPage from "./routes/AdminOpsPage";
 import AdminAssistantPage from "./routes/AdminAssistantPage";
 import AdminEventPage from "./routes/AdminEventPage";
@@ -102,6 +103,14 @@ export default function App() {
           element={
             <RequireAuth staffOnly>
               <AdminChallengesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/map"
+          element={
+            <RequireAuth staffOnly>
+              <AdminMapPage />
             </RequireAuth>
           }
         />

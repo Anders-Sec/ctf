@@ -45,3 +45,17 @@ export interface DungeonMap {
 }
 
 export const getMap = () => api.get<DungeonMap>("/map");
+
+/** Place a zone, or pass nulls to return it to the derived layout. */
+export const setZonePosition = (
+  categoryId: string,
+  x: number | null,
+  y: number | null,
+) => api.patch<{ x: number | null; y: number | null }>(
+  `/admin/categories/${categoryId}/position`,
+  { x, y },
+);
+
+/** Clear every authored position — the way out of a layout gone wrong. */
+export const resetMapLayout = () =>
+  api.post<{ message: string }>("/admin/map/reset-layout");
