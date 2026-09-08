@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { getChallengeHealth, getDashboard, type ChallengeHealth } from "../api/adminOps";
 import ErrorMessage from "../components/ErrorMessage";
+import SampleDataPanel from "../components/SampleDataPanel";
 import Spinner from "../components/Spinner";
 
 /** Refreshed on a timer. An operations console does not need to be live to the second. */
@@ -114,6 +115,8 @@ export default function AdminDashboardPage() {
       <section className="mt-8 rounded-lg border border-dashed border-stone p-4 text-sm text-muted">
         <strong className="text-ink">Containers</strong> — {data.containers.note}
       </section>
+
+      <SampleDataPanel />
     </main>
   );
 }

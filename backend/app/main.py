@@ -13,6 +13,7 @@ from app.api.routes import (
     admin_hints,
     admin_instances,
     admin_ops,
+    admin_sample_data,
     admin_skills,
     admin_unlocks,
     assistant,
@@ -144,6 +145,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(admin_hints.router)
     api.include_router(admin_instances.router)
     api.include_router(admin_ops.router)
+    api.include_router(admin_sample_data.router)
     api.include_router(admin_skills.router)
     api.include_router(admin_unlocks.router)
     api.include_router(assistant.router)
