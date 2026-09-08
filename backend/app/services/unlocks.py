@@ -394,6 +394,89 @@ _REQUIRED_FIELDS: dict[RequirementType, tuple[str, ...]] = {
 _ALL_FIELDS = ("required_challenge_id", "required_skill_id", "required_category_id", "threshold")
 
 
+def describe_gate(
+    requirement: UnlockRequirement,
+    *,
+    challenge_title: str | None = None,
+    skill_name: str | None = None,
+    category_name: str | None = None,
+) -> str:
+    """A gate in plain words, with no player in the picture (spec 022).
+
+    The player-facing wording in :func:`_view` says the same things but has to
+    reason about what that player is allowed to know. An admin sees everything,
+    so this needs none of that.
+    """
+    kind = requirement.requirement_type
+    threshold = requirement.threshold
+    if kind is RequirementType.CHALLENGE_SOLVED:
+        return f"Solve {challenge_title or 'a challenge'}"
+    if kind is RequirementType.MIN_XP:
+        return f"Reach {threshold} XP"
+    if kind is RequirementType.SKILL_LEVEL:
+        return f"{skill_name or 'a skill'} level {threshold}"
+    if kind is RequirementType.SOLVES_IN_CATEGORY:
+        return f"Clear {threshold} in {category_name or 'a zone'}"
+    if kind is RequirementType.PERCENT_IN_CATEGORY:
+        return f"Clear {threshold}% of {category_name or 'a zone'}"
+    if kind is RequirementType.PLAYER_LEVEL:
+        return f"Reach level {threshold}"
+    return "Unknown requirement"
+
+
+async def _check_no_category_cycle(
+    db: AsyncSession, *, category_id: UUID, required_category_id: UUID
+) -> None:
+    """Refuse a zone gate that would close a loop (spec 022).
+
+    A cycle has no symptom: every zone in it stays sealed forever, and nobody
+    notices until a player asks why a wing never opened. The edge runs from the
+    source zone to the zone it gates, so the new edge closes a loop exactly when
+    the zone being gated can already reach its own source.
+    """
+    if category_id == required_category_id:
+        raise InvalidRequirement(
+            "A zone cannot be gated on itself — it could never open.",
+            code="requirement_cycle",
+        )
+
+    rows = await db.execute(
+        select(UnlockRequirement.required_category_id, UnlockRequirement.category_id).where(
+            UnlockRequirement.category_id.is_not(None),
+            UnlockRequirement.required_category_id.is_not(None),
+        )
+    )
+    forward: dict[UUID, list[UUID]] = {}
+    for source, target in rows:
+        forward.setdefault(source, []).append(target)
+
+    # Walk forward from the zone being gated; reaching its source means the new
+    # edge would complete the loop. Depth-first, carrying the path so the error
+    # can name it.
+    stack: list[tuple[UUID, list[UUID]]] = [(category_id, [category_id])]
+    seen: set[UUID] = set()
+    while stack:
+        node, path = stack.pop()
+        if node == required_category_id:
+            names = await _category_names(db, [*path, category_id])
+            raise InvalidRequirement(
+                f"That gate would close a loop: {' → '.join(names)}. "
+                "Every zone in a loop stays sealed forever.",
+                code="requirement_cycle",
+            )
+        if node in seen:
+            continue
+        seen.add(node)
+        for nxt in forward.get(node, []):
+            stack.append((nxt, [*path, nxt]))
+
+
+async def _category_names(db: AsyncSession, ids: list[UUID]) -> list[str]:
+    rows = await db.execute(select(Category.id, Category.name).where(Category.id.in_(ids)))
+    by_id = dict(rows.all())
+    return [by_id.get(cid, "?") for cid in ids]
+
+
 async def add_requirement(
     db: AsyncSession,
     *,
@@ -440,6 +523,11 @@ async def add_requirement(
         raise InvalidRequirement("A percentage cannot exceed 100.", code="requirement_fields")
 
     await _check_targets_exist(db, values)
+
+    if category_id is not None and required_category_id is not None:
+        await _check_no_category_cycle(
+            db, category_id=category_id, required_category_id=required_category_id
+        )
 
     # challenge_solved on a challenge is 014's prerequisite edge, cycles and all.
     if requirement_type == RequirementType.CHALLENGE_SOLVED and challenge_id is not None:
