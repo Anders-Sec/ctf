@@ -343,6 +343,13 @@ class RequirementType(enum.StrEnum):
     SKILL_LEVEL = "skill_level"
     #: ``threshold`` or more solves inside ``required_category_id``.
     SOLVES_IN_CATEGORY = "solves_in_category"
+    #: ``threshold`` percent of the *visible* challenges in
+    #: ``required_category_id`` solved. What the zone progression is built on
+    #: (spec 019), since categories differ in size.
+    PERCENT_IN_CATEGORY = "percent_in_category"
+    #: Player level ``threshold`` or better. Says what it means, and follows the
+    #: XP curve if it is ever retuned — unlike a frozen min_xp number.
+    PLAYER_LEVEL = "player_level"
 
 
 class UnlockRequirement(UUIDPrimaryKeyMixin, TimestampMixin, Base):

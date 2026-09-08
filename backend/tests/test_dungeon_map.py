@@ -1,11 +1,11 @@
-"""The dungeon map: visibility, layout, state and zones (spec 017)."""
+"""The dungeon map: zones, progression edges, layout and gating (specs 017, 019)."""
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.challenge import ChallengeState, RequirementType, ScoringMode
-from app.models.user import UserRole, UserStatus
+from app.models.user import UserStatus
 from app.services import unlocks as unlock_service
 from tests.factories import make_category, make_challenge, make_user, record_solve
 
@@ -19,13 +19,8 @@ async def player(db_session, client, sign_in, **kwargs):
     return user
 
 
-async def require(db_session, gated, required):
-    await unlock_service.add_requirement(
-        db_session,
-        challenge_id=gated.id,
-        requirement_type=RequirementType.CHALLENGE_SOLVED,
-        required_challenge_id=required.id,
-    )
+async def gate_zone(db_session, category, **kwargs):
+    return await unlock_service.add_requirement(db_session, category_id=category.id, **kwargs)
 
 
 async def fetch(client) -> dict:
@@ -34,192 +29,229 @@ async def fetch(client) -> dict:
     return response.json()
 
 
-class TestVisibility:
-    async def test_invisible_challenges_yield_no_room_and_no_edge(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        """The leak test: hidden and draft challenges are absent entirely."""
-        await player(db_session, client, sign_in)
-        zone = await make_category(db_session, name="Web")
-        open_room = await make_challenge(db_session, category=zone, title="Warm-Up")
-        secret = await make_challenge(
-            db_session, category=zone, title="Secret", state=ChallengeState.HIDDEN
-        )
-        draft = await make_challenge(
-            db_session, category=zone, title="Draft", state=ChallengeState.DRAFT
-        )
-        # A corridor from the hidden room to the visible one must not surface.
-        await require(db_session, open_room, secret)
-
-        board = await fetch(client)
-
-        titles = {room["title"] for room in board["rooms"]}
-        assert titles == {"Warm-Up"}
-        assert board["edges"] == []
-        assert "Secret" not in str(board)
-        assert str(draft.id) not in str(board)
-
-    async def test_an_edge_needs_both_ends_visible(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        await player(db_session, client, sign_in)
-        zone = await make_category(db_session, name="Web")
-        first = await make_challenge(db_session, category=zone, title="First")
-        second = await make_challenge(db_session, category=zone, title="Second")
-        await require(db_session, second, first)
-
-        board = await fetch(client)
-
-        assert len(board["edges"]) == 1
-        assert board["edges"][0]["from_challenge_id"] == str(first.id)
-        assert board["edges"][0]["to_challenge_id"] == str(second.id)
-
-
-class TestRoomState:
-    async def test_states_match_the_list(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        user = await player(db_session, client, sign_in)
-        zone = await make_category(db_session, name="Web")
-        done = await make_challenge(db_session, category=zone, title="Done")
-        available = await make_challenge(db_session, category=zone, title="Available")
-        gated = await make_challenge(db_session, category=zone, title="Gated")
-        await require(db_session, gated, available)
-        await record_solve(db_session, user, done)
-
-        by_title = {r["title"]: r for r in (await fetch(client))["rooms"]}
-
-        assert by_title["Done"]["state"] == "cleared"
-        assert by_title["Available"]["state"] == "open"
-        assert by_title["Gated"]["state"] == "shut"
-        assert by_title["Gated"]["unlock_requirements"][0]["description"] == "Solve Available"
-
-
-class TestLayout:
-    async def test_depth_layers_by_prerequisite(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        await player(db_session, client, sign_in)
-        zone = await make_category(db_session, name="Web")
-        first = await make_challenge(db_session, category=zone, title="First")
-        second = await make_challenge(db_session, category=zone, title="Second")
-        third = await make_challenge(db_session, category=zone, title="Third")
-        await require(db_session, second, first)
-        await require(db_session, third, second)
-        # Also gate third on first: it must still sit past its *deepest* parent.
-        await require(db_session, third, first)
-
-        by_title = {r["title"]: r for r in (await fetch(client))["rooms"]}
-
-        assert by_title["First"]["y"] == 0
-        assert by_title["Second"]["y"] == 1
-        assert by_title["Third"]["y"] == 2
-
-    async def test_layout_is_deterministic_across_calls_and_players(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        zone = await make_category(db_session, name="Web")
-        for title in ("Alpha", "Bravo", "Charlie", "Delta"):
-            await make_challenge(db_session, category=zone, title=title)
-
-        await player(db_session, client, sign_in)
-        first = {r["title"]: (r["x"], r["y"]) for r in (await fetch(client))["rooms"]}
-        second = {r["title"]: (r["x"], r["y"]) for r in (await fetch(client))["rooms"]}
-        assert first == second
-
-        # A different player sees the same dungeon.
-        await player(db_session, client, sign_in)
-        other = {r["title"]: (r["x"], r["y"]) for r in (await fetch(client))["rooms"]}
-        assert other == first
-
-    async def test_a_pinned_room_wins_and_can_be_cleared(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        await player(db_session, client, sign_in, role=UserRole.ADMIN)
-        zone = await make_category(db_session, name="Web")
-        room = await make_challenge(db_session, category=zone, title="Pinned")
-
-        await client.patch(f"/api/admin/challenges/{room.id}/map-position", json={"x": 7, "y": 9})
-        pinned = (await fetch(client))["rooms"][0]
-        assert (pinned["x"], pinned["y"]) == (7, 9)
-
-        await client.patch(
-            f"/api/admin/challenges/{room.id}/map-position", json={"x": None, "y": None}
-        )
-        derived = (await fetch(client))["rooms"][0]
-        assert (derived["x"], derived["y"]) == (0, 0)
-
-    async def test_a_challenge_with_no_prerequisites_still_appears(
-        self, client: AsyncClient, db_session: AsyncSession, sign_in
-    ) -> None:
-        """Nothing falls off the map."""
-        await player(db_session, client, sign_in)
-        await make_challenge(db_session, title="Lonely")
-
-        assert [r["title"] for r in (await fetch(client))["rooms"]] == ["Lonely"]
+def zone(board: dict, name: str) -> dict:
+    return next(z for z in board["zones"] if z["name"] == name)
 
 
 class TestZones:
-    async def test_zones_are_categories_with_progress(
+    async def test_the_map_is_zones_not_challenges(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """231 rooms is unreadable and cannot be illustrated; 22 zones can."""
         user = await player(db_session, client, sign_in)
-        # Names the seed migration does not use (spec 018 seeds 21 real ones).
-        web = await make_category(db_session, name="Test Web", display_order=1)
-        crypto = await make_category(db_session, name="Test Crypto", display_order=2)
-        done = await make_challenge(db_session, category=web, title="Done")
-        await make_challenge(db_session, category=web, title="Todo")
-        await make_challenge(db_session, category=crypto, title="Cipher")
+        wing = await make_category(db_session, name="Test Wing")
+        done = await make_challenge(db_session, category=wing, title="Done")
+        await make_challenge(db_session, category=wing, title="Todo")
         await record_solve(db_session, user, done)
 
-        zones = (await fetch(client))["zones"]
+        board = await fetch(client)
 
-        assert [z["name"] for z in zones] == ["Test Web", "Test Crypto"]
-        assert (zones[0]["cleared"], zones[0]["total"]) == (1, 2)
-        assert (zones[1]["cleared"], zones[1]["total"]) == (0, 1)
+        assert "rooms" not in board
+        found = zone(board, "Test Wing")
+        assert (found["cleared"], found["total"]) == (1, 2)
+        assert found["slug"] == "test-wing"
 
-    async def test_a_gated_zone_reports_locked_with_its_condition(
+    async def test_counts_ignore_challenges_the_player_cannot_see(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
         await player(db_session, client, sign_in)
-        wing = await make_category(db_session, name="Deep Wing")
-        await make_challenge(db_session, category=wing, title="Inner")
-        await unlock_service.add_requirement(
+        wing = await make_category(db_session, name="Test Wing")
+        await make_challenge(db_session, category=wing, title="Open")
+        await make_challenge(db_session, category=wing, title="Secret", state=ChallengeState.HIDDEN)
+
+        board = await fetch(client)
+
+        assert zone(board, "Test Wing")["total"] == 1
+        assert "Secret" not in str(board)
+
+
+class TestProgression:
+    async def test_edges_are_the_progression_graph(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """A corridor means 'this opens that', so it points source to gated."""
+        await player(db_session, client, sign_in)
+        first = await make_category(db_session, name="Test First")
+        second = await make_category(db_session, name="Test Second")
+        await gate_zone(
             db_session,
-            category_id=wing.id,
-            requirement_type=RequirementType.MIN_XP,
-            threshold=600,
+            second,
+            requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+            required_category_id=first.id,
+            threshold=50,
         )
 
         board = await fetch(client)
-        zone = board["zones"][0]
 
-        assert zone["locked"] is True
-        assert zone["unlock_requirements"][0]["description"] == "Reach 600 XP"
-        # Greyed, not hidden: the room is still returned, and readable.
-        assert [r["title"] for r in board["rooms"]] == ["Inner"]
-        assert board["rooms"][0]["state"] == "shut"
+        assert {
+            "from_zone_id": str(first.id),
+            "to_zone_id": str(second.id),
+        } in board["edges"]
+
+    async def test_a_level_gate_is_a_condition_not_a_corridor(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """It has no source zone, so a corridor from nowhere would be nonsense."""
+        await player(db_session, client, sign_in)
+        wing = await make_category(db_session, name="Test Deep")
+        await gate_zone(
+            db_session, wing, requirement_type=RequirementType.PLAYER_LEVEL, threshold=5
+        )
+
+        board = await fetch(client)
+        found = zone(board, "Test Deep")
+
+        assert found["locked"] is True
+        assert found["unlock_requirements"][0]["description"] == "Reach level 5"
+        assert all(e["to_zone_id"] != str(wing.id) for e in board["edges"])
+
+    async def test_deeper_zones_layer_further_out(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+        first = await make_category(db_session, name="Test Tier1")
+        second = await make_category(db_session, name="Test Tier2")
+        third = await make_category(db_session, name="Test Tier3")
+        for gated, source in ((second, first), (third, second)):
+            await gate_zone(
+                db_session,
+                gated,
+                requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+                required_category_id=source.id,
+                threshold=50,
+            )
+
+        board = await fetch(client)
+
+        assert zone(board, "Test Tier1")["y"] == 0
+        assert zone(board, "Test Tier2")["y"] == 1
+        assert zone(board, "Test Tier3")["y"] == 2
+
+    async def test_layout_is_deterministic_across_players(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await make_category(db_session, name="Test Alpha")
+        await make_category(db_session, name="Test Bravo")
+
+        await player(db_session, client, sign_in)
+        first = {z["name"]: (z["x"], z["y"]) for z in (await fetch(client))["zones"]}
+        await player(db_session, client, sign_in)
+        second = {z["name"]: (z["x"], z["y"]) for z in (await fetch(client))["zones"]}
+
+        assert first == second
+
+
+class TestPercentGate:
+    async def test_it_opens_at_the_threshold(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        user = await player(db_session, client, sign_in)
+        source = await make_category(db_session, name="Test Source")
+        gated = await make_category(db_session, name="Test Gated")
+        await gate_zone(
+            db_session,
+            gated,
+            requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+            required_category_id=source.id,
+            threshold=50,
+        )
+        challenges = [
+            await make_challenge(db_session, category=source, title=f"C{i}") for i in range(4)
+        ]
+
+        board = await fetch(client)
+        assert zone(board, "Test Gated")["locked"] is True
+        requirement = zone(board, "Test Gated")["unlock_requirements"][0]
+        assert requirement["description"] == "Clear 50% of Test Source"
+        assert requirement["progress"] == 0
+
+        await record_solve(db_session, user, challenges[0])
+        assert zone(await fetch(client), "Test Gated")["locked"] is True  # 25%
+
+        await record_solve(db_session, user, challenges[1])
+        assert zone(await fetch(client), "Test Gated")["locked"] is False  # 50%
+
+    async def test_hiding_a_challenge_only_helps(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """The denominator is visible challenges, so hiding one moves a player
+        closer to the threshold and never further away (spec 019)."""
+        user = await player(db_session, client, sign_in)
+        source = await make_category(db_session, name="Test Source")
+        gated = await make_category(db_session, name="Test Gated")
+        await gate_zone(
+            db_session,
+            gated,
+            requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+            required_category_id=source.id,
+            threshold=50,
+        )
+        challenges = [
+            await make_challenge(db_session, category=source, title=f"C{i}") for i in range(4)
+        ]
+        await record_solve(db_session, user, challenges[0])
+        assert zone(await fetch(client), "Test Gated")["locked"] is True  # 1 of 4
+
+        challenges[3].state = ChallengeState.HIDDEN
+        await db_session.flush()
+
+        # 2 of 3 clears it where 2 of 4 would not have — the bar came down.
+        await record_solve(db_session, user, challenges[1])
+        assert zone(await fetch(client), "Test Gated")["locked"] is False
+
+    async def test_a_zone_with_nothing_visible_cannot_be_cleared(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Better an unopenable zone than one that opens for free."""
+        await player(db_session, client, sign_in)
+        source = await make_category(db_session, name="Test Empty")
+        gated = await make_category(db_session, name="Test Gated")
+        await gate_zone(
+            db_session,
+            gated,
+            requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+            required_category_id=source.id,
+            threshold=50,
+        )
+
+        assert zone(await fetch(client), "Test Gated")["locked"] is True
+
+
+class TestPlayerLevelGate:
+    async def test_it_opens_at_the_level(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        user = await player(db_session, client, sign_in)
+        wing = await make_category(db_session, name="Test Deep")
+        await gate_zone(
+            db_session, wing, requirement_type=RequirementType.PLAYER_LEVEL, threshold=5
+        )
+
+        assert zone(await fetch(client), "Test Deep")["locked"] is True
+
+        # Level 5 is 2,000 XP on the 015 curve.
+        challenge = await make_challenge(
+            db_session, scoring=ScoringMode.STATIC, initial_points=2000
+        )
+        await record_solve(db_session, user, challenge)
+
+        assert zone(await fetch(client), "Test Deep")["locked"] is False
 
 
 class TestFog:
     async def test_fog_is_presentation_only(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        """The same rooms come back either way — fog adds no leak surface."""
         from sqlalchemy import select
 
         from app.models.event import EventConfig
 
         await player(db_session, client, sign_in)
-        wing = await make_category(db_session, name="Deep Wing")
-        await make_challenge(db_session, category=wing, title="Inner", scoring=ScoringMode.STATIC)
-        await unlock_service.add_requirement(
-            db_session,
-            category_id=wing.id,
-            requirement_type=RequirementType.MIN_XP,
-            threshold=600,
+        wing = await make_category(db_session, name="Test Deep")
+        await make_challenge(db_session, category=wing, title="Inner")
+        await gate_zone(
+            db_session, wing, requirement_type=RequirementType.PLAYER_LEVEL, threshold=8
         )
-
         config = (await db_session.execute(select(EventConfig))).scalars().first()
 
         config.fog_of_war = True
@@ -232,5 +264,35 @@ class TestFog:
 
         assert with_fog["fog_of_war"] is True
         assert without_fog["fog_of_war"] is False
-        assert with_fog["rooms"] == without_fog["rooms"]
         assert with_fog["zones"] == without_fog["zones"]
+
+
+class TestSeededGraph:
+    async def test_the_real_progression_is_present(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Intro is open from the start and gates the first six (spec 019)."""
+        await player(db_session, client, sign_in)
+
+        board = await fetch(client)
+        by_name = {z["name"]: z for z in board["zones"]}
+
+        # Intro must actually be clearable: it gates the first six on "100% of
+        # Intro", and a zone with nothing visible can never be cleared — an empty
+        # Intro would seal the whole dungeon behind an empty room.
+        assert by_name["Intro"]["locked"] is False
+        assert by_name["Intro"]["total"] >= 1
+        for name in (
+            "Networking",
+            "Governance, Risk & Compliance",
+            "Hacker Game Show",
+            "CTI",
+            "Incident Response",
+            "AI/LLM Security",
+        ):
+            assert by_name[name]["locked"] is True
+            assert by_name[name]["unlock_requirements"][0]["description"] == "Clear 100% of Intro"
+
+        assert by_name["Red teaming"]["unlock_requirements"][0]["description"] == "Reach level 5"
+        for name in ("Mobile Security", "Reverse Engineering", "Malware Analysis"):
+            assert by_name[name]["unlock_requirements"][0]["description"] == "Reach level 8"

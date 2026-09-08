@@ -42,11 +42,16 @@ export interface ChallengeListItem {
   attempts_remaining: number | null;
   max_attempts: number | null;
   release_at: string | null;
-  /** On a challenge locked by prerequisites, what unlocks it. */
+  /** What unlocks it, if locked. `description` is rendered server-side so the
+   *  client needs no per-type branch (spec 017). */
   unlock_requirements: {
-    challenge_id: string;
-    title: string;
-    solved: boolean;
+    type: string;
+    met: boolean;
+    description: string;
+    challenge_id: string | null;
+    title: string | null;
+    threshold: number | null;
+    progress: number | null;
   }[];
 }
 

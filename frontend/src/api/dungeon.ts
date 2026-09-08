@@ -16,40 +16,31 @@ export interface UnlockRequirement {
   progress: number | null;
 }
 
-export type RoomState = "cleared" | "open" | "shut";
-
-export interface Room {
-  challenge_id: string;
-  title: string;
-  zone_id: string;
-  x: number;
-  y: number;
-  state: RoomState;
-  value: number;
-  solved: boolean;
-  unlock_requirements: UnlockRequirement[];
-}
-
 export interface Zone {
   id: string;
   name: string;
+  /** Matches the artwork filename — how a tile is wired to its zone. */
+  slug: string;
+  ability: string;
   display_order: number;
+  x: number;
+  y: number;
   locked: boolean;
   unlock_requirements: UnlockRequirement[];
   cleared: number;
   total: number;
 }
 
+/** A corridor: `from_zone_id` is what opens `to_zone_id`. */
 export interface Edge {
-  from_challenge_id: string;
-  to_challenge_id: string;
+  from_zone_id: string;
+  to_zone_id: string;
 }
 
 export interface DungeonMap {
-  /** Dim locked zones. Presentation only — the same rooms come back either way. */
+  /** Dim locked zones. Presentation only — the same zones come back either way. */
   fog_of_war: boolean;
   zones: Zone[];
-  rooms: Room[];
   edges: Edge[];
 }
 

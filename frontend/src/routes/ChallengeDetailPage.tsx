@@ -91,11 +91,18 @@ export default function ChallengeDetailPage() {
           </h2>
           {detail.unlock_requirements.length > 0 ? (
             <>
-              <p className="mt-1 text-sm">Unlock by solving:</p>
+              <p className="mt-1 text-sm">Opens when:</p>
               <ul className="mt-2 space-y-1 text-sm">
-                {detail.unlock_requirements.map((req) => (
-                  <li key={req.challenge_id}>
-                    {req.solved ? "✓" : "•"} {req.title}
+                {/* description is rendered server-side, so every gate type —
+                    a solve, an XP total, a share of a zone — reads the same. */}
+                {detail.unlock_requirements.map((req, index) => (
+                  <li key={`${req.type}-${req.challenge_id ?? index}`}>
+                    {req.met ? "✓" : "•"} {req.description}
+                    {req.threshold !== null && req.progress !== null && (
+                      <span className="ml-1 text-muted">
+                        ({req.progress}/{req.threshold})
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

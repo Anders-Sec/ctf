@@ -18,7 +18,7 @@ they are allowed to see, so a locked challenge never reveals a hidden one.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete as sql_delete
@@ -88,13 +88,22 @@ class PlayerProgress:
 
     solved_challenge_ids: set[UUID]
     total_xp: int
+    player_level: int
     skill_levels: dict[UUID, int]
     solves_per_category: dict[UUID, int]
+    #: (solved, visible) per category — the numerator and denominator of a
+    #: percentage gate. Visible only, so unreleased content cannot make a gate
+    #: unreachable, and hiding a challenge can only help.
+    category_progress: dict[UUID, tuple[int, int]]
 
 
 async def load_progress(
-    db: AsyncSession, user_id: UUID, requirements: list[UnlockRequirement]
+    db: AsyncSession,
+    user_id: UUID,
+    requirements: list[UnlockRequirement],
+    now: datetime | None = None,
 ) -> PlayerProgress:
+    now = now or datetime.now(UTC)
     types = {req.requirement_type for req in requirements}
 
     solved: set[UUID] = set()
@@ -114,8 +123,10 @@ async def load_progress(
             )
 
     total_xp = 0
-    if RequirementType.MIN_XP in types:
+    player_level = 1
+    if types & {RequirementType.MIN_XP, RequirementType.PLAYER_LEVEL}:
         total_xp = await scoring.total_xp(db, user_id)
+        player_level = scoring.level_for_xp(total_xp)
 
     skill_levels: dict[UUID, int] = {}
     if RequirementType.SKILL_LEVEL in types:
@@ -133,12 +144,67 @@ async def load_progress(
         )
         per_category = {category_id: count for category_id, count in rows}
 
+    progress_by_category: dict[UUID, tuple[int, int]] = {}
+    if RequirementType.PERCENT_IN_CATEGORY in types:
+        wanted = {r.required_category_id for r in requirements if r.required_category_id}
+        if wanted:
+            progress_by_category = await _category_progress(db, user_id, wanted, now)
+
     return PlayerProgress(
         solved_challenge_ids=solved,
         total_xp=total_xp,
+        player_level=player_level,
         skill_levels=skill_levels,
         solves_per_category=per_category,
+        category_progress=progress_by_category,
     )
+
+
+async def _category_progress(
+    db: AsyncSession, user_id: UUID, category_ids: set[UUID], now: datetime
+) -> dict[UUID, tuple[int, int]]:
+    """Solved and visible counts per category, for percentage gates.
+
+    Visibility is evaluated the same way the board does it, so a draft or
+    unreleased challenge is in neither the numerator nor the denominator.
+    """
+    rows = (
+        (
+            await db.execute(
+                select(Challenge).where(
+                    Challenge.category_id.in_(category_ids),
+                    Challenge.state != ChallengeState.DRAFT,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    visible = [c for c in rows if c.effective_state(now) in PLAYER_VISIBLE]
+    if not visible:
+        return {category_id: (0, 0) for category_id in category_ids}
+
+    solved_ids = set(
+        (
+            await db.execute(
+                select(Solve.challenge_id).where(
+                    Solve.user_id == user_id,
+                    Solve.challenge_id.in_([c.id for c in visible]),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    totals: dict[UUID, tuple[int, int]] = {category_id: (0, 0) for category_id in category_ids}
+    for challenge in visible:
+        done, total = totals.get(challenge.category_id, (0, 0))
+        totals[challenge.category_id] = (
+            done + (1 if challenge.id in solved_ids else 0),
+            total + 1,
+        )
+    return totals
 
 
 async def _label_lookups(
@@ -236,6 +302,32 @@ def _evaluate(
             progress=count,
         )
 
+    if kind == RequirementType.PERCENT_IN_CATEGORY:
+        category_id = requirement.required_category_id
+        name = categories.get(category_id, "a zone") if category_id else "a zone"
+        done, total = progress.category_progress.get(category_id, (0, 0)) if category_id else (0, 0)
+        # No visible challenges means nothing to clear, so the gate cannot be
+        # met — better an unopenable zone than one that opens for free.
+        percent = int(done * 100 / total) if total else 0
+        return RequirementView(
+            type=kind,
+            met=total > 0 and percent >= threshold,
+            description=f"Clear {threshold}% of {name}",
+            category_id=category_id,
+            category_name=name,
+            threshold=threshold,
+            progress=percent,
+        )
+
+    if kind == RequirementType.PLAYER_LEVEL:
+        return RequirementView(
+            type=kind,
+            met=progress.player_level >= threshold,
+            description=f"Reach level {threshold}",
+            threshold=threshold,
+            progress=progress.player_level,
+        )
+
     # Unreachable while RequirementType is exhaustive above, but a new member
     # should fail closed rather than silently unlocking everything.
     return RequirementView(type=kind, met=False, description="Unknown requirement")
@@ -265,7 +357,7 @@ async def evaluate_groups(
     if not requirements:
         return {}
 
-    progress = await load_progress(db, user_id, requirements)
+    progress = await load_progress(db, user_id, requirements, now)
     challenges, skills, categories = await _label_lookups(db, requirements)
 
     grouped: dict[UUID, list[UnlockRequirement]] = {}
@@ -295,6 +387,8 @@ _REQUIRED_FIELDS: dict[RequirementType, tuple[str, ...]] = {
     RequirementType.MIN_XP: ("threshold",),
     RequirementType.SKILL_LEVEL: ("required_skill_id", "threshold"),
     RequirementType.SOLVES_IN_CATEGORY: ("required_category_id", "threshold"),
+    RequirementType.PERCENT_IN_CATEGORY: ("required_category_id", "threshold"),
+    RequirementType.PLAYER_LEVEL: ("threshold",),
 }
 
 _ALL_FIELDS = ("required_challenge_id", "required_skill_id", "required_category_id", "threshold")
@@ -342,6 +436,8 @@ async def add_requirement(
 
     if threshold is not None and threshold < 1:
         raise InvalidRequirement("A threshold must be at least 1.", code="requirement_fields")
+    if requirement_type == RequirementType.PERCENT_IN_CATEGORY and threshold > 100:
+        raise InvalidRequirement("A percentage cannot exceed 100.", code="requirement_fields")
 
     await _check_targets_exist(db, values)
 
@@ -424,7 +520,7 @@ async def describe(
     """Evaluate a flat list of requirements for one player, unGrouped."""
     if not requirements:
         return []
-    progress = await load_progress(db, user_id, requirements)
+    progress = await load_progress(db, user_id, requirements, now)
     challenges, skills, categories = await _label_lookups(db, requirements)
     return [_evaluate(r, progress, challenges, skills, categories) for r in requirements]
 
@@ -468,7 +564,7 @@ async def evaluate_for_challenges(
     if not requirements:
         return {}
 
-    progress = await load_progress(db, user_id, list(requirements))
+    progress = await load_progress(db, user_id, list(requirements), now)
     challenges, skills, categories = await _label_lookups(db, list(requirements))
 
     by_challenge: dict[UUID, list[UnlockRequirement]] = {}

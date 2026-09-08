@@ -13,7 +13,6 @@ from app.schemas.dungeon import (
     EdgeResponse,
     MapPositionResponse,
     MapResponse,
-    RoomResponse,
     SetMapPositionRequest,
     ZoneResponse,
 )
@@ -48,7 +47,11 @@ async def get_map(db: DbSession, current: Player) -> MapResponse:
             ZoneResponse(
                 id=zone.id,
                 name=zone.name,
+                slug=zone.slug,
+                ability=zone.ability,
                 display_order=zone.display_order,
+                x=zone.x,
+                y=zone.y,
                 locked=zone.locked,
                 unlock_requirements=[_requirement(r) for r in zone.unlock_requirements],
                 cleared=zone.cleared,
@@ -56,26 +59,8 @@ async def get_map(db: DbSession, current: Player) -> MapResponse:
             )
             for zone in board.zones
         ],
-        rooms=[
-            RoomResponse(
-                challenge_id=room.challenge_id,
-                title=room.title,
-                zone_id=room.zone_id,
-                x=room.x,
-                y=room.y,
-                state=room.state,
-                value=room.value,
-                solved=room.solved,
-                unlock_requirements=[_requirement(r) for r in room.unlock_requirements],
-            )
-            for room in board.rooms
-        ],
         edges=[
-            EdgeResponse(
-                from_challenge_id=edge.from_challenge_id,
-                to_challenge_id=edge.to_challenge_id,
-            )
-            for edge in board.edges
+            EdgeResponse(from_zone_id=e.from_zone_id, to_zone_id=e.to_zone_id) for e in board.edges
         ],
     )
 
