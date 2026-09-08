@@ -30,7 +30,7 @@ spec:
           # multi-commit push are never built and their tags never exist. That
           # makes the bump inherently a follow-up commit: push the work, let
           # the build finish, then pin the sha it produced.
-          image: ghcr.io/anders-sec/ctf-frontend:sha-aed1927 
+          image: ghcr.io/anders-sec/ctf-frontend:sha-372af24 
           imagePullPolicy: IfNotPresent
           ports:
             - { name: http, containerPort: 8080 }
