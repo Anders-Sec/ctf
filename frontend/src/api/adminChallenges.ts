@@ -62,8 +62,6 @@ export interface UpdateChallengeInput {
   category?: string;
   body?: string;
   difficulty?: Difficulty;
-  initial_points?: number;
-  minimum_points?: number;
   decay_threshold?: number;
   scoring?: "dynamic" | "static";
   decay_basis?: "players" | "teams";

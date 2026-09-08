@@ -26,7 +26,13 @@ import {
 import { listTemplates } from "../api/adminTemplates";
 import type { ChallengeState, Difficulty, MatchType } from "../api/challenges";
 import { useSession } from "../auth/session";
+import {
+  getChallengeSkills,
+  listSkills,
+  setChallengeSkills,
+} from "../api/adminSkills";
 import ErrorMessage from "../components/ErrorMessage";
+import SkillPicker from "../components/SkillPicker";
 import Spinner from "../components/Spinner";
 
 const MATCH_TYPES: { value: MatchType; label: string; hint: string }[] = [
@@ -576,8 +582,6 @@ function ChallengeSettingsForm({
     body: challenge.body,
     difficulty: challenge.difficulty,
     scoring: challenge.scoring,
-    initial_points: challenge.initial_points,
-    minimum_points: challenge.minimum_points,
     decay_basis: challenge.decay_basis,
     decay_threshold: challenge.decay_threshold,
     max_attempts: challenge.max_attempts,
@@ -659,26 +663,16 @@ function ChallengeSettingsForm({
             className="mt-1 w-full rounded border border-stone px-3 py-2"
           />
         </label>
-        <label className="text-sm">
-          Points (start)
-          <input
-            type="number"
-            min={1}
-            value={form.initial_points ?? 0}
-            onChange={(e) => set("initial_points", Number(e.target.value))}
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
-          />
-        </label>
-        <label className="text-sm">
-          Points (floor)
-          <input
-            type="number"
-            min={0}
-            value={form.minimum_points ?? 0}
-            onChange={(e) => set("minimum_points", Number(e.target.value))}
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
-          />
-        </label>
+        {/* Derived from difficulty (spec 018), so shown rather than typed —
+            an inverted floor-above-ceiling is now unreachable. */}
+        <div className="text-sm">
+          <span className="block">XP</span>
+          <p className="mt-1 rounded border border-dashed border-stone px-3 py-2 text-muted">
+            {DIFFICULTY_XP[form.difficulty ?? challenge.difficulty]} ceiling,
+            floor {Math.floor(DIFFICULTY_XP[form.difficulty ?? challenge.difficulty] * 0.4)}
+            <span className="block text-xs">set by difficulty</span>
+          </p>
+        </div>
         {form.scoring === "dynamic" && (
           <>
             <label className="text-sm">
@@ -719,7 +713,44 @@ function ChallengeSettingsForm({
         {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
       </div>
       <ErrorMessage error={save.error} />
+
+      <div className="mt-5 border-t border-stone pt-4">
+        <ChallengeSkills challenge={challenge} />
+      </div>
     </form>
+  );
+}
+
+/** Which skills this challenge feeds. Saved separately from the settings form,
+ *  because it is a different decision made at a different time. */
+function ChallengeSkills({ challenge }: { challenge: AdminChallengeDetail }) {
+  const queryClient = useQueryClient();
+  const skills = useQuery({ queryKey: ["admin", "skills"], queryFn: listSkills });
+  const assigned = useQuery({
+    queryKey: ["admin", "challenge-skills", challenge.id],
+    queryFn: () => getChallengeSkills(challenge.id),
+  });
+
+  const save = useMutation({
+    mutationFn: (ids: string[]) => setChallengeSkills(challenge.id, ids),
+    onSuccess: (ids) =>
+      queryClient.setQueryData(["admin", "challenge-skills", challenge.id], ids),
+  });
+
+  if (skills.isPending || assigned.isPending) return <Spinner />;
+  if (skills.isError) return <ErrorMessage error={skills.error} />;
+
+  return (
+    <>
+      <SkillPicker
+        skills={skills.data}
+        categoryId={challenge.category.id}
+        selected={save.variables ?? assigned.data ?? []}
+        disabled={save.isPending}
+        onChange={(ids) => save.mutate(ids)}
+      />
+      <ErrorMessage error={save.error} />
+    </>
   );
 }
 

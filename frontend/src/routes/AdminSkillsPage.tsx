@@ -6,18 +6,30 @@ import {
   deleteSkill,
   listCategories,
   listSkills,
-  setCategorySkill,
-  type Skill,
+  setCategoryAbility,
+  type Ability,
 } from "../api/adminSkills";
 import { useSession } from "../auth/session";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 
 /**
- * Skills and the category→skill map (spec 015). Create the skills a player can
- * be good at, then point each challenge category at one of them. A category left
- * unmapped still feeds a player's overall XP — it just sits under no named skill.
+ * Skills, and the category→ability map (spec 018).
+ *
+ * Skills attach to individual *challenges* (in the challenge editor), not to
+ * categories — a challenge feeds every skill on it in full. Categories instead
+ * feed one of the six abilities, which is what partitions a player's XP into a
+ * stat block, so every category must have one.
  */
+const ABILITIES: [Ability, string][] = [
+  ["str", "Strength"],
+  ["dex", "Dexterity"],
+  ["con", "Constitution"],
+  ["int", "Intelligence"],
+  ["wis", "Wisdom"],
+  ["cha", "Charisma"],
+];
+
 export default function AdminSkillsPage() {
   const { me } = useSession();
   const canWrite = me?.capabilities.administer ?? false;
@@ -47,8 +59,8 @@ export default function AdminSkillsPage() {
     onSuccess: invalidate,
   });
   const map = useMutation({
-    mutationFn: (input: { categoryId: string; skillId: string | null }) =>
-      setCategorySkill(input.categoryId, input.skillId),
+    mutationFn: (input: { categoryId: string; ability: Ability }) =>
+      setCategoryAbility(input.categoryId, input.ability),
     onSuccess: invalidate,
   });
 
@@ -60,8 +72,9 @@ export default function AdminSkillsPage() {
     <main className="mx-auto max-w-2xl p-6">
       <h1 className="text-3xl font-semibold tracking-tight">Skills</h1>
       <p className="mt-2 text-sm text-muted">
-        A skill is a competency a player levels up. Several categories can feed the
-        same skill — map each category below.
+        Skills attach to individual challenges, and solving one feeds every skill
+        on it. Categories feed an <strong>ability</strong> instead — that mapping
+        is below, and every category needs one.
       </p>
 
       {!canWrite && (
@@ -81,7 +94,12 @@ export default function AdminSkillsPage() {
                 key={skill.id}
                 className="flex items-center justify-between rounded border border-stone bg-white/40 px-4 py-2"
               >
-                <span className="font-medium">{skill.name}</span>
+                <span className="font-medium">
+                  {skill.name}
+                  {skill.kind === "funny" && (
+                    <span className="ml-2 text-xs text-muted">funny</span>
+                  )}
+                </span>
                 {canWrite && (
                   <button
                     onClick={() => remove.mutate(skill.id)}
@@ -124,7 +142,7 @@ export default function AdminSkillsPage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-semibold">Category mapping</h2>
+        <h2 className="text-lg font-semibold">Category → ability</h2>
         {categories.data.length === 0 ? (
           <p className="mt-2 text-sm text-muted">No categories yet.</p>
         ) : (
@@ -136,21 +154,20 @@ export default function AdminSkillsPage() {
               >
                 <span>{category.name}</span>
                 <select
-                  aria-label={`Skill for ${category.name}`}
-                  value={category.skill_id ?? ""}
+                  aria-label={`Ability for ${category.name}`}
+                  value={category.ability}
                   disabled={!canWrite || map.isPending}
                   onChange={(e) =>
                     map.mutate({
                       categoryId: category.id,
-                      skillId: e.target.value || null,
+                      ability: e.target.value as Ability,
                     })
                   }
                   className="rounded border border-stone px-2 py-1 text-sm"
                 >
-                  <option value="">— no skill —</option>
-                  {skills.data.map((skill: Skill) => (
-                    <option key={skill.id} value={skill.id}>
-                      {skill.name}
+                  {ABILITIES.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
                     </option>
                   ))}
                 </select>

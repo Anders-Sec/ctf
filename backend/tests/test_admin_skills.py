@@ -71,3 +71,77 @@ class TestSkillCrud:
 
         assert (await client.get("/api/admin/skills")).status_code == 200
         assert (await client.post("/api/admin/skills", json={"name": "Hacking"})).status_code == 403
+
+
+class TestCategoryAbility:
+    async def test_an_admin_points_a_category_at_an_ability(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from tests.factories import make_category
+
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        category = await make_category(db_session, name="Test Wing")
+
+        response = await client.patch(
+            f"/api/admin/categories/{category.id}/ability", json={"ability": "str"}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["ability"] == "str"
+
+    async def test_the_listing_carries_the_ability(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await as_role(db_session, client, sign_in, UserRole.ORGANIZER)
+
+        rows = (await client.get("/api/admin/categories")).json()
+
+        # The seed migration points every real category at an ability.
+        assert rows and all(row["ability"] for row in rows)
+
+
+class TestChallengeSkills:
+    async def test_skills_are_replaced_wholesale(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from app.models.skill import Skill
+        from tests.factories import make_challenge
+
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        challenge = await make_challenge(db_session)
+        first = Skill(name="Test Lockpicking")
+        second = Skill(name="Test Bluffing")
+        db_session.add_all([first, second])
+        await db_session.flush()
+
+        await client.put(
+            f"/api/admin/challenges/{challenge.id}/skills",
+            json={"skill_ids": [str(first.id), str(second.id)]},
+        )
+        both = (await client.get(f"/api/admin/challenges/{challenge.id}/skills")).json()
+        assert len(both) == 2
+
+        # PUT replaces rather than appends.
+        await client.put(
+            f"/api/admin/challenges/{challenge.id}/skills",
+            json={"skill_ids": [str(second.id)]},
+        )
+        one = (await client.get(f"/api/admin/challenges/{challenge.id}/skills")).json()
+        assert one == [str(second.id)]
+
+    async def test_an_unknown_skill_is_refused(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        import uuid
+
+        from tests.factories import make_challenge
+
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        challenge = await make_challenge(db_session)
+
+        response = await client.put(
+            f"/api/admin/challenges/{challenge.id}/skills",
+            json={"skill_ids": [str(uuid.uuid4())]},
+        )
+
+        assert response.status_code == 404

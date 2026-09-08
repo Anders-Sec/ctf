@@ -16,7 +16,8 @@ from app.schemas.auth import MessageResponse
 from app.schemas.skills import (
     AdminCategoryResponse,
     CreateSkillRequest,
-    SetCategorySkillRequest,
+    SetCategoryAbilityRequest,
+    SetChallengeSkillsRequest,
     SkillResponse,
     UpdateSkillRequest,
 )
@@ -47,6 +48,8 @@ async def create_skill(
         name=payload.name,
         display_order=payload.display_order,
         description=payload.description,
+        kind=payload.kind,
+        category_id=payload.category_id,
     )
     await record_audit(
         db,
@@ -100,8 +103,10 @@ async def delete_skill(
 
 
 @router.get("/categories")
-async def list_categories_with_skill(db: DbSession, current: Staff) -> list[AdminCategoryResponse]:
-    """Every category with its current skill mapping — the admin page's list."""
+async def list_categories_with_ability(
+    db: DbSession, current: Staff
+) -> list[AdminCategoryResponse]:
+    """Every category with the ability it feeds — the admin page's list."""
     categories = (
         (await db.execute(select(Category).order_by(Category.display_order, Category.name)))
         .scalars()
@@ -113,22 +118,49 @@ async def list_categories_with_skill(db: DbSession, current: Staff) -> list[Admi
     ]
 
 
-@router.patch("/categories/{category_id}/skill")
-async def set_category_skill(
+@router.patch("/categories/{category_id}/ability")
+async def set_category_ability(
     category_id: UUID,
-    payload: SetCategorySkillRequest,
+    payload: SetCategoryAbilityRequest,
     request: Request,
     db: DbSession,
     current: Admin,
 ) -> AdminCategoryResponse:
-    category = await skill_service.set_category_skill(db, category_id, payload.skill_id)
+    category = await skill_service.set_category_ability(db, category_id, payload.ability)
     await record_audit(
         db,
-        action="category.map_skill",
+        action="category.set_ability",
         target_type="category",
         target_id=category_id,
         actor_user_id=current.user.id,
-        meta={"skill_id": str(payload.skill_id) if payload.skill_id else None},
+        meta={"ability": payload.ability.value},
         request_id=_request_id(request),
     )
     return AdminCategoryResponse.model_validate(category, from_attributes=True)
+
+
+@router.get("/challenges/{challenge_id}/skills")
+async def list_challenge_skills(challenge_id: UUID, db: DbSession, current: Staff) -> list[UUID]:
+    return await skill_service.list_challenge_skills(db, challenge_id)
+
+
+@router.put("/challenges/{challenge_id}/skills")
+async def set_challenge_skills(
+    challenge_id: UUID,
+    payload: SetChallengeSkillsRequest,
+    request: Request,
+    db: DbSession,
+    current: Admin,
+) -> list[UUID]:
+    """Replace a challenge's skills. Solving it feeds each of them in full."""
+    assigned = await skill_service.set_challenge_skills(db, challenge_id, payload.skill_ids)
+    await record_audit(
+        db,
+        action="challenge.set_skills",
+        target_type="challenge",
+        target_id=challenge_id,
+        actor_user_id=current.user.id,
+        meta={"count": len(assigned)},
+        request_id=_request_id(request),
+    )
+    return assigned
