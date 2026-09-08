@@ -64,15 +64,46 @@ function centre(zone: Zone) {
  * its own consistent bend with no authoring at all — and it is identical for
  * every player and across reloads, which a random one would not be.
  */
+function hashOf(seed: string): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
+
+/** The hash as 0..1 — for anything that wants a stable per-thing variation. */
+function hashUnit(seed: string): number {
+  return (Math.abs(hashOf(seed)) % 1000) / 1000;
+}
+
+/**
+ * Soft darkening pools, placed from the map's own dimensions.
+ *
+ * Their whole job is to be on a different rhythm from the plate's tiling grid,
+ * so the eye stops finding the repeat (spec 023).
+ */
+function darkPools(width: number, height: number) {
+  const pools = [];
+  for (let i = 0; i < 7; i += 1) {
+    const seed = hashUnit(`pool-${i}-${width}x${height}`);
+    const other = hashUnit(`pool-alt-${i}`);
+    pools.push({
+      cx: width * ((seed * 1.2 + i * 0.19) % 1),
+      cy: height * ((other * 1.3 + i * 0.31) % 1),
+      rx: width * (0.18 + other * 0.22),
+      ry: height * (0.08 + seed * 0.12),
+    });
+  }
+  return pools;
+}
+
 function corridorPath(
   from: { cx: number; cy: number },
   to: { cx: number; cy: number },
   seed: string,
 ): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
-  }
+  const hash = hashOf(seed);
   const dx = to.cx - from.cx;
   const dy = to.cy - from.cy;
   const length = Math.hypot(dx, dy) || 1;
@@ -85,27 +116,61 @@ function corridorPath(
   return `M ${from.cx} ${from.cy} Q ${mx} ${my} ${to.cx} ${to.cy}`;
 }
 
+/** Optional scatter art over the base plate. Each is placed once rather than
+ *  tiled, so any number of them breaks the grid further — and the map is
+ *  correct with none of them present (spec 023). */
+const OVERLAYS = ["rubble", "cracks", "scorch", "water"];
+
+const overlayUrl = (name: string) => `/map/overlays/${name}.png`;
+
+function Overlays({ width, height }: { width: number; height: number }) {
+  const available = useAvailableImages(OVERLAYS, overlayUrl);
+  return (
+    <g pointerEvents="none">
+      {OVERLAYS.filter((name) => available.has(name)).map((name, index) => {
+        const seed = hashUnit(`overlay-${name}`);
+        const size = Math.max(width, height) * (0.55 + seed * 0.35);
+        return (
+          <image
+            key={name}
+            href={overlayUrl(name)}
+            x={width * ((seed * 1.4 + index * 0.23) % 1) - size / 2}
+            y={height * ((hashUnit(`overlay-y-${name}`) * 1.2 + index * 0.29) % 1) - size / 2}
+            width={size}
+            height={size}
+            opacity={0.5}
+            preserveAspectRatio="xMidYMid meet"
+          />
+        );
+      })}
+    </g>
+  );
+}
+
 /**
  * Which zones have artwork. Probed once rather than handled per-element, so a
  * zone renders its fallback immediately instead of flashing a broken image.
  */
-function useAvailableTiles(slugs: string[]): Set<string> {
-  const key = slugs.join(",");
+function useAvailableImages(
+  names: string[],
+  toUrl: (name: string) => string,
+): Set<string> {
+  const key = names.join(",");
   const [available, setAvailable] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
-    for (const slug of key ? key.split(",") : []) {
+    for (const name of key ? key.split(",") : []) {
       const probe = new Image();
       probe.onload = () => {
-        if (!cancelled) setAvailable((have) => new Set(have).add(slug));
+        if (!cancelled) setAvailable((have) => new Set(have).add(name));
       };
-      probe.src = tileUrl(slug);
+      probe.src = toUrl(name);
     }
     return () => {
       cancelled = true;
     };
-  }, [key]);
+  }, [key, toUrl]);
 
   return available;
 }
@@ -123,12 +188,16 @@ export default function DungeonMap({
   onMove,
   onEditGates,
   unreachable,
+  fullBleed = false,
 }: {
   data: MapData;
   /** Admin edit mode: drag zones to move them, click to edit their gates. */
   editable?: boolean;
   onMove?: (zoneId: string, x: number, y: number) => void;
   onEditGates?: (zoneId: string) => void;
+  /** Break out of the page column. The challenges page wants the room; the
+   *  admin page keeps its column, where the controls read better. */
+  fullBleed?: boolean;
   /** Zones no player can reach — flagged in edit mode only (spec 022). */
   unreachable?: Set<string>;
 }) {
@@ -136,13 +205,11 @@ export default function DungeonMap({
   const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(
     null,
   );
-  const view = useMapViewport();
-
   const zones = data.zones ?? [];
   const slugs = useMemo(() => zones.map((z) => z.slug), [zones]);
-  const tiles = useAvailableTiles(slugs);
+  const tiles = useAvailableImages(slugs, tileUrl);
 
-  const { width, height } = useMemo(
+  const content = useMemo(
     () => ({
       width:
         Math.max(LAYOUT.tile, ...zones.map((z) => z.x + LAYOUT.tile)) + LAYOUT.margin,
@@ -152,6 +219,8 @@ export default function DungeonMap({
     }),
     [zones],
   );
+  const { width, height } = content;
+  const view = useMapViewport(content);
 
   // While a zone is being dragged, draw it (and its corridors) at the pointer
   // rather than where the server last saw it.
@@ -175,7 +244,9 @@ export default function DungeonMap({
         className={
           view.fullscreen
             ? "dungeon fixed inset-0 z-30 overflow-hidden"
-            : "dungeon relative mt-4 h-[70vh] overflow-hidden rounded-lg border border-stone"
+            : `dungeon dungeon-feathered relative mt-4 h-[80vh] min-h-[520px] overflow-hidden ${
+                fullBleed ? "dungeon-bleed" : "rounded-lg"
+              }`
         }
         aria-label="Dungeon map"
         style={{
@@ -200,6 +271,28 @@ export default function DungeonMap({
 
           <rect width={width} height={height} fill={PALETTE.void} />
           <rect width={width} height={height} fill="url(#dungeon-base)" opacity={0.9} />
+
+          {/* Everything from here to the corridors exists to stop the plate
+              reading as a tiled grid. None of it repeats (spec 023). */}
+          <rect
+            width={width}
+            height={height}
+            filter="url(#dungeon-mottle)"
+            opacity={0.55}
+          />
+          {darkPools(width, height).map((pool, index) => (
+            <ellipse
+              key={`pool-${index}`}
+              cx={pool.cx}
+              cy={pool.cy}
+              rx={pool.rx}
+              ry={pool.ry}
+              fill="url(#dungeon-pool)"
+            />
+          ))}
+          <Overlays width={width} height={height} />
+          <rect width={width} height={height} fill="url(#dungeon-grain)" opacity={0.16} />
+
           <rect width={width} height={height} fill="url(#dungeon-grid)" />
 
           {/* Torchlight pools under the zones you can enter. */}
@@ -231,26 +324,28 @@ export default function DungeonMap({
               if (!from || !to) return null;
               const target = placed.find((z) => z.id === edge.to_zone_id);
               const dark = data.fog_of_war && target?.locked;
-              const path = corridorPath(
-                from,
-                to,
-                `${edge.from_zone_id}${edge.to_zone_id}`,
-              );
+              const seed = `${edge.from_zone_id}${edge.to_zone_id}`;
+              const path = corridorPath(from, to, seed);
+              const wobble = hashUnit(seed);
               return (
-                <g key={`${edge.from_zone_id}-${edge.to_zone_id}`}>
-                  {/* The cut through the rock. */}
+                <g
+                  key={`${edge.from_zone_id}-${edge.to_zone_id}`}
+                  filter="url(#dungeon-corridor-rough)"
+                >
+                  {/* The cut through the rock. Width varies per corridor from
+                      the same hash that bends it, so no two are identical. */}
                   <path
                     d={path}
                     fill="none"
                     stroke={PALETTE.corridorCut}
-                    strokeWidth={30}
+                    strokeWidth={26 + wobble * 8}
                     strokeLinecap="round"
                   />
                   <path
                     d={path}
                     fill="none"
                     stroke={dark ? PALETTE.corridorFloorDim : PALETTE.corridorFloor}
-                    strokeWidth={17}
+                    strokeWidth={14 + wobble * 6}
                     strokeLinecap="round"
                     opacity={dark ? 0.6 : 0.95}
                   />
@@ -278,6 +373,7 @@ export default function DungeonMap({
               zone={zone}
               hasTile={tiles.has(zone.slug)}
               unlit={data.fog_of_war && zone.locked}
+              fogged={data.fog_of_war && zone.locked}
               editable={editable}
               stranded={editable && (unreachable?.has(zone.id) ?? false)}
               // A drag that happens to start on a zone is a pan, not a click.
@@ -305,6 +401,8 @@ export default function DungeonMap({
             />
           ))}
 
+          <Motes zones={placed.filter((z) => !(data.fog_of_war && z.locked))} />
+
           <rect
             width={width}
             height={height}
@@ -319,12 +417,137 @@ export default function DungeonMap({
   );
 }
 
+/** Dust drifting in the lit parts of the dungeon, so open ground feels
+ *  occupied rather than merely painted (spec 023). */
+function Motes({ zones }: { zones: Zone[] }) {
+  return (
+    <g pointerEvents="none">
+      {zones.flatMap((zone) =>
+        [0, 1, 2].map((index) => {
+          const seed = hashUnit(`mote-${zone.id}-${index}`);
+          const other = hashUnit(`mote-alt-${zone.id}-${index}`);
+          return (
+            <circle
+              key={`mote-${zone.id}-${index}`}
+              cx={zone.x + LAYOUT.tile * (0.15 + seed * 0.7)}
+              cy={zone.y + LAYOUT.tile * (0.2 + other * 0.6)}
+              r={1 + seed * 1.6}
+              fill={PALETTE.torch}
+              className="dungeon-mote"
+              style={{ animationDelay: `${(seed * 14).toFixed(1)}s` }}
+            />
+          );
+        }),
+      )}
+    </g>
+  );
+}
+
 function Defs() {
   return (
     <defs>
-      <pattern id="dungeon-base" width={1536} height={1024} patternUnits="userSpaceOnUse">
-        <image href="/map/base.png" width={1536} height={1024} preserveAspectRatio="none" />
+      {/* Drawn at 2x so the plate repeats half as often before the
+          non-repeating layers above it hide what is left (spec 023). */}
+      <pattern id="dungeon-base" width={3072} height={2048} patternUnits="userSpaceOnUse">
+        <image href="/map/base.png" width={3072} height={2048} preserveAspectRatio="none" />
       </pattern>
+
+      {/* One noise cell spans the whole map, so there is no second copy of it
+          to notice — which is what kills the sense of a repeating grid. */}
+      <filter
+        id="dungeon-mottle"
+        filterUnits="objectBoundingBox"
+        x="0"
+        y="0"
+        width="1"
+        height="1"
+      >
+        <feTurbulence type="fractalNoise" baseFrequency="0.0016" numOctaves={2} seed={7} />
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0.04
+                  0 0 0 0 0.05
+                  0 0 0 0 0.07
+                  0 0 0 0.7 0"
+        />
+      </filter>
+
+      {/* Fine grain, which is what actually hides the plate's seam line.
+          Tiled small rather than applied as one map-sized filter: a filter that
+          big gets seamed by the browser's own internal tiling, and those seams
+          showed as streaks across the map. A repeat at this scale is invisible
+          in a way a repeating photographic plate never is. */}
+      <filter id="dungeon-grain-tile" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves={1} seed={23} />
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0.5
+                  0 0 0 0 0.47
+                  0 0 0 0 0.42
+                  0 0 0 0.35 0"
+        />
+      </filter>
+      <pattern id="dungeon-grain" width={256} height={256} patternUnits="userSpaceOnUse">
+        <rect width={256} height={256} filter="url(#dungeon-grain-tile)" />
+      </pattern>
+
+      {/* Corridors: the same hewn treatment the procedural chambers get, at a
+          lower scale so a passage stays readable as a passage. */}
+      <filter id="dungeon-corridor-rough" x="-15%" y="-15%" width="130%" height="130%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.09" numOctaves={3} seed={31} />
+        <feDisplacementMap
+          in="SourceGraphic"
+          scale={7}
+          xChannelSelector="R"
+          yChannelSelector="G"
+        />
+      </filter>
+
+      {/* Fog over the unexplored map. Two offset fields drifting in different
+          directions, so they never line up into a visible cycle. */}
+      <filter id="dungeon-fog-a" x="-25%" y="-25%" width="150%" height="150%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves={3} seed={3} />
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0.62
+                  0 0 0 0 0.66
+                  0 0 0 0 0.72
+                  0 0 0 0.9 0"
+        />
+      </filter>
+      <filter id="dungeon-fog-b" x="-25%" y="-25%" width="150%" height="150%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves={2} seed={17} />
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0.55
+                  0 0 0 0 0.58
+                  0 0 0 0 0.66
+                  0 0 0 0.8 0"
+        />
+      </filter>
+
+      {/* Fog has to fall off at its own edges. A filter fills its region as a
+          rectangle, so without this mask the tile's bounding box *is* the
+          visible shape — grey boxes instead of cloud. */}
+      <radialGradient id="dungeon-fog-fade">
+        <stop offset="0%" stopColor="#fff" stopOpacity={1} />
+        <stop offset="55%" stopColor="#fff" stopOpacity={0.75} />
+        <stop offset="100%" stopColor="#fff" stopOpacity={0} />
+      </radialGradient>
+      <mask id="dungeon-fog-mask" maskUnits="userSpaceOnUse">
+        <rect
+          x={-40}
+          y={-40}
+          width={LAYOUT.tile + 80}
+          height={LAYOUT.tile + 80}
+          fill="url(#dungeon-fog-fade)"
+        />
+      </mask>
+
+      <radialGradient id="dungeon-pool">
+        <stop offset="0%" stopColor="#000" stopOpacity={0.55} />
+        <stop offset="100%" stopColor="#000" stopOpacity={0} />
+      </radialGradient>
 
       <pattern
         id="dungeon-grid"
@@ -404,6 +627,7 @@ function ZoneNode({
   zone,
   hasTile,
   unlit,
+  fogged,
   editable,
   stranded,
   onOpen,
@@ -413,6 +637,9 @@ function ZoneNode({
   zone: Zone;
   hasTile: boolean;
   unlit: boolean;
+  /** Sealed, with fog of war on. The same signal as `unlit`, named for what it
+   *  draws rather than what it dims. */
+  fogged: boolean;
   editable: boolean;
   stranded: boolean;
   onOpen: () => void;
@@ -444,6 +671,7 @@ function ZoneNode({
       className={`dungeon-zone ${editable ? "cursor-move" : "cursor-pointer"}`}
       onClick={editable ? undefined : onOpen}
       data-stranded={stranded || undefined}
+      data-locked={zone.locked || undefined}
       onKeyDown={(event) => {
         if (!editable && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
@@ -531,6 +759,32 @@ function ZoneNode({
       >
         {zone.cleared}/{zone.total} cleared
       </text>
+
+      {/* Fog of war: the unexplored map is fogged, and unlocking clears it.
+          Drawn after the tile and before the labels, because 017 and 019 both
+          hold that fog puts the torches out but never hides what opens a wing. */}
+      {fogged && (
+        <g className="dungeon-fog" pointerEvents="none" mask="url(#dungeon-fog-mask)">
+          <rect
+            x={-30}
+            y={-30}
+            width={LAYOUT.tile + 60}
+            height={LAYOUT.tile + 60}
+            filter="url(#dungeon-fog-a)"
+            opacity={0.3}
+            className="dungeon-fog-a"
+          />
+          <rect
+            x={-30}
+            y={-30}
+            width={LAYOUT.tile + 60}
+            height={LAYOUT.tile + 60}
+            filter="url(#dungeon-fog-b)"
+            opacity={0.22}
+            className="dungeon-fog-b"
+          />
+        </g>
+      )}
 
       {/* Nobody can reach this zone. Admin-only: a player seeing it would just
           be confused by a warning about something they cannot act on. */}

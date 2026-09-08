@@ -248,6 +248,68 @@ describe("DungeonMap", () => {
     expect(second).toEqual(first);
   });
 
+  it("fogs sealed zones and leaves open ones clear", () => {
+    renderApp(<DungeonMap data={DATA} />);
+
+    const sealed = screen.getByLabelText(
+      "Networking — sealed, needs Clear 100% of Intro",
+    );
+    const open = screen.getByLabelText("Intro — open, 1 of 1 cleared");
+
+    expect(sealed.querySelector(".dungeon-fog")).not.toBeNull();
+    expect(open.querySelector(".dungeon-fog")).toBeNull();
+  });
+
+  it("keeps the unlock condition readable through the fog", () => {
+    renderApp(<DungeonMap data={DATA} />);
+    const sealed = screen.getByLabelText(
+      "Networking — sealed, needs Clear 100% of Intro",
+    );
+
+    // 017 and 019 both hold that fog puts the torches out but never hides what
+    // opens a wing, so the fog must come first in paint order.
+    const children = [...sealed.children];
+    const fog = children.findIndex((child) =>
+      child.classList.contains("dungeon-fog"),
+    );
+    const label = children.findIndex(
+      (child) => child.textContent === "Clear 100% of Intro",
+    );
+    expect(fog).toBeGreaterThanOrEqual(0);
+    expect(label).toBeGreaterThan(fog);
+  });
+
+  it("lifts the fog entirely when the event setting is off", () => {
+    renderApp(<DungeonMap data={{ ...DATA, fog_of_war: false }} />);
+
+    expect(document.querySelector(".dungeon-fog")).toBeNull();
+  });
+
+  it("marks sealed zones so only open ones get the warm glow", () => {
+    renderApp(<DungeonMap data={DATA} />);
+
+    // The glow is scoped in CSS; what the component owes is the state hook.
+    expect(
+      screen.getByLabelText("Networking — sealed, needs Clear 100% of Intro"),
+    ).toHaveAttribute("data-locked");
+    expect(
+      screen.getByLabelText("Intro — open, 1 of 1 cleared"),
+    ).not.toHaveAttribute("data-locked");
+  });
+
+  it("never lets decoration swallow a click meant for a zone", () => {
+    renderApp(<DungeonMap data={DATA} />);
+
+    // Fog, motes and overlay art all sit over the tiles; any one of them
+    // catching pointer events would make zones unclickable.
+    for (const layer of document.querySelectorAll(
+      ".dungeon-fog, .dungeon-mote",
+    )) {
+      const owner = layer.closest("[pointer-events]") ?? layer;
+      expect(owner.getAttribute("pointer-events")).toBe("none");
+    }
+  });
+
   it("says so when there is nothing to draw", () => {
     renderApp(<DungeonMap data={{ ...DATA, zones: [], edges: [] }} />);
 
