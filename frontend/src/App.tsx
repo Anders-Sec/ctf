@@ -9,9 +9,11 @@ import AdminAssistantPage from "./routes/AdminAssistantPage";
 import AdminEventPage from "./routes/AdminEventPage";
 import AdminInstancesPage from "./routes/AdminInstancesPage";
 import AdminSignalsPage from "./routes/AdminSignalsPage";
+import AdminSkillsPage from "./routes/AdminSkillsPage";
 import AdminUsersPage from "./routes/AdminUsersPage";
 import ChallengeDetailPage from "./routes/ChallengeDetailPage";
 import ChallengesPage from "./routes/ChallengesPage";
+import CharacterSheetPage from "./routes/CharacterSheetPage";
 import FirstRunPage from "./routes/FirstRunPage";
 import HomePage from "./routes/HomePage";
 import LoginPage from "./routes/LoginPage";
@@ -39,6 +41,8 @@ export default function App() {
         <Route path="/welcome" element={<FirstRunPage />} />
         <Route path="/party" element={<PartyPage />} />
         <Route path="/scoreboard" element={<ScoreboardPage />} />
+        <Route path="/character" element={<CharacterSheetPage />} />
+        <Route path="/character/:userId" element={<CharacterSheetPage />} />
         <Route path="/challenges" element={<ChallengesPage />} />
         <Route
           path="/challenges/:challengeId"
@@ -97,6 +101,14 @@ export default function App() {
           element={
             <RequireAuth staffOnly>
               <AdminChallengesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/skills"
+          element={
+            <RequireAuth staffOnly>
+              <AdminSkillsPage />
             </RequireAuth>
           }
         />

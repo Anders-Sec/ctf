@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { getPlayerBoard, getTeamBoard, type PlayerEntry, type TeamEntry } from "../api/scoreboard";
 import { useSession } from "../auth/session";
@@ -111,8 +112,9 @@ function TeamTable({
         <tr>
           <th className="w-12 py-2">#</th>
           <th className="py-2">Party</th>
+          <th className="py-2 text-right">Level</th>
           <th className="py-2 text-right">Solved</th>
-          <th className="py-2 text-right">Score</th>
+          <th className="py-2 text-right">XP</th>
         </tr>
       </thead>
       <tbody>
@@ -130,6 +132,7 @@ function TeamTable({
                 {row.member_count} {row.member_count === 1 ? "adventurer" : "adventurers"}
               </span>
             </td>
+            <td className="py-2 text-right tabular-nums">{row.level}</td>
             <td className="py-2 text-right">{row.solve_count}</td>
             <td className="py-2 text-right tabular-nums">{row.score}</td>
           </tr>
@@ -157,8 +160,9 @@ function PlayerTable({
           <th className="w-12 py-2">#</th>
           <th className="py-2">Player</th>
           <th className="py-2">Party</th>
+          <th className="py-2 text-right">Level</th>
           <th className="py-2 text-right">Solved</th>
-          <th className="py-2 text-right">Score</th>
+          <th className="py-2 text-right">XP</th>
         </tr>
       </thead>
       <tbody>
@@ -171,7 +175,10 @@ function PlayerTable({
           >
             <td className="py-2">{row.rank}</td>
             <td className="py-2">
-              <span className="flex items-center gap-2">
+              <Link
+                to={`/character/${row.user_id}`}
+                className="flex items-center gap-2 hover:underline"
+              >
                 <Avatar
                   userId={row.user_id}
                   displayName={row.display_name}
@@ -179,9 +186,10 @@ function PlayerTable({
                   size={24}
                 />
                 {row.display_name}
-              </span>
+              </Link>
             </td>
             <td className="py-2 text-muted">{row.team_name ?? "—"}</td>
+            <td className="py-2 text-right tabular-nums">{row.level}</td>
             <td className="py-2 text-right">{row.solve_count}</td>
             <td className="py-2 text-right tabular-nums">{row.score}</td>
           </tr>

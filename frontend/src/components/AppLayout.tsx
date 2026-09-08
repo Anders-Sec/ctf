@@ -74,6 +74,9 @@ export default function AppLayout() {
               >
                 Manage
               </NavLink>
+              <NavLink to="/admin/skills" className="text-sm hover:underline">
+                Skills
+              </NavLink>
               <NavLink to="/admin/users" className="text-sm hover:underline">
                 Approvals
               </NavLink>
@@ -93,6 +96,9 @@ export default function AppLayout() {
                   Scoreboard
                 </NavLink>
               )}
+              <NavLink to="/character" className="text-sm hover:underline">
+                Character
+              </NavLink>
               <NavLink to="/party" className="text-sm hover:underline">
                 Party
               </NavLink>

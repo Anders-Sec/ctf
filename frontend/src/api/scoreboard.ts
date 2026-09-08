@@ -8,6 +8,7 @@ export interface PlayerEntry {
   team_id: string | null;
   team_name: string | null;
   score: number;
+  level: number;
   solve_count: number;
   last_gain_at: string | null;
 }
@@ -18,6 +19,7 @@ export interface TeamEntry {
   name: string;
   member_count: number;
   score: number;
+  level: number;
   /** Distinct challenges solved by any current member. */
   solve_count: number;
   last_gain_at: string | null;
@@ -32,9 +34,11 @@ export interface Boards {
 export interface MyStanding {
   rank: number | null;
   score: number;
+  level: number;
   player_count: number;
   team_rank: number | null;
   team_score: number | null;
+  team_level: number | null;
   team_count: number;
 }
 
