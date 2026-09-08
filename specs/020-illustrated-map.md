@@ -52,40 +52,11 @@ void, floor texture and grid the tiles sit on.
 automatically the moment the file exists. A typo means the zone silently keeps
 its fallback, which is the failure mode worth knowing about.
 
-## The style prompt
+## The prompts
 
-The same prompt for all 22, changing only the bracketed part — consistency across
-generations comes from freezing everything else:
+They live in **`art.md`**, not here — one file to copy from, so there is no second
+copy to drift out of step with the one actually being used.
 
-> Top-down fantasy battle map tile of **[SUBJECT]**, dark moody painted digital
-> art, warm orange torchlight pooling on rough stone floors, cool teal accents,
-> heavy shadows, faint blue grid overlay, transparent background, centred
-> composition, no text, no characters, no border.
-
-| Zone | `[SUBJECT]` |
-| --- | --- |
-| Intro | orientation chamber with cracked motivational banners |
-| Networking | canals of glowing data with stone bridges |
-| Governance, Risk & Compliance | vast archive of chained ledgers |
-| Hacker Game Show | a lit arena stage with buzzer podiums |
-| CTI | trophy hall of broken siege weapons |
-| Incident Response | burned-out server hall, rubble and embers |
-| AI/LLM Security | a shrine around a vast glowing eye |
-| Prompt Injection | whispering gallery of carved mouths |
-| Forensics | frozen morgue of specimen drawers |
-| Threat Detection | watchtower ring with sweeping lantern beams |
-| Cloud Security | molten foundry of pipes and forges |
-| OSINT | open-air records court, scattered maps |
-| Red teaming | war room with a siege table |
-| Hardware Hacking | workbench pit of solder and exposed boards |
-| Social Engineering | masquerade bazaar of false storefronts |
-| Identity & Access | labyrinth of numbered doors and badge readers |
-| Web Attacks | caustic green slime marsh over tiling |
-| Codes and Ciphers | frozen vault of rotating brass rings |
-| Crypto | sealed sanctum of glowing glyph pillars |
-| Mobile Security | shrine of hand-sized glowing slabs |
-| Reverse Engineering | dissection hall of opened machines |
-| Malware Analysis | sealed quarantine cell, warning sigils |
 
 ## Motion
 
