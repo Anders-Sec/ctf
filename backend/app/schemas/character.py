@@ -1,8 +1,28 @@
-"""Request and response models for character sheets (spec 015)."""
+"""Request and response models for character sheets (spec 015, 016)."""
 
 from uuid import UUID
 
 from pydantic import BaseModel
+
+
+class ClassResponse(BaseModel):
+    id: UUID
+    name: str
+    description: str | None
+
+
+class SuggestedClassResponse(BaseModel):
+    """The System AI's suggested class, with its voiced narration (spec 016)."""
+
+    class_id: UUID
+    name: str
+    from_skill: str
+    narration: str
+
+
+class SetClassRequest(BaseModel):
+    #: The class to adopt, or null to return to Classless.
+    class_id: UUID | None
 
 
 class SkillSliceResponse(BaseModel):
@@ -34,13 +54,17 @@ class CharacterSheetResponse(BaseModel):
     xp_to_next: int
     rank: int | None
     skills: list[SkillSliceResponse]
+    character_class: ClassResponse | None
+    suggested_class: SuggestedClassResponse | None
+    class_unlocked: bool
+    class_unlock_level: int
 
 
 class PublicCharacterResponse(BaseModel):
-    """Another player's public sheet: identity, overall level and skill levels.
+    """Another player's public sheet: identity, overall level, skill levels, class.
 
-    Rank and the fine-grained XP-to-next progress are left off — the board is
-    where ranks live, and the exact distance to a player's next level is their
+    Rank, the fine-grained XP-to-next progress, and the suggested-class nudge are
+    left off — the board is where ranks live, and the suggestion is the player's
     own business."""
 
     user_id: UUID
@@ -48,3 +72,4 @@ class PublicCharacterResponse(BaseModel):
     has_avatar: bool
     level: int
     skills: list[PublicSkillResponse]
+    character_class: ClassResponse | None
