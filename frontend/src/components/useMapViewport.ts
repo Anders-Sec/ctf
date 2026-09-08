@@ -21,7 +21,7 @@ const MIN_SCALE = 0.35;
 const MAX_SCALE = 3;
 const CLICK_SLOP = 5;
 
-export function useMapViewport() {
+export function useMapViewport(content?: { width: number; height: number }) {
   const container = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<Viewport>({ scale: 1, x: 0, y: 0 });
   const [fullscreen, setFullscreen] = useState(false);
@@ -49,7 +49,37 @@ export function useMapViewport() {
     });
   }, []);
 
-  const reset = useCallback(() => setViewport({ scale: 1, x: 0, y: 0 }), []);
+  /** The scale and offset that show the whole dungeon, centred. */
+  const computeFit = useCallback((): Viewport => {
+    const box = container.current?.getBoundingClientRect();
+    // A container with no measured size yet (or none at all) cannot be fitted
+    // against: doing the arithmetic anyway clamps to the minimum scale and
+    // opens the map zoomed out to nothing.
+    if (!box || !box.width || !box.height) return { scale: 1, x: 0, y: 0 };
+    if (!content || !content.width || !content.height) {
+      return { scale: 1, x: 0, y: 0 };
+    }
+    const scale = Math.min(
+      MAX_SCALE,
+      Math.max(
+        MIN_SCALE,
+        Math.min(box.width / content.width, box.height / content.height) * 0.96,
+      ),
+    );
+    return {
+      scale,
+      x: (box.width - content.width * scale) / 2,
+      y: (box.height - content.height * scale) / 2,
+    };
+  }, [content]);
+
+  const reset = useCallback(() => setViewport(computeFit()), [computeFit]);
+
+  // Open showing the whole map rather than at 1x in the top-left corner. Also
+  // re-fits when leaving fullscreen, where the container is a different size.
+  useEffect(() => {
+    setViewport(computeFit());
+  }, [computeFit, fullscreen]);
 
   const onPointerDown = useCallback((event: React.PointerEvent) => {
     // Left button only, so a right-click menu still works.

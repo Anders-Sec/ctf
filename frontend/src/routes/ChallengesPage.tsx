@@ -109,7 +109,7 @@ export default function ChallengesPage() {
         <>
           {map.isPending && <Spinner label="Drawing the map…" />}
           <ErrorMessage error={map.error} />
-          {map.data && <DungeonMap data={map.data} />}
+          {map.data && <DungeonMap data={map.data} fullBleed />}
         </>
       ) : (
         <ListView
