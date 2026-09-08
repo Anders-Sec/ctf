@@ -6,9 +6,14 @@ from pydantic import BaseModel
 
 
 class ClassResponse(BaseModel):
+    """A class as a player sees it. Only ever an unlocked one — 024 makes the
+    roster a mystery, so a locked class is absent rather than described."""
+
     id: UUID
     name: str
     description: str | None
+    #: Presentation only — drives colour, never a gate or a score (spec 024).
+    rarity: str
 
 
 class SetClassRequest(BaseModel):
@@ -52,6 +57,11 @@ class CharacterSheetResponse(BaseModel):
     character_class: ClassResponse | None
     class_unlocked: bool
     class_unlock_level: int
+    #: The System AI's read on which class fits, or null. Never names a class
+    #: the player has not unlocked.
+    suggested_class: ClassResponse | None = None
+    #: The nudge in the System AI's voice, ready to render (specs 013, 016).
+    suggested_class_line: str | None = None
 
 
 class PublicCharacterResponse(BaseModel):

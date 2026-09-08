@@ -10,13 +10,16 @@ terms over adventure-game metaphor.
 """
 
 
-def class_suggestion(skill_name: str, class_name: str) -> str:
+def class_suggestion(reason: str, class_name: str) -> str:
     """The System AI noting a player's pattern and naming the archetype that fits.
 
-    Deterministic: the same (skill, class) always yields the same line, so it can
-    be asserted without a model in the loop.
+    ``reason`` is what the player has been doing — a skill name, or an ability
+    rendered as a phrase (spec 024 lets a class point at either).
+
+    Deterministic: the same (reason, class) always yields the same line, so it
+    can be asserted without a model in the loop.
     """
     return (
-        f"You keep hammering {skill_name} problems. "
+        f"You keep hammering {reason} problems. "
         f"The {class_name} build fits the pattern — take it or don't."
     )

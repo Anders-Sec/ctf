@@ -63,6 +63,8 @@ class ClassInfo:
     id: UUID
     name: str
     description: str | None
+    #: Presentation only — colour, never a gate or a score (spec 024).
+    rarity: str
 
 
 @dataclass(frozen=True)
@@ -163,4 +165,5 @@ async def _class_info(db: AsyncSession, class_id: UUID | None) -> ClassInfo | No
         id=character_class.id,
         name=character_class.name,
         description=character_class.description,
+        rarity=character_class.rarity.value,
     )

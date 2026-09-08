@@ -24,7 +24,7 @@ from app.schemas.character import (
 )
 from app.services import character as character_service
 from app.services import classes as class_service
-from app.services import scoreboard_cache
+from app.services import narrator, scoreboard_cache
 
 router = APIRouter(prefix="/character", tags=["character"])
 
@@ -42,10 +42,11 @@ def _class_response(character_class) -> ClassResponse | None:
         id=character_class.id,
         name=character_class.name,
         description=character_class.description,
+        rarity=getattr(character_class.rarity, "value", character_class.rarity),
     )
 
 
-def _sheet_response(sheet, rank: int | None) -> CharacterSheetResponse:
+def _sheet_response(sheet, rank: int | None, suggestion=None) -> CharacterSheetResponse:
     return CharacterSheetResponse(
         user_id=sheet.user_id,
         display_name=sheet.display_name,
@@ -60,6 +61,12 @@ def _sheet_response(sheet, rank: int | None) -> CharacterSheetResponse:
         character_class=_class_response(sheet.character_class),
         class_unlocked=sheet.class_unlocked,
         class_unlock_level=sheet.class_unlock_level,
+        suggested_class=(_class_response(suggestion.character_class) if suggestion else None),
+        suggested_class_line=(
+            narrator.class_suggestion(suggestion.reason, suggestion.character_class.name)
+            if suggestion
+            else None
+        ),
     )
 
 
@@ -68,7 +75,11 @@ async def my_character(
     db: DbSession, redis: RedisClient, current: Player
 ) -> CharacterSheetResponse:
     sheet = await character_service.build_sheet(db, current.user)
-    return _sheet_response(sheet, await _rank_of(db, redis, sheet.user_id))
+    return _sheet_response(
+        sheet,
+        await _rank_of(db, redis, sheet.user_id),
+        await class_service.suggest_class(db, current.user.id),
+    )
 
 
 @router.put("/class")
@@ -78,16 +89,21 @@ async def set_my_class(
     """Set or clear the caller's own class, then hand back the refreshed sheet."""
     await character_service.set_class(db, current.user, payload.class_id)
     sheet = await character_service.build_sheet(db, current.user)
-    return _sheet_response(sheet, await _rank_of(db, redis, sheet.user_id))
+    return _sheet_response(
+        sheet,
+        await _rank_of(db, redis, sheet.user_id),
+        await class_service.suggest_class(db, current.user.id),
+    )
 
 
 @router.get("/classes")
 async def list_classes(db: DbSession, current: Player) -> list[ClassResponse]:
-    """The published class roster, for the sheet's picker."""
-    return [
-        ClassResponse(id=c.id, name=c.name, description=c.description)
-        for c in await class_service.list_classes(db)
-    ]
+    """The roster this player may pick from — **unlocked classes only**.
+
+    A class they have not earned is absent entirely, not greyed and not counted:
+    024 makes the roster a mystery, and a total would give the game away.
+    """
+    return [_class_response(c) for c in await class_service.available_classes(db, current.user.id)]
 
 
 @router.get("/{user_id}")
