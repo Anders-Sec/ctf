@@ -3,7 +3,8 @@
 Status: **draft** (2026-09-07) — awaiting sign-off
 Phase: 2 (D&D Mechanics)
 Covers: `Plan.md` Phase 2 → classes
-Depends on: 015 (character sheet, XP, levels, skills)
+Depends on: 015 (character sheet, XP, levels, skills), 013 (System AI persona —
+the voice the class nudge is written in)
 Read by (later): 018 (boss encounters), 019 (loot) — a class is an archetype
 those specs can gate or theme on.
 
@@ -51,11 +52,36 @@ never a scoring edge.
   never picks. A player past the threshold who clears their class simply returns
   to Classless.
 - A **suggested class** is computed for the sheet: the class whose affinity skill
-  is the player's **highest-XP skill**. It is a hint shown next to the picker
-  ("Your deeds suggest: Rogue"), never applied automatically, and shown even while
-  the picker is still locked (something to aim at). Ties break on the skill's,
-  then the class's, display order. A player with no skill XP, or whose top skill
-  maps to no class, gets no suggestion.
+  is the player's **highest-XP skill**. It is a hint shown next to the picker,
+  never applied automatically, and shown even while the picker is still locked
+  (something to aim at). Ties break on the skill's, then the class's, display
+  order. A player with no skill XP, or whose top skill maps to no class, gets no
+  suggestion.
+
+## The nudge is the System AI speaking
+
+Narratively the suggestion is **not** a neutral UI tooltip — it is the **System
+AI** (spec 013) commenting on what it has watched the player do. The System AI
+built every challenge and takes dry satisfaction in watching people work against
+it; noticing that someone keeps going after the same kind of target, and naming
+the archetype that fits, is exactly its voice.
+
+Two rules make this safe and cheap:
+
+- **Deterministic copy, not a model call.** The line is a server-side template in
+  the System AI's persona — filled from the structured suggestion (the top skill
+  and the class it points to). No LLM request, so no latency, no token cost, no
+  guardrail surface, and no path for a challenge answer to reach a prompt. It is
+  the System AI's *voice*, not its *reasoning*.
+- **Persona, per spec 013.** Terse, plain text (no markdown), real security terms
+  over adventure-game metaphor. e.g. *"You keep hammering web and injection
+  targets. The Rogue build fits — take it or don't."* The copy lives in **one
+  place** server-side so the coming narrative overhaul can own and restyle every
+  narrated line at once; 016 adds just this first one.
+
+The frontend renders the line **attributed to the System AI** — the same name and
+persona treatment the assistant panel already uses — not as anonymous grey hint
+text.
 
 ## Data model
 
@@ -75,10 +101,17 @@ never a scoring edge.
 - **Class service** mirroring 015's skill service: list / create / update /
   delete classes; a helper to compute a player's suggested class from
   `skill_xp_for_user` (reuse 015 — do not recompute skill XP a second way).
+- **A narrator seam** — one small server-side helper that turns the structured
+  suggestion (top skill + class) into the System AI's voiced line. Deterministic,
+  no model call. It is deliberately the *only* place this copy lives, so the
+  narrative overhaul can later route every narrated mechanic through the same
+  seam without a rewrite here.
 - **Character sheet** (`/character/me`) gains the player's `class` (id, name,
-  affinity skill) and their `suggested_class`. The public sheet
-  (`/character/{user_id}`) gains `class` only — the suggestion is the player's own
-  business, like their fine-grained progress.
+  affinity skill) and their `suggested_class` — the structured suggestion
+  (`class_id`, `name`, `from_skill`) **plus** the System AI's voiced
+  `narration` string. The public sheet (`/character/{user_id}`) gains `class`
+  only — the suggestion is the player's own business, like their fine-grained
+  progress.
 - **Set-class endpoint** validates the class exists, enforces the unlock level
   (a player below `CLASS_UNLOCK_LEVEL` who does not already have a class is
   refused with a clear "reach level N first" error), and writes
@@ -101,8 +134,10 @@ never a scoring edge.
   class — the chosen class name in the header, and a **picker** (a select of the
   published classes plus "Classless") that saves on change. Below the unlock
   level the picker is disabled with a "Reach level N to choose a class" note; the
-  suggested-class nudge shows either way. Another player's sheet shows their class
-  as a static label, no picker.
+  suggested-class nudge shows either way, **attributed to the System AI** (its
+  name and persona treatment, reusing the assistant panel's styling), not as
+  anonymous hint text. Another player's sheet shows their class as a static label,
+  no picker and no nudge.
 - **Admin Classes page**: create / rename / delete classes and set each class's
   affinity skill (a skill selector per class) — the twin of the 015 Skills page.
   A "Classes" link in the admin nav.
@@ -120,6 +155,10 @@ never a scoring edge.
   affinity without deleting the class.
 - The suggested class tracks the player's **top skill**; solving into a different
   skill enough to overtake changes the suggestion; no skill XP → no suggestion.
+- The suggestion's `narration` is **deterministic** (identical for the same
+  suggestion across calls — asserting it makes no model call), names the suggested
+  class, and is plain text (no markdown), i.e. in the System AI persona. It is
+  absent when there is no suggestion.
 - Class has **no scoring effect**: a player's total XP, level, and board rank are
   identical before and after choosing, changing, or clearing a class. (This is the
   regression that guards the one-number invariant.)
@@ -129,8 +168,10 @@ never a scoring edge.
 
 1. Schema: `character_class` table, `user.character_class_id`, migration.
 2. Admin classes API + service (CRUD, affinity skill).
-3. Player set-class endpoint + sheet fields (`class`, `suggested_class`).
-4. Frontend: class picker on the sheet, admin Classes page, admin nav link.
+3. Player set-class endpoint + sheet fields (`class`, `suggested_class` incl. the
+   System AI `narration`) + the narrator seam.
+4. Frontend: class picker on the sheet, the System-AI-attributed nudge, admin
+   Classes page, admin nav link.
 
 ## Non-goals (later Phase 2 specs)
 
@@ -139,6 +180,10 @@ never a scoring edge.
   systems (018 boss encounters, 019 loot), which will *read* the class this spec
   stores. 016 is identity + roster only.
 - **The dungeon-map board** (017) is independent and can land before or after this.
+- **The narrative overhaul** — a broader pass that routes game events through the
+  System AI's voice — is its own coming spec. 016 adds only the single voiced
+  class nudge, deliberately behind a one-place narrator seam so that pass can own
+  and expand it without reworking this spec.
 
 ## Decisions — resolved (2026-09-07)
 
