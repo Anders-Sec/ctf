@@ -26,12 +26,25 @@ class ArtifactResponse(BaseModel):
 
 
 class UnlockRequirementResponse(BaseModel):
-    """A prerequisite challenge, shown on a locked challenge so the player knows
-    what to solve to open it."""
+    """One condition on a locked challenge or zone, so the player knows what opens
+    it (spec 017).
 
-    challenge_id: UUID
-    title: str
-    solved: bool
+    ``description`` is pre-rendered server-side so a client can show any gate type
+    without a per-type branch, and ``progress`` is what the player currently has —
+    enough for "320 / 500".
+    """
+
+    type: str
+    met: bool
+    description: str
+    challenge_id: UUID | None = None
+    title: str | None = None
+    skill_id: UUID | None = None
+    skill_name: str | None = None
+    category_id: UUID | None = None
+    category_name: str | None = None
+    threshold: int | None = None
+    progress: int | None = None
 
 
 class ChallengeListItem(BaseModel):

@@ -47,7 +47,7 @@ class TestPerPlayerGating:
         assert detail["body"] is None  # withheld while locked
         names = [r["title"] for r in detail["unlock_requirements"]]
         assert names == ["Recon 1"]
-        assert detail["unlock_requirements"][0]["solved"] is False
+        assert detail["unlock_requirements"][0]["met"] is False
 
     async def test_solving_the_prerequisite_unlocks_it(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -80,7 +80,7 @@ class TestPerPlayerGating:
         detail = (await client.get(f"/api/challenges/{gated.id}")).json()
 
         assert detail["locked"] is True
-        by_title = {r["title"]: r["solved"] for r in detail["unlock_requirements"]}
+        by_title = {r["title"]: r["met"] for r in detail["unlock_requirements"]}
         assert by_title == {"A": True, "B": False}
 
     async def test_submission_is_refused_server_side_while_locked(

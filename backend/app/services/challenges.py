@@ -2,7 +2,6 @@
 
 import re
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -25,7 +24,7 @@ from app.models.challenge import (
 from app.models.play import MAX_SUBMISSION_LENGTH, Solve, Submission
 from app.models.user import User
 from app.services import answers as answer_service
-from app.services import scoring
+from app.services import scoring, unlocks
 from app.services.instances import launcher as instance_launcher
 from app.services.rate_limit import RateLimited, check_submission_limits
 from app.services.user_cache import load_active_team
@@ -49,75 +48,34 @@ class AttemptsExhausted(AppError):
 PLAYER_VISIBLE = (ChallengeState.LOCKED, ChallengeState.PUBLISHED)
 
 
-@dataclass(frozen=True)
-class RequirementView:
-    """One prerequisite of a challenge, for the player-facing 'why locked' hint."""
-
-    challenge_id: UUID
-    title: str
-    solved: bool
-
-
-@dataclass(frozen=True)
-class PrereqStatus:
-    #: True when the player has NOT met every requirement of the gated challenge.
-    locked: bool
-    #: Only the requirements the player is allowed to see, for the unlock hint.
-    visible_requirements: list[RequirementView]
+#: Re-exported so callers keep importing these from here (spec 017 moved the
+#: evaluation itself into ``services.unlocks``, which zones and the map share).
+RequirementView = unlocks.RequirementView
+PrereqStatus = unlocks.GateStatus
 
 
 async def prerequisite_status(
     db: AsyncSession, user_id: UUID, challenge_ids: list[UUID], now: datetime
 ) -> dict[UUID, PrereqStatus]:
-    """For each gated challenge, whether this player has unmet prerequisites.
+    """For each gated challenge, whether this player has unmet requirements.
 
     Locking considers *all* requirements (a hidden prerequisite can never be
-    solved, so the gate holds); the returned hint lists only the prerequisites the
-    player may see, so a locked challenge does not reveal a hidden one.
+    solved, so the gate holds); the returned hint lists only the ones the player
+    may see, so a locked challenge does not reveal a hidden one.
     """
     if not challenge_ids:
         return {}
 
-    rows = (
-        await db.execute(
-            select(UnlockRequirement.challenge_id, Challenge)
-            .join(Challenge, Challenge.id == UnlockRequirement.required_challenge_id)
-            .where(
-                UnlockRequirement.challenge_id.in_(challenge_ids),
-                UnlockRequirement.requirement_type == RequirementType.CHALLENGE_SOLVED,
-            )
-        )
-    ).all()
-    if not rows:
-        return {}
-
-    required_ids = {required.id for _, required in rows}
-    solved = set(
+    requirements = (
         (
             await db.execute(
-                select(Solve.challenge_id).where(
-                    Solve.user_id == user_id, Solve.challenge_id.in_(required_ids)
-                )
+                select(UnlockRequirement).where(UnlockRequirement.challenge_id.in_(challenge_ids))
             )
         )
         .scalars()
         .all()
     )
-
-    grouped: dict[UUID, list[tuple[Challenge, bool]]] = defaultdict(list)
-    for gated_id, required in rows:
-        grouped[gated_id].append((required, required.id in solved))
-
-    result: dict[UUID, PrereqStatus] = {}
-    for gated_id, reqs in grouped.items():
-        locked = not all(is_solved for _, is_solved in reqs)
-        visible = [
-            RequirementView(challenge_id=req.id, title=req.title, solved=is_solved)
-            for req, is_solved in reqs
-            if req.effective_state(now) in PLAYER_VISIBLE
-        ]
-        result[gated_id] = PrereqStatus(locked=locked, visible_requirements=visible)
-    return result
+    return await unlocks.evaluate_groups(db, user_id, list(requirements), now)
 
 
 @dataclass(frozen=True)

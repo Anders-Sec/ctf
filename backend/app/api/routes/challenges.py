@@ -40,6 +40,24 @@ def _request_id(request: Request) -> str | None:
     return getattr(request.state, "request_id", None)
 
 
+def _requirement_response(req) -> UnlockRequirementResponse:
+    """A ``RequirementView`` as JSON. The view is already player-safe — the
+    evaluator filtered out anything they may not see."""
+    return UnlockRequirementResponse(
+        type=req.type.value,
+        met=req.met,
+        description=req.description,
+        challenge_id=req.challenge_id,
+        title=req.title,
+        skill_id=req.skill_id,
+        skill_name=req.skill_name,
+        category_id=req.category_id,
+        category_name=req.category_name,
+        threshold=req.threshold,
+        progress=req.progress,
+    )
+
+
 def _list_item(row: dict) -> ChallengeListItem:
     challenge = row["challenge"]
     return ChallengeListItem(
@@ -57,10 +75,7 @@ def _list_item(row: dict) -> ChallengeListItem:
         max_attempts=challenge.max_attempts,
         release_at=challenge.release_at,
         unlock_requirements=[
-            UnlockRequirementResponse(
-                challenge_id=req.challenge_id, title=req.title, solved=req.solved
-            )
-            for req in row.get("unlock_requirements", [])
+            _requirement_response(req) for req in row.get("unlock_requirements", [])
         ],
     )
 
