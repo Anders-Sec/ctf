@@ -29,6 +29,39 @@ const MAP = {
   edges: [],
 };
 
+const GRAPH = {
+  zones: [
+    {
+      id: "z1",
+      name: "Intro",
+      slug: "intro",
+      reachable: true,
+      published_challenges: 2,
+      gates: [],
+    },
+    {
+      id: "z2",
+      name: "Networking",
+      slug: "networking",
+      reachable: false,
+      published_challenges: 0,
+      gates: [
+        {
+          id: "g1",
+          requirement_type: "percent_in_category",
+          description: "Clear 100% of Intro",
+          required_category_id: "z1",
+          required_category_name: "Intro",
+          required_skill_id: null,
+          required_skill_name: null,
+          threshold: 100,
+          source_has_no_challenges: false,
+        },
+      ],
+    },
+  ],
+};
+
 function render({ administer = true }: { administer?: boolean } = {}) {
   const mock = stubFetch((path) => {
     if (path.endsWith("/auth/me")) {
@@ -37,6 +70,9 @@ function render({ administer = true }: { administer?: boolean } = {}) {
         body: me({ capabilities: capabilities({ view_admin: true, administer }) }),
       };
     }
+    // Before /map: "/admin/map/graph" also ends with "/graph", not "/map".
+    if (path.endsWith("/admin/map/graph")) return { status: 200, body: GRAPH };
+    if (path.endsWith("/admin/skills")) return { status: 200, body: [] };
     if (path.endsWith("/map")) return { status: 200, body: MAP };
     return { status: 200, body: { message: "ok" } };
   });
@@ -57,6 +93,14 @@ describe("AdminMapPage", () => {
       );
       expect(call?.[1]?.method).toBe("POST");
     });
+  });
+
+  it("warns about zones nobody can reach", async () => {
+    render();
+
+    // The flag exists because a stranded zone has no symptom on the map itself:
+    // it just quietly never opens.
+    expect(await screen.findByText(/1 zone is unreachable/i)).toBeInTheDocument();
   });
 
   it("does not offer editing to someone who cannot administer", async () => {

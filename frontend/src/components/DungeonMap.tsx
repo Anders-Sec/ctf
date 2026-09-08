@@ -114,15 +114,23 @@ function useAvailableTiles(slugs: string[]): Set<string> {
  *  zones nudged to "the same" spot actually match (spec 021). */
 const SNAP = 8;
 
+/** Below this, a press in edit mode is a click on the zone rather than a move. */
+const EDIT_CLICK_SLOP = 4;
+
 export default function DungeonMap({
   data,
   editable = false,
   onMove,
+  onEditGates,
+  unreachable,
 }: {
   data: MapData;
-  /** Admin edit mode: drag zones instead of opening them. */
+  /** Admin edit mode: drag zones to move them, click to edit their gates. */
   editable?: boolean;
   onMove?: (zoneId: string, x: number, y: number) => void;
+  onEditGates?: (zoneId: string) => void;
+  /** Zones no player can reach — flagged in edit mode only (spec 022). */
+  unreachable?: Set<string>;
 }) {
   const [openZone, setOpenZone] = useState<Zone | null>(null);
   const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(
@@ -271,9 +279,12 @@ export default function DungeonMap({
               hasTile={tiles.has(zone.slug)}
               unlit={data.fog_of_war && zone.locked}
               editable={editable}
+              stranded={editable && (unreachable?.has(zone.id) ?? false)}
               // A drag that happens to start on a zone is a pan, not a click.
               onOpen={() => {
-                if (!view.wasPan()) setOpenZone(zone);
+                if (view.wasPan()) return;
+                if (editable) onEditGates?.(zone.id);
+                else setOpenZone(zone);
               }}
               // Deltas are measured from where the drag began, so they are
               // applied to that same starting position — never to the in-flight
@@ -394,6 +405,7 @@ function ZoneNode({
   hasTile,
   unlit,
   editable,
+  stranded,
   onOpen,
   onDragMove,
   onDragEnd,
@@ -402,12 +414,19 @@ function ZoneNode({
   hasTile: boolean;
   unlit: boolean;
   editable: boolean;
+  stranded: boolean;
   onOpen: () => void;
   onDragMove: (startX: number, startY: number, dx: number, dy: number) => void;
   onDragEnd: () => void;
 }) {
   //: Where the pointer went down, and where the zone sat at that moment.
-  const origin = useRef<{ x: number; y: number; zx: number; zy: number } | null>(null);
+  const origin = useRef<{
+    x: number;
+    y: number;
+    zx: number;
+    zy: number;
+    moved: number;
+  } | null>(null);
   const condition = zone.unlock_requirements.map((r) => r.description).join(", ");
 
   // Spelled out rather than left to the lighting, so the state survives
@@ -424,6 +443,7 @@ function ZoneNode({
       aria-label={label}
       className={`dungeon-zone ${editable ? "cursor-move" : "cursor-pointer"}`}
       onClick={editable ? undefined : onOpen}
+      data-stranded={stranded || undefined}
       onKeyDown={(event) => {
         if (!editable && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
@@ -442,6 +462,7 @@ function ZoneNode({
                 y: event.clientY,
                 zx: zone.x,
                 zy: zone.y,
+                moved: 0,
               };
             }
           : undefined
@@ -451,6 +472,10 @@ function ZoneNode({
           ? (event) => {
               const start = origin.current;
               if (!start) return;
+              start.moved = Math.max(
+                start.moved,
+                Math.abs(event.clientX - start.x) + Math.abs(event.clientY - start.y),
+              );
               onDragMove(
                 start.zx,
                 start.zy,
@@ -463,7 +488,12 @@ function ZoneNode({
       onPointerUp={
         editable
           ? () => {
-              if (origin.current) onDragEnd();
+              // A press that went nowhere is a click: open this zone's gates
+              // rather than saving a move to the position it already had.
+              if (origin.current) {
+                if (origin.current.moved > EDIT_CLICK_SLOP) onDragEnd();
+                else onOpen();
+              }
               origin.current = null;
             }
           : undefined
@@ -501,6 +531,20 @@ function ZoneNode({
       >
         {zone.cleared}/{zone.total} cleared
       </text>
+
+      {/* Nobody can reach this zone. Admin-only: a player seeing it would just
+          be confused by a warning about something they cannot act on. */}
+      {stranded && (
+        <text
+          x={LAYOUT.tile / 2}
+          y={-10}
+          textAnchor="middle"
+          fill={PALETTE.torch}
+          className="text-[12px] font-semibold"
+        >
+          ⚠ unreachable
+        </text>
+      )}
 
       {/* The condition is always legible: fog puts the torches out, it never
           hides what opens a wing. Also the non-colour signal that it is shut. */}

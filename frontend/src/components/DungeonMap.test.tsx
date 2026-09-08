@@ -179,12 +179,53 @@ describe("DungeonMap", () => {
     expect(onMove).toHaveBeenCalledWith("z1", 80, 64);
   });
 
-  it("does not open a zone that was dragged", async () => {
-    renderApp(<DungeonMap data={DATA} editable onMove={vi.fn()} />);
+  it("opens the gate editor on a click that did not move", async () => {
+    const onEditGates = vi.fn();
+    const onMove = vi.fn();
+    renderApp(
+      <DungeonMap
+        data={DATA}
+        editable
+        onMove={onMove}
+        onEditGates={onEditGates}
+      />,
+    );
 
     await userEvent.click(screen.getByLabelText("Intro — open, 1 of 1 cleared"));
 
+    // A press that went nowhere edits the zone; it does not save a move to the
+    // position it already had, nor open the player-facing challenge panel.
+    expect(onEditGates).toHaveBeenCalledWith("z1");
+    expect(onMove).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("does not open the gate editor for a drag", async () => {
+    const onEditGates = vi.fn();
+    renderApp(
+      <DungeonMap data={DATA} editable onMove={vi.fn()} onEditGates={onEditGates} />,
+    );
+    const node = screen.getByLabelText("Intro — open, 1 of 1 cleared");
+
+    await userEvent.pointer([
+      { keys: "[MouseLeft>]", target: node, coords: { clientX: 10, clientY: 10 } },
+      { target: node, coords: { clientX: 90, clientY: 70 } },
+      { keys: "[/MouseLeft]", target: node },
+    ]);
+
+    expect(onEditGates).not.toHaveBeenCalled();
+  });
+
+  it("marks zones nobody can reach, but only for an admin", () => {
+    const { unmount } = renderApp(
+      <DungeonMap data={DATA} editable unreachable={new Set(["z2"])} />,
+    );
+    expect(screen.getByText(/unreachable/i)).toBeInTheDocument();
+    unmount();
+
+    // A player can do nothing about it, so telling them only confuses.
+    renderApp(<DungeonMap data={DATA} unreachable={new Set(["z2"])} />);
+    expect(screen.queryByText(/unreachable/i)).not.toBeInTheDocument();
   });
 
   it("bends each corridor the same way every render", () => {
