@@ -47,6 +47,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 018 | `018-abilities-and-skills.md` | Phase 2 — difficulty-driven XP, D&D ability scores, per-challenge skills, real seed content | **done** |
 | 019 | `019-zone-map-and-progression.md` | Phase 2 — map of 22 zones, the progression graph, percentage and level gates | **done** |
 | 020 | `020-illustrated-map.md` | Phase 2/3 — the art pass over the zone map (prompts in `art.md`) | **draft** — awaiting artwork |
+| 021 | `021-map-editor.md` | Phase 2/3 — authored zone positions, drag-to-place admin editor, organic corridors | **done** |
 
 ## Sequencing rationale
 
