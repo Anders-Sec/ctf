@@ -163,6 +163,12 @@ class Category(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    #: Authored map position (spec 021). Null — the normal case until an admin
+    #: places it — means "use the derived layout", so a new category always
+    #: appears somewhere rather than piling up at the origin.
+    map_x: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    map_y: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     #: The ability this category feeds (spec 018). Required: an unmapped category
     #: would silently drop its XP out of the stat block.
     ability: Mapped[Ability] = mapped_column(
