@@ -19,6 +19,7 @@ from app.api.routes import (
     auth,
     challenges,
     character,
+    dungeon,
     health,
     instances,
     scoreboard,
@@ -148,6 +149,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(assistant.router)
     api.include_router(challenges.router)
     api.include_router(character.router)
+    api.include_router(dungeon.router)
     api.include_router(instances.router)
     api.include_router(scoreboard.router)
     api.include_router(signals.router)
