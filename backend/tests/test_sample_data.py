@@ -11,16 +11,13 @@ from app.models.play import Solve
 from app.models.skill import ChallengeSkill, Skill
 from app.models.user import User, UserRole, UserStatus
 from app.services import sample_data
-from tests.factories import make_user
+from tests.factories import make_challenge, make_user
+
+pytestmark = pytest.mark.usefixtures("running_event")
 
 
 async def _count(db_session, model) -> int:
     return (await db_session.execute(select(func.count(model.id)))).scalar()
-
-
-from tests.factories import make_challenge
-
-pytestmark = pytest.mark.usefixtures("running_event")
 
 
 async def as_role(db_session, client, sign_in, role: UserRole):
