@@ -1,9 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
 import {
   getCharacter,
+  getClasses,
   getMyCharacter,
+  setMyClass,
   type CharacterSheet,
   type PublicCharacter,
 } from "../api/character";
@@ -13,10 +15,10 @@ import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 
 /**
- * The character sheet (spec 015). Viewed for yourself at /character — overall
- * level with an XP bar and a row per skill — or for another player at
- * /character/:userId, which shows their levels without the fine-grained
- * progress. Class is a labelled placeholder until spec 016.
+ * The character sheet (spec 015, 016). Viewed for yourself at /character —
+ * overall level, skills, and your class (with the System AI's suggested-class
+ * nudge) — or for another player at /character/:userId, which shows their level,
+ * skills and class without the picker or the nudge.
  */
 export default function CharacterSheetPage() {
   const { userId } = useParams<{ userId?: string }>();
@@ -53,8 +55,11 @@ function OwnSheet({ sheet }: { sheet: CharacterSheet }) {
         displayName={sheet.display_name}
         hasAvatar={sheet.has_avatar}
         level={sheet.level}
+        className={sheet.character_class?.name ?? null}
         rank={sheet.rank}
       />
+
+      <ClassSection sheet={sheet} />
 
       <section className="mt-6 rounded border border-stone bg-white/40 p-4">
         <div className="flex items-baseline justify-between">
@@ -93,6 +98,68 @@ function OwnSheet({ sheet }: { sheet: CharacterSheet }) {
   );
 }
 
+function ClassSection({ sheet }: { sheet: CharacterSheet }) {
+  const queryClient = useQueryClient();
+  const roster = useQuery({
+    queryKey: ["character", "classes"],
+    queryFn: getClasses,
+    enabled: sheet.class_unlocked,
+  });
+  const choose = useMutation({
+    mutationFn: (classId: string | null) => setMyClass(classId),
+    onSuccess: (updated) => queryClient.setQueryData(["character", "me"], updated),
+  });
+
+  return (
+    <section className="mt-6 rounded border border-stone bg-white/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Class</h2>
+        {sheet.class_unlocked ? (
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-muted">Your calling</span>
+            <select
+              aria-label="Class"
+              value={sheet.character_class?.id ?? ""}
+              disabled={choose.isPending || roster.isPending}
+              onChange={(e) => choose.mutate(e.target.value || null)}
+              className="rounded border border-stone px-2 py-1 text-sm"
+            >
+              <option value="">Classless</option>
+              {(roster.data ?? []).map((klass) => (
+                <option key={klass.id} value={klass.id}>
+                  {klass.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <span className="text-sm text-muted">
+            Reach level {sheet.class_unlock_level} to choose a class
+          </span>
+        )}
+      </div>
+
+      {sheet.suggested_class && (
+        <SystemAiNudge text={sheet.suggested_class.narration} />
+      )}
+      <ErrorMessage error={choose.error} />
+    </section>
+  );
+}
+
+/** The System AI's voiced nudge (spec 016), attributed to it like the assistant. */
+function SystemAiNudge({ text }: { text: string }) {
+  return (
+    <aside
+      aria-label="System AI"
+      className="mt-3 rounded border border-stone bg-parchment px-3 py-2"
+    >
+      <p className="text-xs font-semibold text-muted">System AI</p>
+      <p className="mt-0.5 text-sm">{text}</p>
+    </aside>
+  );
+}
+
 function PublicSheet({ sheet }: { sheet: PublicCharacter }) {
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -101,6 +168,7 @@ function PublicSheet({ sheet }: { sheet: PublicCharacter }) {
         displayName={sheet.display_name}
         hasAvatar={sheet.has_avatar}
         level={sheet.level}
+        className={sheet.character_class?.name ?? null}
         rank={null}
       />
 
@@ -129,12 +197,14 @@ function Header({
   displayName,
   hasAvatar,
   level,
+  className,
   rank,
 }: {
   userId: string;
   displayName: string;
   hasAvatar: boolean;
   level: number;
+  className: string | null;
   rank: number | null;
 }) {
   return (
@@ -143,7 +213,7 @@ function Header({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{displayName}</h1>
         <p className="text-sm text-muted">
-          Level {level} adventurer · Class TBD
+          Level {level} {className ?? "Classless"} adventurer
           {rank !== null ? ` · rank #${rank}` : ""}
         </p>
       </div>

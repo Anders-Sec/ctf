@@ -24,6 +24,7 @@ from app.schemas.character import (
     SuggestedClassResponse,
 )
 from app.services import character as character_service
+from app.services import classes as class_service
 from app.services import scoreboard_cache
 
 router = APIRouter(prefix="/character", tags=["character"])
@@ -82,6 +83,15 @@ async def set_my_class(
     await character_service.set_class(db, current.user, payload.class_id)
     sheet = await character_service.build_sheet(db, current.user)
     return _sheet_response(sheet, await _rank_of(db, redis, sheet.user_id))
+
+
+@router.get("/classes")
+async def list_classes(db: DbSession, current: Player) -> list[ClassResponse]:
+    """The published class roster, for the sheet's picker."""
+    return [
+        ClassResponse(id=c.id, name=c.name, description=c.description)
+        for c in await class_service.list_classes(db)
+    ]
 
 
 @router.get("/{user_id}")

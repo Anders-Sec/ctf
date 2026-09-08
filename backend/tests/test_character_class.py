@@ -117,6 +117,18 @@ class TestChoosingAClass:
 
         assert response.status_code == 404
 
+    async def test_the_roster_lists_classes_for_the_picker(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+        await make_class(db_session, "Rogue")
+        await make_class(db_session, "Wizard")
+
+        roster = await client.get("/api/character/classes")
+
+        assert roster.status_code == 200
+        assert sorted(c["name"] for c in roster.json()) == ["Rogue", "Wizard"]
+
 
 class TestSuggestedClass:
     async def _solve_in_skill(self, db_session, user, skill, points):

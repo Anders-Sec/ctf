@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth";
 import AppLayout from "./components/AppLayout";
 import AdminChallengesPage from "./routes/AdminChallengesPage";
+import AdminClassesPage from "./routes/AdminClassesPage";
 import AdminDashboardPage from "./routes/AdminDashboardPage";
 import AdminOpsPage from "./routes/AdminOpsPage";
 import AdminAssistantPage from "./routes/AdminAssistantPage";
@@ -109,6 +110,14 @@ export default function App() {
           element={
             <RequireAuth staffOnly>
               <AdminSkillsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/classes"
+          element={
+            <RequireAuth staffOnly>
+              <AdminClassesPage />
             </RequireAuth>
           }
         />
