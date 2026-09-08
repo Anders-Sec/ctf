@@ -38,6 +38,11 @@ const PALETTE = {
   stoneLit: "#9c7d59",
   wall: "#15110e",
   torch: "#ff9d3d",
+  // Corridors are cut rock, not paved road: they sit a shade above the base
+  // plate and let the tiles be the bright things on the map.
+  corridorCut: "#0d0b09",
+  corridorFloor: "#241d17",
+  corridorFloorDim: "#171412",
   water: "#3fd6d0",
   ink: "#f0e2c8",
   inkDim: "#9b8f7d",
@@ -225,21 +230,35 @@ export default function DungeonMap({
               );
               return (
                 <g key={`${edge.from_zone_id}-${edge.to_zone_id}`}>
+                  {/* The cut through the rock. */}
                   <path
                     d={path}
                     fill="none"
-                    stroke={PALETTE.wall}
-                    strokeWidth={34}
+                    stroke={PALETTE.corridorCut}
+                    strokeWidth={30}
                     strokeLinecap="round"
                   />
                   <path
                     d={path}
                     fill="none"
-                    stroke={dark ? PALETTE.stoneMid : PALETTE.stoneLit}
-                    strokeWidth={19}
+                    stroke={dark ? PALETTE.corridorFloorDim : PALETTE.corridorFloor}
+                    strokeWidth={17}
                     strokeLinecap="round"
-                    opacity={dark ? 0.35 : 0.8}
+                    opacity={dark ? 0.6 : 0.95}
                   />
+                  {/* A thread of torchlight down an open passage — the only
+                      thing tying it to the lit zones, and faint enough that the
+                      corridor still reads as unlit rock. */}
+                  {!dark && (
+                    <path
+                      d={path}
+                      fill="none"
+                      stroke={PALETTE.torch}
+                      strokeWidth={5}
+                      strokeLinecap="round"
+                      opacity={0.1}
+                    />
+                  )}
                 </g>
               );
             })}
