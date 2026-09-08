@@ -25,7 +25,12 @@ from app.models.challenge import (
     SkillKind,
     UnlockRequirement,
 )
-from app.models.character_class import CharacterClass
+from app.models.character_class import (
+    CharacterClass,
+    ClassPreference,
+    ClassRequirement,
+    Rarity,
+)
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.guardrail import (
     AssistantFinding,
@@ -63,6 +68,9 @@ __all__ = [
     "Ability",
     "Category",
     "CharacterClass",
+    "ClassPreference",
+    "ClassRequirement",
+    "Rarity",
     "ChallengeInstance",
     "ContainerTemplate",
     "ChallengeReport",
