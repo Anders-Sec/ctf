@@ -40,6 +40,11 @@ class EventConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: The runtime off switch for the dungeon master. ``AI_ENABLED`` remains the
     #: deployment-level one, but reaching for a redeploy is the wrong tool at
     #: 11pm on day two when the assistant starts saying something unfortunate.
+    #: Dim locked zones on the dungeon map (spec 017). Presentation only — the
+    #: gating is the zone's unlock requirements, which apply either way. Inert
+    #: until an admin gates a zone.
+    fog_of_war: Mapped[bool] = mapped_column(nullable=False, default=True, server_default="true")
+
     assistant_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )

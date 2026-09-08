@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import CITEXT, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -174,6 +174,12 @@ class Challenge(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True
     )
 
+    #: Pinned map coordinates (spec 017). Null — the normal case — means "lay me
+    #: out automatically", so a new challenge always lands on the map without an
+    #: admin having to place it.
+    map_x: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    map_y: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     category: Mapped["Category"] = relationship(lazy="raise")
     answers: Mapped[list["ChallengeAnswer"]] = relationship(
         back_populates="challenge",
@@ -256,46 +262,75 @@ class ChallengeArtifact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class RequirementType(enum.StrEnum):
-    """What kind of condition unlocks a challenge.
+    """What kind of condition unlocks a challenge or a zone (spec 017).
 
-    Open by design: Phase 2 adds ``min_xp``, ``skill_level`` and the like without
-    touching the gating logic. Only ``challenge_solved`` is implemented in Phase 1
-    (spec 014), because the XP/skill system does not exist yet.
+    ``challenge_solved`` came from 014; the value-based types arrived with 017 now
+    that 015 provides XP and skills. Each type reads a different column set —
+    see :class:`UnlockRequirement`.
     """
 
     CHALLENGE_SOLVED = "challenge_solved"
+    #: Total banked XP at or above ``threshold``.
+    MIN_XP = "min_xp"
+    #: Level ``threshold`` or better in ``required_skill_id``.
+    SKILL_LEVEL = "skill_level"
+    #: ``threshold`` or more solves inside ``required_category_id``.
+    SOLVES_IN_CATEGORY = "solves_in_category"
 
 
-class ChallengeUnlockRequirement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """A condition a player must meet before a challenge unlocks for them.
+class UnlockRequirement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A condition a player must meet before a challenge — or a whole zone —
+    unlocks for them (spec 017).
 
-    A challenge unlocks when **all** of its requirements are met. Deleting either
-    the gated challenge or the required one drops the row (both FKs cascade), so a
-    prerequisite that is removed simply stops gating its dependents.
+    One table gates both things: a row targets **either** a challenge **or** a
+    category (a zone), never both and never neither, enforced by the same XOR
+    check ``challenge_instance`` uses for its owner. That keeps one evaluator and
+    one admin surface rather than two that must be kept in step.
+
+    The target unlocks when **all** of its requirements are met. Every FK cascades,
+    so a requirement pointing at something deleted simply stops gating rather than
+    becoming unsatisfiable.
     """
 
-    __tablename__ = "challenge_unlock_requirement"
+    __tablename__ = "unlock_requirement"
     __table_args__ = (
-        UniqueConstraint(
-            "challenge_id",
-            "required_challenge_id",
-            name="uq_unlock_requirement_pair",
+        CheckConstraint(
+            "(challenge_id IS NOT NULL) <> (category_id IS NOT NULL)",
+            name="ck_unlock_requirement_one_target",
         ),
         Index("ix_unlock_requirement_challenge", "challenge_id"),
+        Index("ix_unlock_requirement_category", "category_id"),
         Index("ix_unlock_requirement_required", "required_challenge_id"),
     )
 
-    challenge_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("challenge.id", ondelete="CASCADE"), nullable=False
+    #: The gated challenge. Null when this row gates a zone instead.
+    challenge_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("challenge.id", ondelete="CASCADE"), nullable=True
     )
+    #: The gated zone. Null when this row gates a single challenge instead.
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("category.id", ondelete="CASCADE"), nullable=True
+    )
+
     requirement_type: Mapped[RequirementType] = mapped_column(
         _enum(RequirementType, "requirement_type"),
         nullable=False,
         default=RequirementType.CHALLENGE_SOLVED,
         server_default=RequirementType.CHALLENGE_SOLVED.value,
     )
-    #: Set for ``challenge_solved``. Nullable so Phase 2's value-based types (min
-    #: XP, skill level) fit the same table without one.
+
+    #: Set for ``challenge_solved``.
     required_challenge_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("challenge.id", ondelete="CASCADE"), nullable=True
     )
+    #: Set for ``skill_level``.
+    required_skill_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("skill.id", ondelete="CASCADE"), nullable=True
+    )
+    #: Set for ``solves_in_category``.
+    required_category_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("category.id", ondelete="CASCADE"), nullable=True
+    )
+    #: The XP amount, the skill level, or the solve count — the row's type says
+    #: which. Null for ``challenge_solved``.
+    threshold: Mapped[int | None] = mapped_column(Integer, nullable=True)

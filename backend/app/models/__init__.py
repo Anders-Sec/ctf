@@ -15,13 +15,13 @@ from app.models.challenge import (
     ChallengeAnswer,
     ChallengeArtifact,
     ChallengeState,
-    ChallengeUnlockRequirement,
     DecayBasis,
     Difficulty,
     MatchType,
     PreReleaseState,
     RequirementType,
     ScoringMode,
+    UnlockRequirement,
 )
 from app.models.character_class import CharacterClass
 from app.models.event import EVENT_CONFIG_ID, EventConfig
@@ -66,7 +66,7 @@ __all__ = [
     "Challenge",
     "ChallengeAnswer",
     "ChallengeArtifact",
-    "ChallengeUnlockRequirement",
+    "UnlockRequirement",
     "ChallengeState",
     "DecayBasis",
     "Difficulty",

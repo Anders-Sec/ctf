@@ -19,8 +19,8 @@ from app.models.challenge import (
     Category,
     Challenge,
     ChallengeState,
-    ChallengeUnlockRequirement,
     RequirementType,
+    UnlockRequirement,
 )
 from app.models.play import MAX_SUBMISSION_LENGTH, Solve, Submission
 from app.models.user import User
@@ -80,11 +80,11 @@ async def prerequisite_status(
 
     rows = (
         await db.execute(
-            select(ChallengeUnlockRequirement.challenge_id, Challenge)
-            .join(Challenge, Challenge.id == ChallengeUnlockRequirement.required_challenge_id)
+            select(UnlockRequirement.challenge_id, Challenge)
+            .join(Challenge, Challenge.id == UnlockRequirement.required_challenge_id)
             .where(
-                ChallengeUnlockRequirement.challenge_id.in_(challenge_ids),
-                ChallengeUnlockRequirement.requirement_type == RequirementType.CHALLENGE_SOLVED,
+                UnlockRequirement.challenge_id.in_(challenge_ids),
+                UnlockRequirement.requirement_type == RequirementType.CHALLENGE_SOLVED,
             )
         )
     ).all()
@@ -501,10 +501,10 @@ async def list_prerequisites(db: AsyncSession, challenge_id: UUID) -> list[Chall
             await db.execute(
                 select(Challenge)
                 .join(
-                    ChallengeUnlockRequirement,
-                    ChallengeUnlockRequirement.required_challenge_id == Challenge.id,
+                    UnlockRequirement,
+                    UnlockRequirement.required_challenge_id == Challenge.id,
                 )
-                .where(ChallengeUnlockRequirement.challenge_id == challenge_id)
+                .where(UnlockRequirement.challenge_id == challenge_id)
                 .order_by(Challenge.title)
             )
         )
@@ -534,16 +534,16 @@ async def add_prerequisite(
         )
 
     existing = await db.scalar(
-        select(ChallengeUnlockRequirement.id).where(
-            ChallengeUnlockRequirement.challenge_id == challenge_id,
-            ChallengeUnlockRequirement.required_challenge_id == required_challenge_id,
+        select(UnlockRequirement.id).where(
+            UnlockRequirement.challenge_id == challenge_id,
+            UnlockRequirement.required_challenge_id == required_challenge_id,
         )
     )
     if existing is not None:
         return
 
     db.add(
-        ChallengeUnlockRequirement(
+        UnlockRequirement(
             challenge_id=challenge_id,
             requirement_type=RequirementType.CHALLENGE_SOLVED,
             required_challenge_id=required_challenge_id,
@@ -558,9 +558,9 @@ async def remove_prerequisite(
     from sqlalchemy import delete as sql_delete
 
     await db.execute(
-        sql_delete(ChallengeUnlockRequirement).where(
-            ChallengeUnlockRequirement.challenge_id == challenge_id,
-            ChallengeUnlockRequirement.required_challenge_id == required_challenge_id,
+        sql_delete(UnlockRequirement).where(
+            UnlockRequirement.challenge_id == challenge_id,
+            UnlockRequirement.required_challenge_id == required_challenge_id,
         )
     )
     await db.flush()
@@ -584,8 +584,8 @@ async def _would_cycle(db: AsyncSession, challenge_id: UUID, required_challenge_
         parents = (
             (
                 await db.execute(
-                    select(ChallengeUnlockRequirement.required_challenge_id).where(
-                        ChallengeUnlockRequirement.challenge_id == current
+                    select(UnlockRequirement.required_challenge_id).where(
+                        UnlockRequirement.challenge_id == current
                     )
                 )
             )
