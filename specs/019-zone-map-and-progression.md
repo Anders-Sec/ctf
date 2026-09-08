@@ -1,6 +1,6 @@
 # Spec 019 — The Zone Map & Category Progression
 
-Status: **draft** (2026-09-08) — awaiting sign-off
+Status: **done** (2026-09-08) — built across the commit plan below
 Phase: 2 (D&D Mechanics)
 Depends on: 017 (map, zone gating, unlock evaluator), 018 (categories, abilities)
 **Amends** 017: the map becomes a map of *zones*, not of every challenge.
@@ -22,6 +22,11 @@ is a real graph with three tiers rather than a flat wall of content.
 
 A new **Intro** category (the 22nd) is the only thing open at the start: a single
 getting-started challenge that opens the first wave.
+
+**Intro must contain at least one visible challenge.** A zone with nothing
+visible can never be cleared, so an empty Intro would seal the whole dungeon
+behind an empty room. One is seeded with placeholder content for exactly that
+reason, and a test asserts it.
 
 | Zone | Opens when |
 | --- | --- |
