@@ -51,6 +51,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 022 | `022-connection-editor.md` | Phase 2/3 — zone gate & connection editor, cycle detection, reachability warnings | **done** |
 | 023 | `023-map-atmosphere.md` | Phase 2/3 — non-repeating background, map fit & feathering, progression fog, corridor texture | **done** |
 | 024 | `024-class-roster.md` | Phase 2 — the 48-class roster, rarity, preference targets, skill-level gates, recommender | **done** |
+| 025 | `025-dungeon-sample-data.md` | Phase 2/3 — sample data that fills the real 22 zones with the real skills | **done** |
 
 ## Sequencing rationale
 
