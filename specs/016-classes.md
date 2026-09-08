@@ -1,6 +1,7 @@
 # Spec 016 — Character Classes
 
-Status: **draft** (2026-09-07) — awaiting sign-off
+Status: **done** (2026-09-07) — built across four commits (schema, admin classes
+API, class selection + the System AI nudge, frontend)
 Phase: 2 (D&D Mechanics)
 Covers: `Plan.md` Phase 2 → classes
 Depends on: 015 (character sheet, XP, levels, skills), 013 (System AI persona —
