@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { DungeonMap as MapData, Zone } from "../api/dungeon";
+import { useMapViewport } from "./useMapViewport";
 import ZonePanel from "./ZonePanel";
 
 /**
@@ -17,11 +18,14 @@ import ZonePanel from "./ZonePanel";
  * could never line up. Running the corridor under the art means it emerges from
  * beneath the chamber, which reads correctly for any number of them.
  */
+/* Proportions matter more than they look: the first pass had gaps wider than the
+   tiles, so the map read as mostly empty floor with small pictures on it. The
+   tiles are now the content and the gaps are just enough to run a corridor. */
 const LAYOUT = {
-  tile: 172,
-  columnGap: 76,
-  rowGap: 104,
-  margin: 64,
+  tile: 260,
+  columnGap: 44,
+  rowGap: 72,
+  margin: 40,
   labelHeight: 34,
   gridSize: 32,
 };
@@ -78,6 +82,7 @@ function useAvailableTiles(slugs: string[]): Set<string> {
 
 export default function DungeonMap({ data }: { data: MapData }) {
   const [openZone, setOpenZone] = useState<Zone | null>(null);
+  const view = useMapViewport();
 
   const zones = data.zones ?? [];
   const slugs = useMemo(() => zones.map((z) => z.slug), [zones]);
@@ -101,16 +106,30 @@ export default function DungeonMap({ data }: { data: MapData }) {
   return (
     <>
       <figure
-        className="dungeon mt-4 overflow-x-auto rounded-lg border border-stone"
+        ref={view.container}
+        className={
+          view.fullscreen
+            ? "dungeon fixed inset-0 z-30 overflow-hidden"
+            : "dungeon relative mt-4 h-[70vh] overflow-hidden rounded-lg border border-stone"
+        }
         aria-label="Dungeon map"
-        style={{ background: PALETTE.void }}
+        style={{
+          background: PALETTE.void,
+          cursor: view.panning ? "grabbing" : "grab",
+          touchAction: "none",
+        }}
+        {...view.handlers}
       >
+        <MapControls view={view} />
         <svg
           role="group"
           width={width}
           height={height}
           viewBox={`0 0 ${width} ${height}`}
-          className="max-w-none"
+          className="max-w-none origin-top-left select-none"
+          style={{
+            transform: `translate(${view.viewport.x}px, ${view.viewport.y}px) scale(${view.viewport.scale})`,
+          }}
         >
           <Defs />
 
@@ -179,7 +198,10 @@ export default function DungeonMap({ data }: { data: MapData }) {
               zone={zone}
               hasTile={tiles.has(zone.slug)}
               unlit={data.fog_of_war && zone.locked}
-              onOpen={() => setOpenZone(zone)}
+              // A drag that happens to start on a zone is a pan, not a click.
+              onOpen={() => {
+                if (!view.wasPan()) setOpenZone(zone);
+              }}
             />
           ))}
 
@@ -362,6 +384,37 @@ function ZoneNode({
         </text>
       )}
     </g>
+  );
+}
+
+function MapControls({ view }: { view: ReturnType<typeof useMapViewport> }) {
+  const button =
+    "rounded border border-stone/60 bg-ink/70 px-2.5 py-1 text-sm text-parchment hover:bg-ink";
+  return (
+    <div className="absolute right-3 top-3 z-10 flex gap-1.5" onPointerDown={(e) => e.stopPropagation()}>
+      <button type="button" className={button} onClick={() => view.zoomBy(1.2)} aria-label="Zoom in">
+        +
+      </button>
+      <button
+        type="button"
+        className={button}
+        onClick={() => view.zoomBy(1 / 1.2)}
+        aria-label="Zoom out"
+      >
+        −
+      </button>
+      <button type="button" className={button} onClick={view.reset} aria-label="Reset view">
+        Reset
+      </button>
+      <button
+        type="button"
+        className={button}
+        onClick={() => view.setFullscreen(!view.fullscreen)}
+        aria-label={view.fullscreen ? "Exit fullscreen" : "Fullscreen"}
+      >
+        {view.fullscreen ? "Exit" : "Fullscreen"}
+      </button>
+    </div>
   );
 }
 

@@ -146,3 +146,7 @@ export const removePrerequisite = (
   api.delete<void>(
     `/admin/challenges/${challengeId}/prerequisites/${requiredChallengeId}`,
   );
+
+/** Deletes the challenge, and prunes its category if that leaves it empty. */
+export const deleteChallenge = (id: string) =>
+  api.delete<{ message: string }>(`/admin/challenges/${id}`);

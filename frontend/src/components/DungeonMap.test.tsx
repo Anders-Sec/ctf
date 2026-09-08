@@ -135,6 +135,33 @@ describe("DungeonMap", () => {
     expect(node).toHaveAttribute("tabindex", "0");
   });
 
+  it("zooms without moving the zones under the cursor", async () => {
+    renderApp(<DungeonMap data={DATA} />);
+
+    const svg = document.querySelector("svg")!;
+    const before = svg.getAttribute("style");
+    await userEvent.click(screen.getByLabelText("Zoom in"));
+
+    // The viewport transforms; the zones keep their own coordinates, so a tile
+    // never shifts relative to its neighbours.
+    expect(svg.getAttribute("style")).not.toEqual(before);
+    expect(svg.getAttribute("style")).toContain("scale(");
+  });
+
+  it("treats a drag as a pan rather than opening the zone under it", async () => {
+    renderApp(<DungeonMap data={DATA} />);
+    const node = screen.getByLabelText("Intro — open, 1 of 1 cleared");
+
+    // Press, move well past the click threshold, release.
+    await userEvent.pointer([
+      { keys: "[MouseLeft>]", target: node, coords: { clientX: 10, clientY: 10 } },
+      { target: node, coords: { clientX: 90, clientY: 70 } },
+      { keys: "[/MouseLeft]", target: node },
+    ]);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("says so when there is nothing to draw", () => {
     renderApp(<DungeonMap data={{ ...DATA, zones: [], edges: [] }} />);
 

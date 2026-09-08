@@ -5,6 +5,7 @@ import {
   addAnswer,
   addPrerequisite,
   createChallenge,
+  deleteChallenge,
   deleteAnswer,
   getAdminChallenge,
   listAdminCategories,
@@ -125,6 +126,12 @@ export default function AdminChallengesPage() {
                 <ChallengeEditor
                   challengeId={challenge.id}
                   canWrite={canWrite}
+                  // Collapse the panel and refresh the list: the challenge it
+                  // was showing no longer exists.
+                  onDeleted={() => {
+                    setSelected(null);
+                    void challenges.refetch();
+                  }}
                 />
               )}
             </li>
@@ -278,9 +285,11 @@ function CreateChallengeForm() {
 function ChallengeEditor({
   challengeId,
   canWrite,
+  onDeleted,
 }: {
   challengeId: string;
   canWrite: boolean;
+  onDeleted: () => void;
 }) {
   const queryClient = useQueryClient();
   const detail = useQuery({
@@ -355,7 +364,70 @@ function ChallengeEditor({
         <ContainerAssignment challenge={challenge} onSaved={reload} />
       )}
       {canWrite && <Prerequisites challenge={challenge} onChanged={reload} />}
+      {canWrite && <DangerZone challenge={challenge} onDeleted={onDeleted} />}
     </div>
+  );
+}
+
+/**
+ * Deleting a challenge takes its solves, hints and answers with it, and prunes
+ * the category if that leaves it empty — which is also how an unwanted area goes
+ * away. Irreversible, so it asks first, and the confirmation names the challenge
+ * rather than saying "are you sure": a generic prompt gets clicked through.
+ */
+function DangerZone({
+  challenge,
+  onDeleted,
+}: {
+  challenge: AdminChallengeDetail;
+  onDeleted: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const remove = useMutation({
+    mutationFn: () => deleteChallenge(challenge.id),
+    onSuccess: onDeleted,
+  });
+
+  return (
+    <section className="mt-8 rounded border border-torch/40 bg-white/40 p-4">
+      <h3 className="text-sm font-semibold">Delete challenge</h3>
+      <p className="mt-1 text-xs text-muted">
+        Removes it along with its answers, hints and solves. If this is the last
+        challenge in {challenge.category.name}, that area goes too. Cannot be
+        undone.
+      </p>
+
+      {confirming ? (
+        <div className="mt-3 rounded border border-stone bg-parchment p-3">
+          <p className="text-sm">
+            Delete <strong>{challenge.title}</strong>?
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={() => remove.mutate()}
+              disabled={remove.isPending}
+              className="rounded bg-torch px-4 py-2 text-sm font-medium text-ink disabled:opacity-50"
+            >
+              {remove.isPending ? "Deleting…" : "Yes, delete it"}
+            </button>
+            <button
+              onClick={() => setConfirming(false)}
+              className="rounded border border-stone px-4 py-2 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setConfirming(true)}
+          className="mt-3 rounded border border-torch px-4 py-2 text-sm hover:bg-torch/10"
+        >
+          Delete challenge
+        </button>
+      )}
+      <ErrorMessage error={remove.error} />
+    </section>
   );
 }
 
