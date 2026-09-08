@@ -59,3 +59,51 @@ export const setZonePosition = (
 /** Clear every authored position — the way out of a layout gone wrong. */
 export const resetMapLayout = () =>
   api.post<{ message: string }>("/admin/map/reset-layout");
+
+/** A gate as an admin edits it — the stored row, resolved to names (spec 022). */
+export interface Gate {
+  id: string;
+  requirement_type: RequirementKind;
+  description: string;
+  required_category_id: string | null;
+  required_category_name: string | null;
+  required_skill_id: string | null;
+  required_skill_name: string | null;
+  threshold: number | null;
+  /** Advisory: a percentage gate on an empty zone can never be met. */
+  source_has_no_challenges: boolean;
+}
+
+export type RequirementKind =
+  | "challenge_solved"
+  | "min_xp"
+  | "skill_level"
+  | "solves_in_category"
+  | "percent_in_category"
+  | "player_level";
+
+export interface GraphZone {
+  id: string;
+  name: string;
+  slug: string;
+  /** False means no path from a zone that is open at the start. */
+  reachable: boolean;
+  published_challenges: number;
+  gates: Gate[];
+}
+
+export const getMapGraph = () =>
+  api.get<{ zones: GraphZone[] }>("/admin/map/graph");
+
+export const addCategoryGate = (
+  categoryId: string,
+  input: {
+    requirement_type: RequirementKind;
+    required_category_id?: string | null;
+    required_skill_id?: string | null;
+    threshold?: number | null;
+  },
+) => api.post<Gate>(`/admin/categories/${categoryId}/requirements`, input);
+
+export const removeGate = (requirementId: string) =>
+  api.delete<{ message: string }>(`/admin/requirements/${requirementId}`);
