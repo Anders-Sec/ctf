@@ -350,12 +350,21 @@ async def submit_answer(
         # Players do re-submit to check. Logged, no second solve, no points.
         return SubmissionOutcome(True, True, 0, remaining)
 
+    # Bank the XP now (spec 015): the challenge's value at this moment, minus the
+    # hints this player used on it. A snapshot — it never changes again, so levels
+    # stay monotonic. Hints are only "paid for" here, out of the reward.
+    count = await scoring.solve_count(db, challenge)
+    value = scoring.challenge_value(challenge, count + 1)
+    hint_cost = await _hint_cost_for(db, user.id, challenge.id)
+    xp_awarded = max(0, value - hint_cost)
+
     solve = Solve(
         user_id=user.id,
         challenge_id=challenge.id,
         team_id_at_solve=team.id if team else None,
         submitted_at=now,
         submission_id=submission.id,
+        xp_awarded=xp_awarded,
     )
     try:
         # A savepoint, not the whole transaction: rolling the session back here
@@ -368,8 +377,21 @@ async def submit_answer(
         # told they had already solved it, which is true.
         return SubmissionOutcome(True, True, 0, remaining)
 
-    count = await scoring.solve_count(db, challenge)
-    return SubmissionOutcome(True, False, scoring.challenge_value(challenge, count), remaining)
+    return SubmissionOutcome(True, False, xp_awarded, remaining)
+
+
+async def _hint_cost_for(db: AsyncSession, user_id: UUID, challenge_id: UUID) -> int:
+    """Total a player has spent on hints for one challenge — the reward penalty."""
+    from app.models.hint import Hint, HintUnlock
+
+    return (
+        await db.scalar(
+            select(func.coalesce(func.sum(HintUnlock.cost_charged), 0))
+            .select_from(HintUnlock)
+            .join(Hint, Hint.id == HintUnlock.hint_id)
+            .where(HintUnlock.user_id == user_id, Hint.challenge_id == challenge_id)
+        )
+    ) or 0
 
 
 async def _record(

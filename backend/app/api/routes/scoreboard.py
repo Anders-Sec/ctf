@@ -82,9 +82,11 @@ async def my_standing(
     return MyStandingResponse(
         rank=mine["rank"] if mine else None,
         score=mine["score"] if mine else 0,
+        level=mine["level"] if mine else 1,
         player_count=len(payload["players"]),
         team_rank=party["rank"] if party else None,
         team_score=party["score"] if party else None,
+        team_level=party["level"] if party else None,
         team_count=len(payload["teams"]),
     )
 

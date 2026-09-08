@@ -14,7 +14,8 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.challenge import Challenge, DecayBasis, ScoringMode
+from app.config import get_settings
+from app.models.challenge import Category, Challenge, DecayBasis, ScoringMode
 from app.models.play import ScoreAdjustment, Solve
 
 
@@ -111,46 +112,65 @@ async def team_solve_counts_for(db: AsyncSession, challenge_ids: list[UUID]) -> 
 
 
 async def user_score(db: AsyncSession, user_id: UUID) -> int:
-    """A player's total.
+    """A player's total XP (spec 015).
 
-    ``sum(current value of solved challenges) + sum(adjustments) - sum(hint costs)``
-
-    Can go negative: someone who buys hints and solves nothing has spent more
-    than they earned. That is the correct arithmetic, and the scoreboard shows
-    it rather than clamping at zero.
+    ``sum(banked solve XP) + sum(adjustments)``. Hints are already netted out of
+    each solve's banked XP, so there is no separate subtraction. Banked XP never
+    changes, so this only moves down if an admin applies a negative adjustment.
     """
-    solved = (
-        (
-            await db.execute(
-                select(Challenge)
-                .join(Solve, Solve.challenge_id == Challenge.id)
-                .where(Solve.user_id == user_id)
-            )
+    return await total_xp(db, user_id)
+
+
+async def total_xp(db: AsyncSession, user_id: UUID) -> int:
+    banked = (
+        await db.scalar(
+            select(func.coalesce(func.sum(Solve.xp_awarded), 0)).where(Solve.user_id == user_id)
         )
-        .scalars()
-        .all()
-    )
-
-    player_counts = await solve_counts_for(db, [c.id for c in solved])
-    team_counts = await team_solve_counts_for(
-        db, [c.id for c in solved if c.decay_basis == DecayBasis.TEAMS]
-    )
-
-    total = 0
-    for challenge in solved:
-        counts = team_counts if challenge.decay_basis == DecayBasis.TEAMS else player_counts
-        total += challenge_value(challenge, counts.get(challenge.id, 0))
-
+    ) or 0
     adjustments = (
         await db.scalar(
             select(func.coalesce(func.sum(ScoreAdjustment.points), 0)).where(
                 ScoreAdjustment.user_id == user_id
             )
         )
-    ) or 0  # Party-scoped rows have a null user_id and are excluded here.
+    ) or 0
+    return banked + adjustments
 
-    # Imported here rather than at module scope: hints depend on Solve, and a
-    # top-level import would close the cycle.
-    from app.services.hints import total_hint_cost
 
-    return total + adjustments - await total_hint_cost(db, user_id)
+async def skill_xp_for_user(db: AsyncSession, user_id: UUID) -> dict[UUID, int]:
+    """Banked XP grouped by the skill each solve's category maps to.
+
+    A category with no skill is left out here but still counts in ``total_xp``,
+    so the skill slices partition only the mapped part of the pool.
+    """
+    rows = await db.execute(
+        select(Category.skill_id, func.coalesce(func.sum(Solve.xp_awarded), 0))
+        .select_from(Solve)
+        .join(Challenge, Challenge.id == Solve.challenge_id)
+        .join(Category, Category.id == Challenge.category_id)
+        .where(Solve.user_id == user_id, Category.skill_id.is_not(None))
+        .group_by(Category.skill_id)
+    )
+    return {skill_id: xp for skill_id, xp in rows}
+
+
+def xp_for_level(level: int, base: int | None = None) -> int:
+    """Cumulative XP needed to reach ``level``. Level 1 is 0 (spec 015)."""
+    base = base if base is not None else get_settings().xp_level_base
+    return base * level * (level - 1)
+
+
+def level_for_xp(xp: int, base: int | None = None) -> int:
+    """The level a total of ``xp`` reaches, on the standard curve.
+
+    Level L needs cumulative ``base*L*(L-1)`` XP, so higher levels cost more.
+    """
+    base = base if base is not None else get_settings().xp_level_base
+    if xp <= 0 or base <= 0:
+        return 1
+    level = int((1 + math.sqrt(1 + 4 * xp / base)) / 2)
+    while xp_for_level(level + 1, base) <= xp:
+        level += 1
+    while level > 1 and xp_for_level(level, base) > xp:
+        level -= 1
+    return level

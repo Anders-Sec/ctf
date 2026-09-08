@@ -5,7 +5,6 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.challenge import ScoringMode
-from app.models.hint import Hint, HintUnlock
 from app.models.play import ScoreAdjustment
 from app.models.team import RemovalReason
 from app.models.user import UserRole
@@ -97,53 +96,41 @@ class TestTheCeilingProperty:
         assert team_named(await boards(db_session), "Everyone").score == 200
 
 
-class TestHintsAtPartyLevel:
-    async def test_a_hint_is_charged_to_the_party_once(self, db_session: AsyncSession) -> None:
-        """Otherwise a party could buy every hint and still reach the ceiling."""
-        challenge = await make_challenge(db_session, scoring=ScoringMode.STATIC, initial_points=300)
-        hint = Hint(challenge_id=challenge.id, title="Nudge", body="Look here", cost=50)
-        db_session.add(hint)
-        await db_session.flush()
-
+class TestPartyXp:
+    async def test_a_partys_xp_is_the_sum_of_banked_solves(self, db_session: AsyncSession) -> None:
+        """Hints are netted out of each solve's banked XP at solve time (spec 015),
+        so the party board just sums banked XP over its distinct challenges."""
+        a = await make_challenge(db_session, scoring=ScoringMode.STATIC, initial_points=300)
+        b = await make_challenge(db_session, scoring=ScoringMode.STATIC, initial_points=300)
         leader = await make_user(db_session)
-        team = await make_team(db_session, leader, name="Hinters")
+        team = await make_team(db_session, leader, name="Bankers")
         second = await make_user(db_session)
         await add_member(db_session, team, second)
-        await record_solve(db_session, leader, challenge, team=team)
 
-        for member in (leader, second):
-            db_session.add(
-                HintUnlock(user_id=member.id, hint_id=hint.id, cost_charged=50, unlocked_at=NOW)
-            )
-        await db_session.flush()
+        # One clean solve (300) and one where the solver had used a 50-cost hint (250).
+        await record_solve(db_session, leader, a, team=team, xp=300)
+        await record_solve(db_session, second, b, team=team, xp=250)
 
-        # 300 for the solve, 50 for the hint — charged once, not twice.
-        assert team_named(await boards(db_session), "Hinters").score == 250
+        assert team_named(await boards(db_session), "Bankers").score == 550
 
-    async def test_the_party_pays_the_lowest_price_any_member_paid(
+    async def test_a_shared_challenge_counts_the_earliest_banked_xp(
         self, db_session: AsyncSession
     ) -> None:
-        """If one member got it free after solving, the party is not charged."""
-        challenge = await make_challenge(db_session, scoring=ScoringMode.STATIC, initial_points=300)
-        hint = Hint(challenge_id=challenge.id, title="Nudge", body="Look here", cost=50)
-        db_session.add(hint)
-        await db_session.flush()
+        """The union counts a shared challenge once, at the earliest party solve."""
+        from datetime import timedelta
 
+        shared = await make_challenge(db_session, scoring=ScoringMode.STATIC, initial_points=300)
         leader = await make_user(db_session)
-        team = await make_team(db_session, leader, name="Mixed Payers")
+        team = await make_team(db_session, leader, name="Sharers")
         second = await make_user(db_session)
         await add_member(db_session, team, second)
-        await record_solve(db_session, leader, challenge, team=team)
 
-        db_session.add(
-            HintUnlock(user_id=second.id, hint_id=hint.id, cost_charged=50, unlocked_at=NOW)
-        )
-        db_session.add(
-            HintUnlock(user_id=leader.id, hint_id=hint.id, cost_charged=0, unlocked_at=NOW)
-        )
-        await db_session.flush()
+        early = datetime.now(UTC) - timedelta(minutes=10)
+        # The earliest solver used a hint (250); the later one did not (300).
+        await record_solve(db_session, leader, shared, team=team, xp=250, submitted_at=early)
+        await record_solve(db_session, second, shared, team=team, xp=300)
 
-        assert team_named(await boards(db_session), "Mixed Payers").score == 300
+        assert team_named(await boards(db_session), "Sharers").score == 250
 
 
 class TestRosterChanges:
@@ -203,14 +190,11 @@ class TestPlayerBoard:
         assert all(p.display_name != "Admin" for p in (await boards(db_session)).players)
 
     async def test_a_negative_score_is_shown_not_clamped(self, db_session: AsyncSession) -> None:
-        challenge = await make_challenge(db_session)
-        hint = Hint(challenge_id=challenge.id, title="Costly", body="…", cost=120)
-        db_session.add(hint)
-        await db_session.flush()
+        """Hints can no longer push a score below zero (spec 015 floors banked XP
+        at 0), but a negative admin adjustment still can — and it is shown, not
+        clamped."""
         player = await make_user(db_session, display_name="In The Red")
-        db_session.add(
-            HintUnlock(user_id=player.id, hint_id=hint.id, cost_charged=120, unlocked_at=NOW)
-        )
+        db_session.add(ScoreAdjustment(user_id=player.id, points=-120, reason="Penalty"))
         await db_session.flush()
 
         entry = next(
@@ -261,23 +245,26 @@ class TestOrdering:
         assert first.index("Alpha") < first.index("Bravo")
 
 
-class TestDecayInteraction:
-    async def test_a_solve_lowers_everyone_elses_score_too(self, db_session: AsyncSession) -> None:
-        """One flag moves every solver's total, which is why deltas are pointless."""
+class TestMonotonicBoard:
+    async def test_a_later_solve_does_not_move_an_earlier_solvers_score(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Spec 015: banked XP means the board no longer retroactively re-ranks as
+        challenges are solved by others."""
         challenge = await make_challenge(
             db_session, initial_points=500, minimum_points=100, decay_threshold=10
         )
         early = await make_user(db_session, display_name="Early Bird")
-        await record_solve(db_session, early, challenge)
+        await record_solve(db_session, early, challenge, xp=500)
 
         before = next(
             p for p in (await boards(db_session)).players if p.display_name == "Early Bird"
         ).score
 
         for _ in range(4):
-            await record_solve(db_session, await make_user(db_session), challenge)
+            await record_solve(db_session, await make_user(db_session), challenge, xp=200)
 
         after = next(
             p for p in (await boards(db_session)).players if p.display_name == "Early Bird"
         ).score
-        assert after < before
+        assert after == before

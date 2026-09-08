@@ -22,7 +22,9 @@ class MyStandingResponse(BaseModel):
 
     rank: int | None
     score: int
+    level: int
     player_count: int
     team_rank: int | None
     team_score: int | None
+    team_level: int | None
     team_count: int

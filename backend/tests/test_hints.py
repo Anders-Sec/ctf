@@ -93,9 +93,11 @@ class TestListing:
 
 
 class TestUnlocking:
-    async def test_unlocking_reveals_the_body_and_charges(
+    async def test_unlocking_reveals_the_body_and_records_the_deferred_cost(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """Unlocking hands over the body and snapshots what it will cost, but the
+        cost is deferred to the solve (spec 015) — the score does not move yet."""
         user = await player(db_session, client, sign_in)
         challenge = await make_challenge(db_session)
         hint = await add_hint(db_session, challenge, body="Look at frame 42.", cost=50)
@@ -106,7 +108,8 @@ class TestUnlocking:
         body = response.json()
         assert body["body"] == "Look at frame 42."
         assert body["cost_charged"] == 50
-        assert await user_score(db_session, user.id) == -50
+        # Free in the moment: a hint on an unsolved challenge costs nothing.
+        assert await user_score(db_session, user.id) == 0
 
     async def test_unlocking_twice_charges_once(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -124,7 +127,8 @@ class TestUnlocking:
         assert second.status_code == 200
         assert second.json()["cost_charged"] == 0
         assert second.json()["already_unlocked"] is True
-        assert await user_score(db_session, user.id) == -50
+        # No solve yet, so no charge — and the second click adds nothing.
+        assert await user_score(db_session, user.id) == 0
 
         rows = (
             (await db_session.execute(select(HintUnlock).where(HintUnlock.user_id == user.id)))
@@ -253,29 +257,39 @@ class TestGating:
 
 
 class TestScoreArithmetic:
-    async def test_solves_minus_hints_plus_adjustments(
+    async def test_solve_banks_value_minus_hints_plus_adjustments(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """A solve banks the challenge's value minus the hints taken on it; admin
+        adjustments still move the total (spec 015)."""
         user = await player(db_session, client, sign_in)
         challenge = await make_challenge(db_session, scoring=ScoringMode.STATIC, initial_points=300)
-        other = await make_challenge(db_session)
-        hint = await add_hint(db_session, other, cost=50)
-        await record_solve(db_session, user, challenge)
-        await client.post(f"/api/challenges/{other.id}/hints/{hint.id}/unlock")
+        hint = await add_hint(db_session, challenge, cost=50)
+        await client.post(f"/api/challenges/{challenge.id}/hints/{hint.id}/unlock")
+        solve = await client.post(
+            f"/api/challenges/{challenge.id}/submit", json={"answer": "flag{correct}"}
+        )
         db_session.add(ScoreAdjustment(user_id=user.id, points=25, reason="Goodwill"))
         await db_session.flush()
 
+        assert solve.json()["points_awarded"] == 300 - 50
         assert await user_score(db_session, user.id) == 300 - 50 + 25
 
-    async def test_a_score_can_go_negative(
+    async def test_hints_never_go_negative_but_an_adjustment_can(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        """Buying hints and solving nothing costs more than it earns. Show it."""
+        """Hints only shrink a solve's reward (floored at zero), so buying hints
+        and solving nothing costs nothing; a negative total is a deliberate admin
+        correction (spec 015)."""
         user = await player(db_session, client, sign_in)
         challenge = await make_challenge(db_session)
         hint = await add_hint(db_session, challenge, cost=120)
 
         await client.post(f"/api/challenges/{challenge.id}/hints/{hint.id}/unlock")
+        assert await user_score(db_session, user.id) == 0
+
+        db_session.add(ScoreAdjustment(user_id=user.id, points=-120, reason="Penalty"))
+        await db_session.flush()
 
         assert await user_score(db_session, user.id) == -120
         assert (await client.get("/api/me/score")).json()["total"] == -120
@@ -283,16 +297,22 @@ class TestScoreArithmetic:
     async def test_editing_a_cost_does_not_rewrite_what_was_paid(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        """A hint's price is a number an admin typed, not a shared mechanic."""
+        """The penalty is the cost snapshotted when the hint was taken, not the
+        hint's price at solve time (spec 015)."""
         user = await player(db_session, client, sign_in)
-        challenge = await make_challenge(db_session)
+        challenge = await make_challenge(db_session, scoring=ScoringMode.STATIC, initial_points=500)
         hint = await add_hint(db_session, challenge, cost=50)
         await client.post(f"/api/challenges/{challenge.id}/hints/{hint.id}/unlock")
 
         hint.cost = 500
         await db_session.flush()
 
-        assert await user_score(db_session, user.id) == -50
+        solve = await client.post(
+            f"/api/challenges/{challenge.id}/submit", json={"answer": "flag{correct}"}
+        )
+
+        assert solve.json()["points_awarded"] == 500 - 50
+        assert await user_score(db_session, user.id) == 500 - 50
 
 
 class TestAdminHints:

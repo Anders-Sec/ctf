@@ -143,19 +143,18 @@ class TestPlayerTotal:
 
         assert await user_score(db_session, player.id) == 0
 
-    async def test_someone_elses_solve_lowers_an_earlier_solvers_total(
-        self, db_session: AsyncSession
-    ) -> None:
-        """The whole point of decay: everyone holds the current value, always."""
+    async def test_banked_xp_is_monotonic(self, db_session: AsyncSession) -> None:
+        """Spec 015: XP is banked at solve, so a later solver never changes an
+        earlier one's total. This is what makes levels safe."""
         challenge = await make_challenge(db_session, initial_points=500, decay_threshold=10)
         early = await make_user(db_session)
-        await record_solve(db_session, early, challenge)
+        await record_solve(db_session, early, challenge, xp=500)
         before = await user_score(db_session, early.id)
 
         for _ in range(5):
-            await record_solve(db_session, await make_user(db_session), challenge)
+            await record_solve(db_session, await make_user(db_session), challenge, xp=200)
 
-        assert await user_score(db_session, early.id) < before
+        assert await user_score(db_session, early.id) == before
 
     async def test_adjustments_are_added_to_the_total(self, db_session: AsyncSession) -> None:
         player = await make_user(db_session)

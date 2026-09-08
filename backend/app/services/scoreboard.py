@@ -16,15 +16,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.challenge import Challenge, DecayBasis
-from app.models.hint import HintUnlock
+from app.config import get_settings
 from app.models.play import ScoreAdjustment, Solve
 from app.models.team import Team, TeamMembership
 from app.models.user import User, UserRole, UserStatus
-from app.services.scoring import challenge_value
+from app.services.scoring import level_for_xp
 
 
 @dataclass(frozen=True)
@@ -36,6 +35,7 @@ class PlayerEntry:
     team_id: UUID | None
     team_name: str | None
     score: int
+    level: int
     solve_count: int
     #: When this entry last gained points. Ties break on who got there first.
     last_gain_at: datetime | None
@@ -48,6 +48,7 @@ class TeamEntry:
     name: str
     member_count: int
     score: int
+    level: int
     #: Distinct challenges solved by any current member.
     solve_count: int
     last_gain_at: datetime | None
@@ -61,9 +62,13 @@ class Boards:
 
 
 async def compute(db: AsyncSession, now: datetime) -> Boards:
-    challenge_values = await _challenge_values(db)
+    level_base = get_settings().xp_level_base
 
-    solves = (await db.execute(select(Solve.user_id, Solve.challenge_id, Solve.submitted_at))).all()
+    solves = (
+        await db.execute(
+            select(Solve.user_id, Solve.challenge_id, Solve.submitted_at, Solve.xp_awarded)
+        )
+    ).all()
     adjustments = (
         await db.execute(
             select(
@@ -73,9 +78,6 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
                 ScoreAdjustment.created_at,
             )
         )
-    ).all()
-    unlocks = (
-        await db.execute(select(HintUnlock.user_id, HintUnlock.hint_id, HintUnlock.cost_charged))
     ).all()
 
     players = (
@@ -102,13 +104,10 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
 
     eligible = {player.id for player in players}
 
-    solves_by_user: dict[UUID, dict[UUID, datetime]] = {}
-    for user_id, challenge_id, submitted_at in solves:
-        solves_by_user.setdefault(user_id, {})[challenge_id] = submitted_at
-
-    unlocks_by_user: dict[UUID, dict[UUID, int]] = {}
-    for user_id, hint_id, cost in unlocks:
-        unlocks_by_user.setdefault(user_id, {})[hint_id] = cost
+    # (submitted_at, xp) per solve; XP is banked, hints already netted out.
+    solves_by_user: dict[UUID, dict[UUID, tuple[datetime, int]]] = {}
+    for user_id, challenge_id, submitted_at, xp in solves:
+        solves_by_user.setdefault(user_id, {})[challenge_id] = (submitted_at, xp)
 
     adjust_by_user: dict[UUID, int] = {}
     adjust_gain_at: dict[UUID, datetime] = {}
@@ -142,88 +141,43 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
 
     player_entries = _rank_players(
         players,
-        challenge_values,
         solves_by_user,
-        unlocks_by_user,
         adjust_by_user,
         adjust_gain_at,
         team_of_user,
         team_names,
+        level_base,
     )
     team_entries = _rank_teams(
         members_of_team,
         team_names,
-        challenge_values,
         solves_by_user,
-        unlocks_by_user,
         adjust_by_user,
         adjust_gain_at,
         adjust_by_team,
         team_adjust_gain_at,
+        level_base,
     )
 
     return Boards(players=player_entries, teams=team_entries, generated_at=now)
 
 
-async def _challenge_values(db: AsyncSession) -> dict[UUID, int]:
-    """Every challenge's value right now, on its own configured decay basis."""
-    challenges = (await db.execute(select(Challenge))).scalars().all()
-    if not challenges:
-        return {}
-
-    player_counts = dict(
-        (
-            await db.execute(
-                select(Solve.challenge_id, func.count(func.distinct(Solve.user_id))).group_by(
-                    Solve.challenge_id
-                )
-            )
-        ).all()
-    )
-
-    distinct_solvers = (
-        select(
-            Solve.challenge_id.label("challenge_id"),
-            func.coalesce(Solve.team_id_at_solve, Solve.user_id).label("solver"),
-        )
-        .distinct()
-        .subquery()
-    )
-    team_counts = dict(
-        (
-            await db.execute(
-                select(distinct_solvers.c.challenge_id, func.count())
-                .select_from(distinct_solvers)
-                .group_by(distinct_solvers.c.challenge_id)
-            )
-        ).all()
-    )
-
-    values = {}
-    for challenge in challenges:
-        counts = team_counts if challenge.decay_basis == DecayBasis.TEAMS else player_counts
-        values[challenge.id] = challenge_value(challenge, counts.get(challenge.id, 0))
-    return values
-
-
 def _rank_players(
     players,  # noqa: ANN001 - list[User]
-    values: dict[UUID, int],
-    solves_by_user: dict[UUID, dict[UUID, datetime]],
-    unlocks_by_user: dict[UUID, dict[UUID, int]],
+    solves_by_user: dict[UUID, dict[UUID, tuple[datetime, int]]],
     adjust_by_user: dict[UUID, int],
     adjust_gain_at: dict[UUID, datetime],
     team_of_user: dict[UUID, UUID],
     team_names: dict[UUID, str],
+    level_base: int,
 ) -> list[PlayerEntry]:
     rows = []
     for player in players:
         solved = solves_by_user.get(player.id, {})
-        score = sum(values.get(challenge_id, 0) for challenge_id in solved)
+        score = sum(xp for _, xp in solved.values())
         score += adjust_by_user.get(player.id, 0)
-        score -= sum(unlocks_by_user.get(player.id, {}).values())
 
-        gains = list(solved.values())
+        gains = [at for at, _ in solved.values()]
         if player.id in adjust_gain_at:
             gains.append(adjust_gain_at[player.id])
         team_id = team_of_user.get(player.id)
@@ -236,6 +190,7 @@ def _rank_players(
                 "team_id": team_id,
                 "team_name": team_names.get(team_id) if team_id else None,
                 "score": score,
+                "level": level_for_xp(score, level_base),
                 "solve_count": len(solved),
                 "last_gain_at": max(gains) if gains else None,
                 "sort_name": player.display_name.casefold(),
@@ -252,6 +207,7 @@ def _rank_players(
             team_id=row["team_id"],
             team_name=row["team_name"],
             score=row["score"],
+            level=row["level"],
             solve_count=row["solve_count"],
             last_gain_at=row["last_gain_at"],
         )
@@ -262,43 +218,32 @@ def _rank_players(
 def _rank_teams(
     members_of_team: dict[UUID, list[UUID]],
     team_names: dict[UUID, str],
-    values: dict[UUID, int],
-    solves_by_user: dict[UUID, dict[UUID, datetime]],
-    unlocks_by_user: dict[UUID, dict[UUID, int]],
+    solves_by_user: dict[UUID, dict[UUID, tuple[datetime, int]]],
     adjust_by_user: dict[UUID, int],
     adjust_gain_at: dict[UUID, datetime],
     adjust_by_team: dict[UUID, int],
     team_adjust_gain_at: dict[UUID, datetime],
+    level_base: int,
 ) -> list[TeamEntry]:
     rows = []
     for team_id, member_ids in members_of_team.items():
         # The union: each challenge counts once however many members solved it,
-        # which is what gives a party of one and a party of eight the same
-        # ceiling. Keep the earliest solve time — the party had it from then.
-        solved: dict[UUID, datetime] = {}
+        # which is what gives a party of one and of eight the same ceiling. Keep
+        # the earliest solve and the XP that solve banked — the party had it then.
+        solved: dict[UUID, tuple[datetime, int]] = {}
         for member_id in member_ids:
-            for challenge_id, at in solves_by_user.get(member_id, {}).items():
+            for challenge_id, (at, xp) in solves_by_user.get(member_id, {}).items():
                 existing = solved.get(challenge_id)
-                solved[challenge_id] = min(existing, at) if existing else at
+                if existing is None or at < existing[0]:
+                    solved[challenge_id] = (at, xp)
 
-        # Hints likewise, at the lowest price any member paid: if one of them
-        # got it free because they had already solved, the party is not charged.
-        hint_costs: dict[UUID, int] = {}
-        for member_id in member_ids:
-            for hint_id, cost in unlocks_by_user.get(member_id, {}).items():
-                existing = hint_costs.get(hint_id)
-                hint_costs[hint_id] = min(existing, cost) if existing is not None else cost
-
-        score = sum(values.get(challenge_id, 0) for challenge_id in solved)
-        score -= sum(hint_costs.values())
-        # Adjustments are summed, not unioned, and are the one thing that can
-        # carry a party past the nominal ceiling. Members' own adjustments count
-        # because their personal scores are part of the party; the party's own
-        # count once, whoever leads it and whoever comes and goes.
+        score = sum(xp for _, xp in solved.values())
+        # Members' own adjustments count because their personal scores are part
+        # of the party; the party's own count once.
         score += sum(adjust_by_user.get(member_id, 0) for member_id in member_ids)
         score += adjust_by_team.get(team_id, 0)
 
-        gains = list(solved.values())
+        gains = [at for at, _ in solved.values()]
         gains += [adjust_gain_at[m] for m in member_ids if m in adjust_gain_at]
         if team_id in team_adjust_gain_at:
             gains.append(team_adjust_gain_at[team_id])
@@ -309,6 +254,7 @@ def _rank_teams(
                 "name": team_names.get(team_id, ""),
                 "member_count": len(member_ids),
                 "score": score,
+                "level": level_for_xp(score, level_base),
                 "solve_count": len(solved),
                 "last_gain_at": max(gains) if gains else None,
                 "sort_name": team_names.get(team_id, "").casefold(),
@@ -323,6 +269,7 @@ def _rank_teams(
             name=row["name"],
             member_count=row["member_count"],
             score=row["score"],
+            level=row["level"],
             solve_count=row["solve_count"],
             last_gain_at=row["last_gain_at"],
         )

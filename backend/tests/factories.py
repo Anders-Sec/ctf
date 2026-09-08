@@ -159,12 +159,17 @@ async def record_solve(
     challenge: Challenge,
     *,
     team: Team | None = None,
+    xp: int | None = None,
+    submitted_at: datetime | None = None,
 ) -> Solve:
+    """A solve, banking XP (spec 015). Defaults the banked XP to the challenge's
+    initial points so a plain solve is worth what the challenge is worth."""
     solve = Solve(
         user_id=user.id,
         challenge_id=challenge.id,
         team_id_at_solve=team.id if team else None,
-        submitted_at=datetime.now(UTC),
+        submitted_at=submitted_at or datetime.now(UTC),
+        xp_awarded=xp if xp is not None else challenge.initial_points,
     )
     session.add(solve)
     await session.flush()
