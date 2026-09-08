@@ -20,6 +20,10 @@ Three layers, and the separation is the whole idea:
 3. **Ambience (budgeted).** Torch flicker, drifting fog, water shimmer as CSS
    transforms on transparent layers; **Lottie** for the set pieces.
 
+Real alpha also means tiles composite normally rather than through a blend-mode
+trick, so the painted blacks stay black instead of washing out — the art renders
+as drawn.
+
 Because the art carries no state, you can redraw any zone without touching logic,
 and a zone's lock state cannot disagree with the list view — both read the same
 API.
@@ -35,18 +39,25 @@ subject inserts — that is the copy-paste source for generating these.
 
 **Per-zone tile** — one per zone, 22 in all:
 
-- `frontend/public/map/zones/<category-slug>.webp`
-- **1024×1024** square (what ChatGPT emits; downscaled at build if wanted)
-- **Not transparent — faded to pure black at the edges.** ChatGPT will not give
-  reliable transparency, and fighting for it is wasted effort: a heavy vignette
-  into black composites seamlessly onto the dark base plate, needs no
-  post-processing, and matches the reference, which vignettes anyway. Tiles are
-  drawn with `mix-blend-mode: screen` so black reads as empty.
+- `frontend/public/map/zones/<category-slug>.png`
+- **1024×1024** square, **PNG with real transparency** (verified working in
+  ChatGPT). The loader accepts `.png` or `.webp`, so a later conversion pass will
+  not break the wiring.
+- **Irregular, organic silhouettes** — rough rocky outlines, not squares. This is
+  the point of transparency: the zones read as a cavern system rather than a grid
+  of cards.
+- No baked shadow, glow or vignette in the art. The app applies
+  `filter: drop-shadow()`, which follows the *actual* alpha silhouette, so the
+  shadow is correct for any shape and any scale.
 - No separate locked variant — a locked zone is the same art, desaturated and
   dimmed by the SVG layer, which is what keeps "greyed out but readable" honest.
 
-**Base plate** — `frontend/public/map/base.webp`, **1536×1024** landscape: the
-void, floor texture and grid the tiles sit on.
+**Base plate** — `frontend/public/map/base.png`, **1536×1024** landscape, opaque:
+the void and floor texture the tiles sit on.
+
+**The grid is drawn by the app**, as one SVG overlay at a fixed pitch across the
+whole map. Baked into each tile it could never align with the base plate or with
+neighbouring tiles.
 
 **Naming is the contract**: the slug wires a tile to its zone, so a tile lands
 automatically the moment the file exists. A typo means the zone silently keeps
