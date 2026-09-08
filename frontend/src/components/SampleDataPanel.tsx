@@ -1,6 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { generateSampleData, purgeSampleData } from "../api/sampleData";
+import {
+  generateSampleData,
+  purgeSampleData,
+  type SampleDataMode,
+} from "../api/sampleData";
 import ErrorMessage from "./ErrorMessage";
 
 /**
@@ -16,7 +20,7 @@ export default function SampleDataPanel() {
   const refreshEverything = () => queryClient.invalidateQueries();
 
   const generate = useMutation({
-    mutationFn: generateSampleData,
+    mutationFn: (mode: SampleDataMode) => generateSampleData(mode),
     onSuccess: refreshEverything,
   });
   const purge = useMutation({
@@ -30,18 +34,28 @@ export default function SampleDataPanel() {
     <section className="mt-8 rounded border border-stone bg-white/40 p-4">
       <h2 className="text-lg font-semibold">Sample data</h2>
       <p className="mt-1 text-sm text-muted">
-        Fills the event with skills, classes, four gated zones of challenges,
-        hints, players and solves — enough to see every feature working.
+        Two shapes, one purge. <strong>Standalone</strong> builds a
+        self-contained four-zone event of its own, for working on the platform in
+        isolation. <strong>Fill the dungeon</strong> puts sample challenges into
+        the real 22 zones with the real skills attached, so the map, the
+        progression gates and the class roster can all be seen working.
         Regenerating replaces the previous set. Not available in production.
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
-          onClick={() => generate.mutate()}
+          onClick={() => generate.mutate("standalone")}
           disabled={generate.isPending || purge.isPending}
           className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
         >
           {generate.isPending ? "Generating…" : "Generate sample data"}
+        </button>
+        <button
+          onClick={() => generate.mutate("dungeon")}
+          disabled={generate.isPending || purge.isPending}
+          className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+        >
+          {generate.isPending ? "Generating…" : "Fill the dungeon"}
         </button>
         <button
           onClick={() => purge.mutate()}
@@ -60,8 +74,7 @@ export default function SampleDataPanel() {
               ["Zones", summary.categories],
               ["Challenges", summary.challenges],
               ["Gates", summary.gates],
-              ["Skills", summary.skills],
-              ["Classes", summary.classes],
+              ["Skill links", summary.skills],
               ["Hints", summary.hints],
               ["Players", summary.players],
               ["Parties", summary.teams],

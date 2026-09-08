@@ -5,7 +5,9 @@ click during the real event would be unpleasant to unpick. Everything it creates
 is tagged, so the purge takes back exactly what it made.
 """
 
-from fastapi import APIRouter, Request
+from typing import Literal
+
+from fastapi import APIRouter, Query, Request
 
 from app.api.deps import Admin, AppSettings, DbSession
 from app.schemas.auth import MessageResponse
@@ -22,12 +24,26 @@ def _request_id(request: Request) -> str | None:
 
 @router.post("")
 async def generate(
-    request: Request, db: DbSession, settings: AppSettings, current: Admin
+    request: Request,
+    db: DbSession,
+    settings: AppSettings,
+    current: Admin,
+    mode: Literal["standalone", "dungeon"] = Query(
+        default="standalone",
+        description=(
+            "standalone builds a self-contained four-zone event; dungeon fills "
+            "the real 22 zones with the real skills attached (spec 025)."
+        ),
+    ),
 ) -> SampleDataSummary:
     """Replace any existing sample data with a fresh set. Safe to press twice."""
     sample_service.ensure_allowed(settings.is_production)
 
-    summary = await sample_service.generate(db)
+    summary = (
+        await sample_service.generate_dungeon(db)
+        if mode == "dungeon"
+        else await sample_service.generate(db)
+    )
 
     await record_audit(
         db,
@@ -35,7 +51,11 @@ async def generate(
         target_type="event",
         target_id=None,
         actor_user_id=current.user.id,
-        meta={"challenges": summary.challenges, "players": summary.players},
+        meta={
+            "mode": mode,
+            "challenges": summary.challenges,
+            "players": summary.players,
+        },
         request_id=_request_id(request),
     )
     return SampleDataSummary(**vars(summary))
