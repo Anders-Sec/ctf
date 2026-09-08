@@ -4,10 +4,12 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Request
+from sqlalchemy import update
 
 from app.api.deps import Admin, DbSession, Player
 from app.errors import NotFoundError
-from app.models.challenge import Challenge
+from app.models.challenge import Category
+from app.schemas.auth import MessageResponse
 from app.schemas.challenges import UnlockRequirementResponse
 from app.schemas.dungeon import (
     EdgeResponse,
@@ -65,30 +67,49 @@ async def get_map(db: DbSession, current: Player) -> MapResponse:
     )
 
 
-@router.patch("/admin/challenges/{challenge_id}/map-position")
-async def set_map_position(
-    challenge_id: UUID,
+@router.patch("/admin/categories/{category_id}/position")
+async def set_zone_position(
+    category_id: UUID,
     payload: SetMapPositionRequest,
     request: Request,
     db: DbSession,
     current: Admin,
 ) -> MapPositionResponse:
-    """Pin a room, or clear the pin (both null) to return it to the derived spot."""
-    challenge = await db.get(Challenge, challenge_id)
-    if challenge is None:
-        raise NotFoundError("No such challenge.")
+    """Place a zone, or clear it (both null) back to the derived layout."""
+    category = await db.get(Category, category_id)
+    if category is None:
+        raise NotFoundError("No such category.")
 
-    challenge.map_x = payload.x
-    challenge.map_y = payload.y
+    category.map_x = payload.x
+    category.map_y = payload.y
     await db.flush()
 
     await record_audit(
         db,
-        action="challenge.map_position",
-        target_type="challenge",
-        target_id=challenge_id,
+        action="category.map_position",
+        target_type="category",
+        target_id=category_id,
         actor_user_id=current.user.id,
         meta={"x": payload.x, "y": payload.y},
         request_id=getattr(request.state, "request_id", None),
     )
-    return MapPositionResponse(x=challenge.map_x, y=challenge.map_y)
+    return MapPositionResponse(x=category.map_x, y=category.map_y)
+
+
+@router.post("/admin/map/reset-layout")
+async def reset_layout(request: Request, db: DbSession, current: Admin) -> MessageResponse:
+    """Drop every authored position, returning the whole map to the derived
+    layout — the way out of a layout that has gone wrong."""
+    await db.execute(update(Category).values(map_x=None, map_y=None))
+    await db.flush()
+
+    await record_audit(
+        db,
+        action="map.reset_layout",
+        target_type="event",
+        target_id=None,
+        actor_user_id=current.user.id,
+        meta={},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return MessageResponse(message="Layout reset.")

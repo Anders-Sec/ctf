@@ -5,7 +5,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.challenge import ChallengeState, RequirementType, ScoringMode
-from app.models.user import UserStatus
+from app.models.user import UserRole, UserStatus
 from app.services import unlocks as unlock_service
 from tests.factories import make_category, make_challenge, make_user, record_solve
 
@@ -129,6 +129,44 @@ class TestProgression:
         second = zone(board, "Test Tier2")["y"]
         third = zone(board, "Test Tier3")["y"]
         assert first < second < third
+
+    async def test_an_authored_position_wins_and_can_be_cleared(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        wing = await make_category(db_session, name="Test Placed")
+
+        await client.patch(f"/api/admin/categories/{wing.id}/position", json={"x": 900, "y": 640})
+        placed = zone(await fetch(client), "Test Placed")
+        assert (placed["x"], placed["y"]) == (900, 640)
+
+        await client.patch(f"/api/admin/categories/{wing.id}/position", json={"x": None, "y": None})
+        derived = zone(await fetch(client), "Test Placed")
+        assert (derived["x"], derived["y"]) != (900, 640)
+
+    async def test_reset_layout_clears_every_authored_position(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """The way out of a layout that has gone wrong."""
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        wing = await make_category(db_session, name="Test Placed")
+        await client.patch(f"/api/admin/categories/{wing.id}/position", json={"x": 900, "y": 640})
+
+        assert (await client.post("/api/admin/map/reset-layout")).status_code == 200
+
+        assert zone(await fetch(client), "Test Placed")["x"] != 900
+
+    async def test_a_player_cannot_move_a_zone(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+        wing = await make_category(db_session, name="Test Placed")
+
+        response = await client.patch(
+            f"/api/admin/categories/{wing.id}/position", json={"x": 10, "y": 10}
+        )
+
+        assert response.status_code == 403
 
     async def test_layout_is_deterministic_across_players(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

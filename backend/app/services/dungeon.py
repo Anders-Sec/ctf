@@ -31,6 +31,14 @@ from app.services.unlocks import RequirementView
 #: you can take in rather than a strip that scrolls off the side.
 MAX_ZONES_PER_ROW = 5
 
+#: Spacing for the *derived* layout, in the same pixel space authored positions
+#: use. Coordinates leave this service as pixels either way, so the client never
+#: has to know whether a zone was placed by hand or laid out automatically.
+TILE = 260
+COLUMN_SPACING = TILE + 44
+ROW_SPACING = TILE + 34 + 72
+MARGIN = 40
+
 
 @dataclass(frozen=True)
 class Zone:
@@ -39,7 +47,7 @@ class Zone:
     slug: str
     ability: str
     display_order: int
-    #: Grid position in the progression layout.
+    #: Top-left corner in map pixels — authored if placed, derived otherwise.
     x: int
     y: int
     locked: bool
@@ -96,7 +104,11 @@ async def build(db: AsyncSession, user_id: UUID, now: datetime) -> DungeonMap:
     zones = []
     for category in categories:
         gate = gates.get(category.id)
-        x, y = positions[category.id]
+        # An authored position wins; the derived one is the fallback that keeps a
+        # newly added category from vanishing (spec 021).
+        derived_x, derived_y = positions[category.id]
+        x = category.map_x if category.map_x is not None else derived_x
+        y = category.map_y if category.map_y is not None else derived_y
         zones.append(
             Zone(
                 id=category.id,
@@ -176,6 +188,11 @@ def _layout(categories: list[Category], edges: list[Edge]) -> dict[UUID, tuple[i
     for depth in sorted(by_depth):
         members = by_depth[depth]
         for index, category in enumerate(members):
-            positions[category.id] = (index % MAX_ZONES_PER_ROW, row + index // MAX_ZONES_PER_ROW)
+            column = index % MAX_ZONES_PER_ROW
+            line = row + index // MAX_ZONES_PER_ROW
+            positions[category.id] = (
+                MARGIN + column * COLUMN_SPACING,
+                MARGIN + line * ROW_SPACING,
+            )
         row += (len(members) - 1) // MAX_ZONES_PER_ROW + 1
     return positions

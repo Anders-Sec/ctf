@@ -14,6 +14,7 @@ class ZoneResponse(BaseModel):
     slug: str
     ability: str
     display_order: int
+    #: Top-left corner in map pixels — authored if placed, derived otherwise.
     x: int
     y: int
     locked: bool
@@ -38,7 +39,7 @@ class MapResponse(BaseModel):
 
 
 class SetMapPositionRequest(BaseModel):
-    """Both null returns the room to its derived position."""
+    """Both null returns the zone to its derived position."""
 
     x: int | None = None
     y: int | None = None
