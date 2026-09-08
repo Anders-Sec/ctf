@@ -1,6 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ChallengesPage from "./ChallengesPage";
 import type { ChallengeListItem } from "../api/challenges";
@@ -44,6 +44,16 @@ function withBoard(challenges: ChallengeListItem[], total = 0) {
   });
   renderApp(<ChallengesPage />);
 }
+
+// The board now opens on the map (spec 017); these cover the list, so pin the
+// remembered view to it. The map has its own tests below.
+beforeEach(() => {
+  localStorage.setItem("ctf.challenges.view", "list");
+});
+
+afterEach(() => {
+  localStorage.clear();
+});
 
 describe("ChallengesPage", () => {
   it("shows a challenge with its current value", async () => {

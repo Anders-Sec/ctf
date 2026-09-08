@@ -3,16 +3,45 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { getMyScore, listChallenges, type ChallengeListItem } from "../api/challenges";
+import { getMap } from "../api/dungeon";
+import DungeonMap from "../components/DungeonMap";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 
-/** The challenge board. Grouped by category, locked entries shown but inert. */
+type View = "map" | "list";
+
+const VIEW_KEY = "ctf.challenges.view";
+
+/** Remembered per browser. A stored preference is a convenience, so a private
+ *  window or blocked storage just falls back to the default. */
+function storedView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "map";
+  } catch {
+    return "map";
+  }
+}
+
+/** The challenge board (spec 017). Opens on the dungeon map; the list is one
+ *  toggle away and stays a complete equivalent — it is what people use to scan
+ *  and filter a few hundred challenges, and it is the accessible fallback. */
 export default function ChallengesPage() {
   const [category, setCategory] = useState<string | null>(null);
   const [hideSolved, setHideSolved] = useState(false);
+  const [view, setView] = useState<View>(storedView);
 
   const challenges = useQuery({ queryKey: ["challenges"], queryFn: listChallenges });
   const score = useQuery({ queryKey: ["my-score"], queryFn: getMyScore });
+  const map = useQuery({ queryKey: ["map"], queryFn: getMap, enabled: view === "map" });
+
+  const chooseView = (next: View) => {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // Not worth failing the click over.
+    }
+  };
 
   const grouped = useMemo(() => {
     const rows = (challenges.data ?? [])
@@ -48,12 +77,73 @@ export default function ChallengesPage() {
             {solved} of {rows.length} cleared
           </p>
         </div>
-        <p className="text-2xl font-semibold" aria-label="Your score">
-          {score.data?.total ?? 0}
-          <span className="ml-1 text-sm font-normal text-muted">points</span>
-        </p>
+        <div className="flex items-center gap-4">
+          <div className="flex gap-1" role="group" aria-label="Board view">
+            {(
+              [
+                ["map", "Map"],
+                ["list", "List"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => chooseView(value)}
+                aria-pressed={view === value}
+                className={`rounded px-3 py-1.5 text-sm ${
+                  view === value ? "bg-ink text-parchment" : "border border-stone"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-2xl font-semibold" aria-label="Your score">
+            {score.data?.total ?? 0}
+            <span className="ml-1 text-sm font-normal text-muted">points</span>
+          </p>
+        </div>
       </header>
 
+      {view === "map" ? (
+        <>
+          {map.isPending && <Spinner label="Drawing the map…" />}
+          <ErrorMessage error={map.error} />
+          {map.data && <DungeonMap data={map.data} />}
+        </>
+      ) : (
+        <ListView
+          rows={rows}
+          grouped={grouped}
+          categories={categories}
+          category={category}
+          setCategory={setCategory}
+          hideSolved={hideSolved}
+          setHideSolved={setHideSolved}
+        />
+      )}
+    </main>
+  );
+}
+
+function ListView({
+  rows,
+  grouped,
+  categories,
+  category,
+  setCategory,
+  hideSolved,
+  setHideSolved,
+}: {
+  rows: ChallengeListItem[];
+  grouped: [string, ChallengeListItem[]][];
+  categories: [string, string][];
+  category: string | null;
+  setCategory: (value: string | null) => void;
+  hideSolved: boolean;
+  setHideSolved: (value: boolean) => void;
+}) {
+  return (
+    <>
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <button
           onClick={() => setCategory(null)}
@@ -100,7 +190,7 @@ export default function ChallengesPage() {
           </ul>
         </section>
       ))}
-    </main>
+    </>
   );
 }
 
