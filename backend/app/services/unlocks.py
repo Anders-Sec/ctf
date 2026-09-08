@@ -22,7 +22,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import AppError, NotFoundError
@@ -427,3 +427,69 @@ async def describe(
     progress = await load_progress(db, user_id, requirements)
     challenges, skills, categories = await _label_lookups(db, requirements)
     return [_evaluate(r, progress, challenges, skills, categories) for r in requirements]
+
+
+async def evaluate_for_challenges(
+    db: AsyncSession, user_id: UUID, challenge_ids: list[UUID], now: datetime
+) -> dict[UUID, GateStatus]:
+    """Whether each challenge is locked, counting **its zone's** gates too.
+
+    A challenge is unlocked iff its own requirements are met *and* its category's
+    are (spec 017). Both sets are evaluated in one batch and merged, so a zone gate
+    reads to the player as just another reason the room is shut — and because this
+    is what ``prerequisite_status`` returns, the lock applies to submission, not
+    only to display.
+    """
+    if not challenge_ids:
+        return {}
+
+    pairs = (
+        await db.execute(
+            select(Challenge.id, Challenge.category_id).where(Challenge.id.in_(challenge_ids))
+        )
+    ).all()
+    challenge_to_category = {challenge_id: category_id for challenge_id, category_id in pairs}
+    category_ids = {c for c in challenge_to_category.values() if c is not None}
+
+    requirements = (
+        (
+            await db.execute(
+                select(UnlockRequirement).where(
+                    or_(
+                        UnlockRequirement.challenge_id.in_(challenge_ids),
+                        UnlockRequirement.category_id.in_(category_ids),
+                    )
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not requirements:
+        return {}
+
+    progress = await load_progress(db, user_id, list(requirements))
+    challenges, skills, categories = await _label_lookups(db, list(requirements))
+
+    by_challenge: dict[UUID, list[UnlockRequirement]] = {}
+    by_category: dict[UUID, list[UnlockRequirement]] = {}
+    for requirement in requirements:
+        if requirement.challenge_id is not None:
+            by_challenge.setdefault(requirement.challenge_id, []).append(requirement)
+        elif requirement.category_id is not None:
+            by_category.setdefault(requirement.category_id, []).append(requirement)
+
+    result: dict[UUID, GateStatus] = {}
+    for challenge_id in challenge_ids:
+        group = list(by_challenge.get(challenge_id, []))
+        category_id = challenge_to_category.get(challenge_id)
+        if category_id is not None:
+            group += by_category.get(category_id, [])
+        if not group:
+            continue
+        views = [_evaluate(r, progress, challenges, skills, categories) for r in group]
+        result[challenge_id] = GateStatus(
+            locked=not all(v.met for v in views),
+            visible_requirements=[v for v in views if _is_visible(v, challenges, now)],
+        )
+    return result

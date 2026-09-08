@@ -62,20 +62,12 @@ async def prerequisite_status(
     Locking considers *all* requirements (a hidden prerequisite can never be
     solved, so the gate holds); the returned hint lists only the ones the player
     may see, so a locked challenge does not reveal a hidden one.
-    """
-    if not challenge_ids:
-        return {}
 
-    requirements = (
-        (
-            await db.execute(
-                select(UnlockRequirement).where(UnlockRequirement.challenge_id.in_(challenge_ids))
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return await unlocks.evaluate_groups(db, user_id, list(requirements), now)
+    A challenge in a gated zone is locked even when its own requirements are met
+    (spec 017), and because this is the same call the submission path makes, that
+    lock is real rather than cosmetic.
+    """
+    return await unlocks.evaluate_for_challenges(db, user_id, challenge_ids, now)
 
 
 @dataclass(frozen=True)
