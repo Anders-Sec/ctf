@@ -48,13 +48,24 @@ body {
   transition: filter 160ms ease-out;
 }
 
-.dungeon-zone:hover,
-.dungeon-zone:focus-visible {
+/* Only an open zone gets the warm invitation. A sealed one lit up just as
+   brightly, which read as "come in" for somewhere you cannot go. */
+.dungeon-zone:not([data-locked]):hover,
+.dungeon-zone:not([data-locked]):focus-visible {
   filter: drop-shadow(0 0 10px rgba(255, 157, 61, 0.9))
     drop-shadow(0 0 22px rgba(255, 157, 61, 0.5));
 }
 
-/* Keyboard focus keeps a real ring as well as the glow — an outline paints
+/* A sealed zone still acknowledges the cursor — cold and dim, so it reads as
+   "there is something here" rather than "this is open". */
+.dungeon-zone[data-locked]:hover,
+.dungeon-zone[data-locked]:focus-visible {
+  filter: drop-shadow(0 0 8px rgba(63, 214, 208, 0.35));
+}
+
+/* Keyboard focus keeps a real ring as well as the glow — on every zone, sealed
+   included. It is navigation, not an invitation, and dropping it for sealed
+   zones would strand keyboard users — an outline paints
    outside the box without affecting layout, so it cannot cause the same
    fighting-the-cursor problem. */
 .dungeon-zone:focus-visible {
@@ -69,5 +80,108 @@ body {
   }
   .dungeon-zone {
     transition: none;
+  }
+}
+
+/* --- Map fit and edges (spec 023) ----------------------------------------- */
+
+/* Full-bleed: escape the page column without the parent having to know. */
+.dungeon-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+/* The map used to stop at a hard line, which read as a dark rectangle dropped
+   onto the page. Feathering the outer edge lets it fall off into the parchment
+   like torchlight running out. Fullscreen keeps hard edges — there is nothing
+   to blend into there. */
+.dungeon-feathered {
+  -webkit-mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    #000 62%,
+    rgba(0, 0, 0, 0.85) 82%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    #000 62%,
+    rgba(0, 0, 0, 0.85) 82%,
+    transparent 100%
+  );
+}
+
+/* --- Fog of war (spec 023) ------------------------------------------------
+   Two fields drifting in different directions, so they never line up into a
+   cycle you can see. The transform moves an already-rendered noise layer;
+   animating the filter itself would re-render the turbulence every frame. */
+
+@keyframes dungeon-fog-drift-a {
+  from {
+    transform: translate3d(-6%, 0, 0);
+  }
+  to {
+    transform: translate3d(6%, -3%, 0);
+  }
+}
+
+@keyframes dungeon-fog-drift-b {
+  from {
+    transform: translate3d(5%, 2%, 0);
+  }
+  to {
+    transform: translate3d(-5%, -2%, 0);
+  }
+}
+
+.dungeon-fog {
+  /* Unlocking a zone clears its fog rather than popping it. */
+  animation: dungeon-fog-clear 1.2s ease-out;
+}
+
+@keyframes dungeon-fog-clear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.dungeon-fog-a {
+  animation: dungeon-fog-drift-a 47s ease-in-out infinite alternate;
+}
+
+.dungeon-fog-b {
+  animation: dungeon-fog-drift-b 61s ease-in-out infinite alternate;
+}
+
+/* --- Dust (spec 023) ------------------------------------------------------ */
+
+@keyframes dungeon-mote {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  20%,
+  70% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-70px);
+  }
+}
+
+.dungeon-mote {
+  animation: dungeon-mote 14s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dungeon-fog,
+  .dungeon-fog-a,
+  .dungeon-fog-b,
+  .dungeon-mote {
+    animation: none;
   }
 }
