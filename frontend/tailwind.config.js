@@ -12,6 +12,13 @@ export default {
         muted: "rgb(var(--color-muted) / <alpha-value>)",
         torch: "rgb(var(--color-torch) / <alpha-value>)",
         stone: "rgb(var(--color-stone) / <alpha-value>)",
+        rarity: {
+          common: "rgb(var(--color-rarity-common) / <alpha-value>)",
+          uncommon: "rgb(var(--color-rarity-uncommon) / <alpha-value>)",
+          rare: "rgb(var(--color-rarity-rare) / <alpha-value>)",
+          legendary: "rgb(var(--color-rarity-legendary) / <alpha-value>)",
+          mythic: "rgb(var(--color-rarity-mythic) / <alpha-value>)",
+        },
       },
     },
   },

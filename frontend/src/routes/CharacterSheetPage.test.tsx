@@ -35,6 +35,8 @@ const OWN_SHEET = {
   character_class: null,
   class_unlocked: true,
   class_unlock_level: 5,
+  suggested_class: null,
+  suggested_class_line: null,
 };
 
 const LOCKED_SHEET = {
@@ -53,7 +55,7 @@ const PUBLIC_SHEET = {
   skills: [
     { skill_id: "s1", name: "Injection Artistry", kind: "useful", level: 2, discovered: true },
   ],
-  character_class: { id: "cl1", name: "Rogue", description: null },
+  character_class: { id: "cl1", name: "Rogue", description: null, rarity: "common" },
 };
 
 describe("CharacterSheetPage", () => {
@@ -101,7 +103,15 @@ describe("CharacterSheetPage", () => {
       if (path.endsWith("/character/class") && init?.method === "PUT") {
         return {
           status: 200,
-          body: { ...OWN_SHEET, character_class: { id: "cl1", name: "Rogue", description: null } },
+          body: {
+            ...OWN_SHEET,
+            character_class: {
+              id: "cl1",
+              name: "Rogue",
+              description: null,
+              rarity: "common",
+            },
+          },
         };
       }
       if (path.endsWith("/character/me")) return { status: 200, body: OWN_SHEET };
@@ -161,5 +171,67 @@ describe("CharacterSheetPage", () => {
     expect(screen.getByText(/Level 2 Rogue adventurer/)).toBeInTheDocument();
     expect(screen.queryByText(/rank #/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Class")).not.toBeInTheDocument();
+  });
+});
+
+
+describe("class rarity and the System AI nudge (spec 024)", () => {
+  function render(overrides: Record<string, unknown>, roster: unknown[] = []) {
+    stubFetch((path) => {
+      if (path.endsWith("/auth/me")) return { status: 200, body: me() };
+      if (path.endsWith("/character/me"))
+        return { status: 200, body: { ...OWN_SHEET, ...overrides } };
+      if (path.endsWith("/character/classes")) return { status: 200, body: roster };
+      return { status: 200, body: {} };
+    });
+    renderApp(<CharacterSheetPage />, { route: "/character" });
+  }
+
+  it("names the rarity as text, not only as colour", async () => {
+    render({
+      character_class: {
+        id: "cl9",
+        name: "Cryptomancer",
+        description: null,
+        rarity: "mythic",
+      },
+    });
+
+    // Colour is never the only signal: this has to survive greyscale and reach
+    // a screen reader.
+    expect(await screen.findByText("mythic")).toBeInTheDocument();
+  });
+
+  it("shows the System AI's nudge when there is one", async () => {
+    render({
+      suggested_class: { id: "cl2", name: "Analyst", description: null, rarity: "common" },
+      suggested_class_line:
+        "You keep hammering Log Divination problems. The Analyst build fits the pattern — take it or don't.",
+    });
+
+    expect(await screen.findByText(/the Analyst build fits/i)).toBeInTheDocument();
+  });
+
+  it("says nothing when there is no suggestion", async () => {
+    render({});
+
+    expect(await screen.findByRole("combobox", { name: "Class" })).toBeInTheDocument();
+    expect(screen.queryByText(/fits the pattern/i)).not.toBeInTheDocument();
+  });
+
+  it("offers only the classes the server sent", async () => {
+    render({}, [
+      { id: "cl1", name: "Rogue", description: null, rarity: "common" },
+      { id: "cl2", name: "Packet Sage", description: null, rarity: "uncommon" },
+    ]);
+
+    // Locked classes never reach the client at all — the roster is a mystery,
+    // so there is nothing here to reveal one exists.
+    const picker = await screen.findByRole("combobox", { name: "Class" });
+    expect([...picker.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+      "Classless",
+      "Rogue",
+      "Packet Sage",
+    ]);
   });
 });

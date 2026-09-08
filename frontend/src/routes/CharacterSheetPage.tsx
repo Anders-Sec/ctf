@@ -15,6 +15,7 @@ import {
 import { useSession } from "../auth/session";
 import Avatar from "../components/Avatar";
 import ErrorMessage from "../components/ErrorMessage";
+import RarityBadge from "../components/RarityBadge";
 import Spinner from "../components/Spinner";
 
 /**
@@ -100,7 +101,12 @@ function ClassSection({ sheet }: { sheet: CharacterSheet }) {
   return (
     <section className="mt-6 rounded border border-stone bg-white/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Class</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Class</h2>
+          {sheet.character_class && (
+            <RarityBadge rarity={sheet.character_class.rarity} />
+          )}
+        </div>
         {sheet.class_unlocked ? (
           <label className="flex items-center gap-2 text-sm">
             <span className="text-muted">Your calling</span>
@@ -112,6 +118,8 @@ function ClassSection({ sheet }: { sheet: CharacterSheet }) {
               className="rounded border border-stone px-2 py-1 text-sm"
             >
               <option value="">Classless</option>
+              {/* Unlocked classes only — the server never sends the rest, so
+                  the roster stays a mystery until a class is earned. */}
               {(roster.data ?? []).map((klass) => (
                 <option key={klass.id} value={klass.id}>
                   {klass.name}
@@ -125,6 +133,15 @@ function ClassSection({ sheet }: { sheet: CharacterSheet }) {
           </span>
         )}
       </div>
+
+      {/* The System AI (spec 013) commenting on what it has watched the player
+          do. Server-side template, not a model call — it is the System AI's
+          voice, not its reasoning. */}
+      {sheet.suggested_class_line && (
+        <p className="mt-3 border-l-2 border-torch/50 pl-3 text-sm italic text-muted">
+          {sheet.suggested_class_line}
+        </p>
+      )}
 
       <ErrorMessage error={choose.error} />
     </section>

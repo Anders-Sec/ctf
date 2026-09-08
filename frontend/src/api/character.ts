@@ -17,10 +17,14 @@ export interface SkillRow {
   discovered: boolean;
 }
 
+/** Colour only — never a gate and never a score (spec 024). */
+export type Rarity = "common" | "uncommon" | "rare" | "legendary" | "mythic";
+
 export interface ClassInfo {
   id: string;
   name: string;
   description: string | null;
+  rarity: Rarity;
 }
 
 export interface CharacterSheet {
@@ -36,6 +40,10 @@ export interface CharacterSheet {
   skills: SkillRow[];
   character_class: ClassInfo | null;
   class_unlocked: boolean;
+  /** The System AI's read on which class fits. Never a locked one. */
+  suggested_class: ClassInfo | null;
+  /** The nudge, already written in the System AI's voice (specs 013, 016). */
+  suggested_class_line: string | null;
   class_unlock_level: number;
 }
 

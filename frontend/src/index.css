@@ -13,6 +13,14 @@
   --color-muted: 110 104 96;
   --color-torch: 194 106 42;
   --color-stone: 214 208 197;
+
+  /* Class rarity (spec 024). Colour is never the only signal — the rarity name
+     is always present as text, so this survives greyscale and a screen reader. */
+  --color-rarity-common: 110 104 96;
+  --color-rarity-uncommon: 61 133 74;
+  --color-rarity-rare: 47 106 176;
+  --color-rarity-legendary: 194 106 42;
+  --color-rarity-mythic: 133 66 176;
 }
 
 body {
