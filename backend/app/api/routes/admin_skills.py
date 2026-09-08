@@ -100,9 +100,7 @@ async def delete_skill(
 
 
 @router.get("/categories")
-async def list_categories_with_skill(
-    db: DbSession, current: Staff
-) -> list[AdminCategoryResponse]:
+async def list_categories_with_skill(db: DbSession, current: Staff) -> list[AdminCategoryResponse]:
     """Every category with its current skill mapping — the admin page's list."""
     categories = (
         (await db.execute(select(Category).order_by(Category.display_order, Category.name)))

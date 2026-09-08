@@ -63,9 +63,7 @@ class TestSkillCrud:
     ) -> None:
         await as_role(db_session, client, sign_in, UserRole.PLAYER)
 
-        assert (
-            await client.post("/api/admin/skills", json={"name": "Hacking"})
-        ).status_code == 403
+        assert (await client.post("/api/admin/skills", json={"name": "Hacking"})).status_code == 403
 
     async def test_an_organizer_reads_but_cannot_write(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -73,9 +71,7 @@ class TestSkillCrud:
         await as_role(db_session, client, sign_in, UserRole.ORGANIZER)
 
         assert (await client.get("/api/admin/skills")).status_code == 200
-        assert (
-            await client.post("/api/admin/skills", json={"name": "Hacking"})
-        ).status_code == 403
+        assert (await client.post("/api/admin/skills", json={"name": "Hacking"})).status_code == 403
 
 
 class TestCategoryMapping:
@@ -105,9 +101,7 @@ class TestCategoryMapping:
         skill_id = (await client.post("/api/admin/skills", json={"name": "Hacking"})).json()["id"]
 
         for cat in (ai, red):
-            await client.patch(
-                f"/api/admin/categories/{cat.id}/skill", json={"skill_id": skill_id}
-            )
+            await client.patch(f"/api/admin/categories/{cat.id}/skill", json={"skill_id": skill_id})
 
         rows = (await client.get("/api/admin/categories")).json()
         mapped = {r["name"]: r["skill_id"] for r in rows}

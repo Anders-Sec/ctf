@@ -47,9 +47,7 @@ async def build_sheet(db: AsyncSession, user: User) -> Sheet:
 
     by_skill = await scoring.skill_xp_for_user(db, user.id)
     skills = (
-        (await db.execute(select(Skill).order_by(Skill.display_order, Skill.name)))
-        .scalars()
-        .all()
+        (await db.execute(select(Skill).order_by(Skill.display_order, Skill.name))).scalars().all()
     )
 
     slices: list[SkillSlice] = []

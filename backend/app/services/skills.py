@@ -19,9 +19,7 @@ from app.models.skill import Skill
 
 async def list_skills(db: AsyncSession) -> list[Skill]:
     return list(
-        (await db.execute(select(Skill).order_by(Skill.display_order, Skill.name)))
-        .scalars()
-        .all()
+        (await db.execute(select(Skill).order_by(Skill.display_order, Skill.name))).scalars().all()
     )
 
 
