@@ -196,3 +196,160 @@ def _layout(categories: list[Category], edges: list[Edge]) -> dict[UUID, tuple[i
             )
         row += (len(members) - 1) // MAX_ZONES_PER_ROW + 1
     return positions
+
+
+@dataclass(frozen=True)
+class GateView:
+    """One gate on a zone, as an admin edits it (spec 022)."""
+
+    id: UUID
+    requirement_type: str
+    description: str
+    required_category_id: UUID | None
+    required_category_name: str | None
+    required_skill_id: UUID | None
+    required_skill_name: str | None
+    threshold: int | None
+    #: A percentage gate on a zone with nothing published can never be met. Legal
+    #: while that zone is still being filled, so it warns rather than refuses.
+    source_has_no_challenges: bool
+
+
+@dataclass(frozen=True)
+class GraphZone:
+    id: UUID
+    name: str
+    slug: str
+    #: Reachable by play from a zone that is open at the start. False is legal
+    #: mid-edit but is nearly always a mistake, so the editor flags it.
+    reachable: bool
+    published_challenges: int
+    gates: list[GateView]
+
+
+async def admin_graph(db: AsyncSession) -> list[GraphZone]:
+    """The progression graph with every gate resolved to names (spec 022).
+
+    One call rather than one per zone: the editor needs the whole graph anyway to
+    tell reachable zones from stranded ones.
+    """
+    categories = list(
+        (await db.execute(select(Category).order_by(Category.display_order))).scalars().all()
+    )
+    requirements = list(
+        (
+            await db.execute(
+                select(UnlockRequirement).where(UnlockRequirement.category_id.is_not(None))
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    names = {c.id: c.name for c in categories}
+    skill_names = await _skill_names(db, requirements)
+    challenge_titles = await _challenge_titles(db, requirements)
+    counts = await _published_counts(db)
+
+    gated: dict[UUID, list[UnlockRequirement]] = {}
+    for req in requirements:
+        gated.setdefault(req.category_id, []).append(req)
+
+    reachable = _reachable(categories, requirements)
+
+    zones: list[GraphZone] = []
+    for category in categories:
+        gates = [
+            GateView(
+                id=req.id,
+                requirement_type=req.requirement_type.value,
+                description=unlocks.describe_gate(
+                    req,
+                    challenge_title=challenge_titles.get(req.required_challenge_id),
+                    skill_name=skill_names.get(req.required_skill_id),
+                    category_name=names.get(req.required_category_id),
+                ),
+                required_category_id=req.required_category_id,
+                required_category_name=names.get(req.required_category_id),
+                required_skill_id=req.required_skill_id,
+                required_skill_name=skill_names.get(req.required_skill_id),
+                threshold=req.threshold,
+                source_has_no_challenges=(
+                    req.required_category_id is not None
+                    and counts.get(req.required_category_id, 0) == 0
+                ),
+            )
+            for req in gated.get(category.id, [])
+        ]
+        zones.append(
+            GraphZone(
+                id=category.id,
+                name=category.name,
+                slug=category.slug,
+                reachable=category.id in reachable,
+                published_challenges=counts.get(category.id, 0),
+                gates=sorted(gates, key=lambda g: g.description),
+            )
+        )
+    return zones
+
+
+def _reachable(categories: list[Category], requirements: list[UnlockRequirement]) -> set[UUID]:
+    """Zones a player can actually get to.
+
+    A zone with no *zone* gate opens from the start — an XP or level gate holds
+    it shut for a while but needs no corridor, so it is still reachable. From
+    those roots, follow the corridors forward.
+    """
+    forward: dict[UUID, list[UUID]] = {}
+    has_source_gate: set[UUID] = set()
+    for req in requirements:
+        if req.required_category_id is None:
+            continue
+        has_source_gate.add(req.category_id)
+        forward.setdefault(req.required_category_id, []).append(req.category_id)
+
+    stack = [c.id for c in categories if c.id not in has_source_gate]
+    seen: set[UUID] = set()
+    while stack:
+        node = stack.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        stack.extend(forward.get(node, []))
+    return seen
+
+
+async def _published_counts(db: AsyncSession) -> dict[UUID, int]:
+    from sqlalchemy import func
+
+    from app.models.challenge import Challenge, ChallengeState
+
+    rows = await db.execute(
+        select(Challenge.category_id, func.count(Challenge.id))
+        .where(Challenge.state == ChallengeState.PUBLISHED)
+        .group_by(Challenge.category_id)
+    )
+    return {category_id: count for category_id, count in rows}
+
+
+async def _skill_names(db: AsyncSession, requirements: list[UnlockRequirement]) -> dict[UUID, str]:
+    from app.models.skill import Skill
+
+    ids = {r.required_skill_id for r in requirements if r.required_skill_id}
+    if not ids:
+        return {}
+    rows = await db.execute(select(Skill.id, Skill.name).where(Skill.id.in_(ids)))
+    return dict(rows.all())
+
+
+async def _challenge_titles(
+    db: AsyncSession, requirements: list[UnlockRequirement]
+) -> dict[UUID, str]:
+    from app.models.challenge import Challenge
+
+    ids = {r.required_challenge_id for r in requirements if r.required_challenge_id}
+    if not ids:
+        return {}
+    rows = await db.execute(select(Challenge.id, Challenge.title).where(Challenge.id.in_(ids)))
+    return dict(rows.all())

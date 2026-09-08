@@ -48,3 +48,32 @@ class SetMapPositionRequest(BaseModel):
 class MapPositionResponse(BaseModel):
     x: int | None
     y: int | None
+
+
+class GateResponse(BaseModel):
+    """One gate on a zone, as an admin edits it (spec 022)."""
+
+    id: UUID
+    requirement_type: str
+    description: str
+    required_category_id: UUID | None
+    required_category_name: str | None
+    required_skill_id: UUID | None
+    required_skill_name: str | None
+    threshold: int | None
+    #: Advisory: a percentage gate on an empty zone can never be met.
+    source_has_no_challenges: bool
+
+
+class GraphZoneResponse(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    #: False means no path from a zone that is open at the start.
+    reachable: bool
+    published_challenges: int
+    gates: list[GateResponse]
+
+
+class MapGraphResponse(BaseModel):
+    zones: list[GraphZoneResponse]

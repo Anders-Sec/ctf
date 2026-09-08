@@ -6,13 +6,16 @@ from uuid import UUID
 from fastapi import APIRouter, Request
 from sqlalchemy import update
 
-from app.api.deps import Admin, DbSession, Player
+from app.api.deps import Admin, DbSession, Player, Staff
 from app.errors import NotFoundError
 from app.models.challenge import Category
 from app.schemas.auth import MessageResponse
 from app.schemas.challenges import UnlockRequirementResponse
 from app.schemas.dungeon import (
     EdgeResponse,
+    GateResponse,
+    GraphZoneResponse,
+    MapGraphResponse,
     MapPositionResponse,
     MapResponse,
     SetMapPositionRequest,
@@ -64,6 +67,29 @@ async def get_map(db: DbSession, current: Player) -> MapResponse:
         edges=[
             EdgeResponse(from_zone_id=e.from_zone_id, to_zone_id=e.to_zone_id) for e in board.edges
         ],
+    )
+
+
+@router.get("/admin/map/graph")
+async def get_map_graph(db: DbSession, current: Staff) -> MapGraphResponse:
+    """The whole progression graph, gates resolved to names (spec 022).
+
+    One call rather than one per zone — the editor needs every zone anyway to
+    tell the reachable ones from the stranded ones.
+    """
+    zones = await dungeon_service.admin_graph(db)
+    return MapGraphResponse(
+        zones=[
+            GraphZoneResponse(
+                id=zone.id,
+                name=zone.name,
+                slug=zone.slug,
+                reachable=zone.reachable,
+                published_challenges=zone.published_challenges,
+                gates=[GateResponse(**vars(gate)) for gate in zone.gates],
+            )
+            for zone in zones
+        ]
     )
 
 

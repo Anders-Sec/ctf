@@ -4,7 +4,12 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.challenge import ChallengeState, RequirementType, ScoringMode
+from app.models.challenge import (
+    ChallengeState,
+    RequirementType,
+    ScoringMode,
+    UnlockRequirement,
+)
 from app.models.user import UserRole, UserStatus
 from app.services import unlocks as unlock_service
 from tests.factories import make_category, make_challenge, make_user, record_solve
@@ -337,3 +342,180 @@ class TestSeededGraph:
         assert by_name["Red teaming"]["unlock_requirements"][0]["description"] == "Reach level 5"
         for name in ("Mobile Security", "Reverse Engineering", "Malware Analysis"):
             assert by_name[name]["unlock_requirements"][0]["description"] == "Reach level 8"
+
+
+class TestCycleDetection:
+    """A loop of zone gates has no symptom: every zone in it stays sealed
+    forever, and nobody notices until a player asks why a wing never opened
+    (spec 022)."""
+
+    async def test_a_zone_cannot_be_gated_on_itself(self, db_session: AsyncSession) -> None:
+        wing = await make_category(db_session, name="Ouroboros")
+
+        with pytest.raises(unlock_service.InvalidRequirement) as caught:
+            await gate_zone(
+                db_session,
+                wing,
+                requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+                required_category_id=wing.id,
+                threshold=50,
+            )
+
+        assert caught.value.code == "requirement_cycle"
+
+    async def test_a_two_zone_loop_is_refused_and_names_itself(
+        self, db_session: AsyncSession
+    ) -> None:
+        first = await make_category(db_session, name="Alpha Wing")
+        second = await make_category(db_session, name="Beta Wing")
+        await gate_zone(
+            db_session,
+            second,
+            requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+            required_category_id=first.id,
+            threshold=100,
+        )
+
+        with pytest.raises(unlock_service.InvalidRequirement) as caught:
+            await gate_zone(
+                db_session,
+                first,
+                requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+                required_category_id=second.id,
+                threshold=100,
+            )
+
+        # Naming the loop is the point — "invalid" alone leaves an admin hunting.
+        assert "Alpha Wing" in str(caught.value)
+        assert "Beta Wing" in str(caught.value)
+
+    async def test_a_longer_loop_is_refused(self, db_session: AsyncSession) -> None:
+        one = await make_category(db_session, name="Loop One")
+        two = await make_category(db_session, name="Loop Two")
+        three = await make_category(db_session, name="Loop Three")
+        for target, source in ((two, one), (three, two)):
+            await gate_zone(
+                db_session,
+                target,
+                requirement_type=RequirementType.SOLVES_IN_CATEGORY,
+                required_category_id=source.id,
+                threshold=1,
+            )
+
+        with pytest.raises(unlock_service.InvalidRequirement):
+            await gate_zone(
+                db_session,
+                one,
+                requirement_type=RequirementType.SOLVES_IN_CATEGORY,
+                required_category_id=three.id,
+                threshold=1,
+            )
+
+    async def test_a_diamond_is_not_a_cycle(self, db_session: AsyncSession) -> None:
+        """Two paths to the same zone is a normal shape, not a loop."""
+        top = await make_category(db_session, name="Diamond Top")
+        left = await make_category(db_session, name="Diamond Left")
+        right = await make_category(db_session, name="Diamond Right")
+        bottom = await make_category(db_session, name="Diamond Bottom")
+
+        for target, source in ((left, top), (right, top), (bottom, left)):
+            await gate_zone(
+                db_session,
+                target,
+                requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+                required_category_id=source.id,
+                threshold=100,
+            )
+
+        requirement = await gate_zone(
+            db_session,
+            bottom,
+            requirement_type=RequirementType.SOLVES_IN_CATEGORY,
+            required_category_id=right.id,
+            threshold=1,
+        )
+        assert requirement.id is not None
+
+
+class TestAdminGraph:
+    async def test_it_resolves_gates_to_names_and_flags_stranded_zones(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        source = await make_category(db_session, name="Graph Source")
+        await make_challenge(db_session, category=source, title="Graph One")
+        gated = await make_category(db_session, name="Graph Gated")
+        await gate_zone(
+            db_session,
+            gated,
+            requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+            required_category_id=source.id,
+            threshold=50,
+        )
+
+        response = await client.get("/api/admin/map/graph")
+        assert response.status_code == 200
+        zones = {z["name"]: z for z in response.json()["zones"]}
+
+        assert zones["Graph Gated"]["gates"][0]["description"] == "Clear 50% of Graph Source"
+        assert zones["Graph Gated"]["gates"][0]["required_category_name"] == "Graph Source"
+        assert zones["Graph Gated"]["reachable"] is True
+        assert zones["Graph Source"]["published_challenges"] == 1
+
+    async def test_it_warns_when_a_gate_points_at_an_empty_zone(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """The bug that sealed the whole dungeon in 019 — 100% of a zone with
+        nothing in it is never reached. A warning, not a refusal: the zone may
+        still be being filled."""
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        empty = await make_category(db_session, name="Warn Empty")
+        gated = await make_category(db_session, name="Warn Gated")
+        await gate_zone(
+            db_session,
+            gated,
+            requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+            required_category_id=empty.id,
+            threshold=100,
+        )
+
+        response = await client.get("/api/admin/map/graph")
+        zones = {z["name"]: z for z in response.json()["zones"]}
+
+        assert zones["Warn Gated"]["gates"][0]["source_has_no_challenges"] is True
+
+    async def test_players_may_not_read_the_graph(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+
+        response = await client.get("/api/admin/map/graph")
+
+        assert response.status_code == 403
+
+    async def test_a_zone_inside_a_pre_existing_loop_is_unreachable(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Cycle detection means the editor can no longer *create* a loop, so
+        this can only come from data written before that check existed. The
+        flag stays as the safety net that surfaces it."""
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        first = await make_category(db_session, name="Legacy One")
+        second = await make_category(db_session, name="Legacy Two")
+        # Straight to the table: add_requirement would refuse the second edge.
+        for target, req_source in ((second, first), (first, second)):
+            db_session.add(
+                UnlockRequirement(
+                    category_id=target.id,
+                    requirement_type=RequirementType.PERCENT_IN_CATEGORY,
+                    required_category_id=req_source.id,
+                    threshold=100,
+                )
+            )
+        await db_session.flush()
+
+        response = await client.get("/api/admin/map/graph")
+        zones = {z["name"]: z for z in response.json()["zones"]}
+
+        assert zones["Legacy One"]["reachable"] is False
+        assert zones["Legacy Two"]["reachable"] is False
