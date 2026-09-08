@@ -91,6 +91,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    #: The player's chosen archetype (spec 016). SET NULL so deleting a class
+    #: returns its players to Classless rather than cascading into user rows.
+    character_class_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("character_class.id", ondelete="SET NULL"), nullable=True
+    )
+
     memberships: Mapped[list["TeamMembership"]] = relationship(
         back_populates="user",
         foreign_keys="TeamMembership.user_id",

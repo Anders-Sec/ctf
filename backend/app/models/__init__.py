@@ -23,6 +23,7 @@ from app.models.challenge import (
     RequirementType,
     ScoringMode,
 )
+from app.models.character_class import CharacterClass
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.guardrail import (
     AssistantFinding,
@@ -58,6 +59,7 @@ __all__ = [
     "AuthSession",
     "Base",
     "Category",
+    "CharacterClass",
     "ChallengeInstance",
     "ContainerTemplate",
     "ChallengeReport",

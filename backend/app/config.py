@@ -231,6 +231,10 @@ class Settings(BaseSettings):
     #: The level curve base: level L is reached at cumulative XP base*L*(L-1).
     xp_level_base: int = 100
 
+    # --- Classes (spec 016) --------------------------------------------------
+    #: The overall level a player must reach before they may choose a class.
+    class_unlock_level: int = 3
+
     @property
     def instances_configured(self) -> bool:
         return bool(self.instances_enabled and self.kube_namespace)
