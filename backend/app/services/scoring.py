@@ -174,3 +174,18 @@ def level_for_xp(xp: int, base: int | None = None) -> int:
     while level > 1 and xp_for_level(level, base) > xp:
         level -= 1
     return level
+
+
+def level_progress(xp: int, base: int | None = None) -> tuple[int, int, int]:
+    """``(level, xp_into_level, xp_to_next)`` for a total of ``xp``.
+
+    ``xp_into_level`` is how far past the current level's threshold the player is;
+    ``xp_to_next`` is what remains to reach the next level. A negative total (only
+    reachable through an admin adjustment) reports level 1 with no progress.
+    """
+    base = base if base is not None else get_settings().xp_level_base
+    level = level_for_xp(xp, base)
+    floor = xp_for_level(level, base)
+    ceil = xp_for_level(level + 1, base)
+    into = max(0, xp - floor)
+    return level, into, max(0, ceil - floor - into)
