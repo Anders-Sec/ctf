@@ -221,6 +221,53 @@ into the floor
 
 ---
 
+## GROUND OVERLAYS (optional)
+
+Scatter art laid over the base plate to break up its tiling (spec 023). Each is
+placed **once** at large scale, so any number of them helps and none are
+required — the map is correct with zero of these files present.
+
+Save to `frontend/public/map/overlays/<filename>`. Transparent, like the tiles:
+paste the **MASTER PROMPT** above, then the block below.
+
+### Rubble drift → `rubble.png`
+```
+a wide, irregular scatter of broken stone, fallen masonry and gravel drifting
+across bare cavern floor, thickest at the centre and thinning to nothing at the
+edges, with no structure, no walls and no room shape of any kind
+```
+
+### Cracks → `cracks.png`
+```
+a branching network of deep cracks and fissures splitting bare bedrock, spreading
+outward and fading to nothing at the edges, with no structure, no walls and no
+room shape of any kind
+```
+
+### Scorch → `scorch.png`
+```
+a sprawling burn mark of blackened stone, soot and ash across bare cavern floor,
+darkest at the centre and fading to nothing at the edges, with no structure, no
+walls and no room shape of any kind
+```
+
+### Standing water → `water.png`
+```
+a shallow irregular pool of still dark water with faint teal reflections, seeping
+across bare cavern floor and thinning to nothing at the edges, with no structure,
+no walls and no room shape of any kind
+```
+
+For these four, append to the master prompt:
+
+```
+This is a ground detail overlay, not a location. It must have no enclosing
+outline, no walls, no doorways and no defined room shape — only the material
+itself, fading to fully transparent at every edge.
+```
+
+---
+
 ## CORRECTIVE PHRASES
 
 Append to the master prompt when a result drifts.
