@@ -41,7 +41,14 @@ def upgrade() -> None:
         sa.UniqueConstraint("name"),
     )
     op.add_column("category", sa.Column("skill_id", sa.UUID(), nullable=True))
-    op.create_foreign_key("fk_category_skill", "category", "skill", ["skill_id"], ["id"], ondelete="SET NULL")
+    op.create_foreign_key(
+        "fk_category_skill",
+        "category",
+        "skill",
+        ["skill_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
     op.add_column(
         "solve", sa.Column("xp_awarded", sa.Integer(), server_default="0", nullable=False)
     )
