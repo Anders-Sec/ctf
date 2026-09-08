@@ -30,21 +30,27 @@ complete set.
 
 ## Asset contract
 
+See **`art.md`** at the repo root for the style guide, master prompt and all 22
+subject inserts — that is the copy-paste source for generating these.
+
 **Per-zone tile** — one per zone, 22 in all:
 
 - `frontend/public/map/zones/<category-slug>.webp`
-- **512×512**, transparent background, the chamber roughly centred with ~40px of
-  breathing room so neighbouring tiles never clip
-- Top-down, as if lit from above
-- A matching `<slug>-locked.webp` is **not** needed — locked zones are the same
-  art, desaturated and dimmed by the SVG layer, which is what keeps "greyed out
-  but readable" honest
+- **1024×1024** square (what ChatGPT emits; downscaled at build if wanted)
+- **Not transparent — faded to pure black at the edges.** ChatGPT will not give
+  reliable transparency, and fighting for it is wasted effort: a heavy vignette
+  into black composites seamlessly onto the dark base plate, needs no
+  post-processing, and matches the reference, which vignettes anyway. Tiles are
+  drawn with `mix-blend-mode: screen` so black reads as empty.
+- No separate locked variant — a locked zone is the same art, desaturated and
+  dimmed by the SVG layer, which is what keeps "greyed out but readable" honest.
 
-**Base plate** — `frontend/public/map/base.webp`, 2048×1536, the void, floor
-texture and grid the tiles sit on.
+**Base plate** — `frontend/public/map/base.webp`, **1536×1024** landscape: the
+void, floor texture and grid the tiles sit on.
 
-**Naming is the contract**: the slug is what wires a tile to a zone, so a tile
-lands automatically the moment it exists.
+**Naming is the contract**: the slug wires a tile to its zone, so a tile lands
+automatically the moment the file exists. A typo means the zone silently keeps
+its fallback, which is the failure mode worth knowing about.
 
 ## The style prompt
 

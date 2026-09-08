@@ -52,10 +52,8 @@ Verified: all 21 real categories appear exactly once, every zone is reachable fr
 Intro, and there are no cycles. The graph is three tiers deep — Intro, then the
 six it opens plus the three level-gated wings, then everything those open.
 
-**One thing to confirm:** you said Intro gates "the first 7", but listed six
-(Networking, GRC, Hacker Game Show, CTI, Incident Response, AI/LLM Security).
-Built as six, with Intro itself as the seventh area. Say if a seventh belongs in
-that first wave.
+Intro gates **six** — Networking, GRC, Hacker Game Show, CTI, Incident Response,
+AI/LLM Security — with Intro itself as the seventh area. *(Confirmed.)*
 
 ## Two new gate types
 
@@ -73,25 +71,20 @@ player **can see**, so unreleased content does not make a gate unreachable.
 should say what it means — and if the XP curve is ever retuned, a level gate
 follows it while a hard-coded XP number silently drifts.
 
-## The re-locking hazard, and sticky unlocks
+## Percentages and the re-lock question
 
-A percentage gate has a trap a count does not. A player clears 6 of 11 in a zone
-(54%) and opens the next one. An admin then adds 3 challenges. The player is now
-on 6/14 — 43% — and **the zone they earned slams shut**.
+A percentage gate can regress where a count cannot: clear 6 of 11 in a zone (54%)
+and open the next one, then have three challenges added, and 6/14 is 43% — the
+zone shuts again.
 
-That is unacceptable mid-event, and adding challenges mid-event is normal.
+**Not defended against, by decision.** Challenges are not added mid-event, and a
+challenge that has to come out is *hidden* rather than deleted — which drops it
+out of the denominator cleanly and can only ever help. Sticky unlock state would
+be a table and a rule earning their keep against a situation that does not arise.
 
-So **zone unlocks are sticky**: the first time a player satisfies a zone's
-requirements, that is recorded, and the zone stays open forever after. Evaluation
-becomes *"the live condition is met **or** it was met before"*.
+Worth knowing rather than solved: if content ever does land mid-event, a zone can
+re-lock, and the fix at that point is to hide rather than remove.
 
-- New table **`zone_unlock`** — `user_id`, `category_id`, `unlocked_at`, unique
-  per pair.
-- Written whenever a zone evaluates as unlocked and no row exists yet.
-- Applies to zone gates only. Individual challenge prerequisites are unaffected —
-  those are `challenge_solved`, which can never regress.
-
-This also makes the map honest: a zone that has ever opened is drawn as open.
 
 ---
 
@@ -114,8 +107,8 @@ This also makes the map honest: a zone that has ever opened is drawn as open.
 - The graph seeds exactly as documented, and every zone is reachable from Intro.
 - A percentage gate opens at the threshold and is measured against visible
   challenges only.
-- **The re-lock test:** a player who has opened a zone keeps it open after new
-  challenges are added to the zone that gated it.
+- A hidden challenge leaves the percentage denominator, so hiding one can only
+  move a player closer to the threshold, never further away.
 - A `player_level` gate opens at the level, and follows the XP curve rather than a
   frozen XP number.
 - The map returns zones, not challenges, and the leak rules from 017 still hold:
@@ -124,8 +117,8 @@ This also makes the map honest: a zone that has ever opened is drawn as open.
 
 ## Commit plan
 
-1. Schema: `zone_unlock`, the two new requirement types, the Intro category.
-2. The evaluator: percentage and level gates, plus sticky unlock recording.
+1. Schema: the two new requirement types, and the Intro category.
+2. The evaluator: percentage and level gates.
 3. Seed the progression graph.
 4. `GET /api/map` returns zones with edges; zone drill-down endpoint.
 5. Frontend: the zone map and the challenge panel.
