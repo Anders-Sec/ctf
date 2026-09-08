@@ -1,6 +1,13 @@
 import { api } from "./client";
 
-export type Difficulty = "easy" | "medium" | "hard" | "insane";
+/** The six-tier ladder (spec 018). Difficulty derives a challenge's XP. */
+export type Difficulty =
+  | "very_easy"
+  | "easy"
+  | "medium"
+  | "hard"
+  | "very_hard"
+  | "nearly_impossible";
 export type ChallengeState = "draft" | "hidden" | "locked" | "published";
 export type MatchType =
   "exact" | "case_insensitive" | "regex" | "numeric" | "set" | "any_of";

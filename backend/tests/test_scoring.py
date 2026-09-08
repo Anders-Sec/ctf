@@ -195,3 +195,36 @@ class TestPlayerTotal:
         await db_session.flush()
 
         assert await user_score(db_session, player.id) == 250
+
+
+class TestLevelCap:
+    def test_the_player_level_stops_at_the_cap(self) -> None:
+        """Level 20 is the D&D ceiling and, on the planned economy, ~90% of all
+        content. XP past it still counts for rank — the level just stops."""
+        from app.services.scoring import level_for_xp, level_progress
+
+        assert level_for_xp(38_000) == 20
+        assert level_for_xp(42_000) == 20
+        assert level_for_xp(500_000) == 20
+
+        level, into, to_next = level_progress(42_000)
+        assert level == 20
+        assert (into, to_next) == (0, 0)
+
+    def test_difficulty_derives_the_ceiling_and_floor(self) -> None:
+        from app.models.challenge import (
+            Difficulty,
+            ScoringMode,
+            default_scoring_for,
+            minimum_points_for,
+            points_for,
+        )
+
+        assert points_for(Difficulty.VERY_EASY, 10) == 50
+        assert points_for(Difficulty.HARD, 10) == 200
+        assert points_for(Difficulty.NEARLY_IMPOSSIBLE, 10) == 500
+        assert minimum_points_for(Difficulty.VERY_HARD, 10) == 100
+
+        assert default_scoring_for(Difficulty.MEDIUM) == ScoringMode.STATIC
+        assert default_scoring_for(Difficulty.VERY_HARD) == ScoringMode.DYNAMIC
+        assert default_scoring_for(Difficulty.NEARLY_IMPOSSIBLE) == ScoringMode.DYNAMIC

@@ -14,10 +14,51 @@ from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class Difficulty(enum.StrEnum):
+    """The six-tier ladder (spec 018).
+
+    Difficulty *derives* a challenge's XP rather than merely hinting at it, so the
+    economy is knowable before the event runs: roughly 2,000 XP per category and
+    42,000 across the board. See :data:`DIFFICULTY_MODIFIER`.
+    """
+
+    VERY_EASY = "very_easy"
     EASY = "easy"
     MEDIUM = "medium"
     HARD = "hard"
-    INSANE = "insane"
+    VERY_HARD = "very_hard"
+    NEARLY_IMPOSSIBLE = "nearly_impossible"
+
+
+#: Multiplied by ``XP_BASE`` to give a challenge's XP ceiling.
+DIFFICULTY_MODIFIER: dict[Difficulty, int] = {
+    Difficulty.VERY_EASY: 5,
+    Difficulty.EASY: 10,
+    Difficulty.MEDIUM: 15,
+    Difficulty.HARD: 20,
+    Difficulty.VERY_HARD: 25,
+    Difficulty.NEARLY_IMPOSSIBLE: 50,
+}
+
+#: Decay is the tie-breaker, and only the top two tiers are tie-breakers — so
+#: those default to dynamic scoring and everything else to static. Still a
+#: per-challenge setting an admin can override on the day.
+DECAYING_DIFFICULTIES = frozenset({Difficulty.VERY_HARD, Difficulty.NEARLY_IMPOSSIBLE})
+
+#: The decay floor, as a fraction of the ceiling.
+MINIMUM_POINTS_FRACTION = 0.4
+
+
+def points_for(difficulty: Difficulty, xp_base: int) -> int:
+    """A challenge's XP ceiling."""
+    return DIFFICULTY_MODIFIER[difficulty] * xp_base
+
+
+def minimum_points_for(difficulty: Difficulty, xp_base: int) -> int:
+    return max(1, int(points_for(difficulty, xp_base) * MINIMUM_POINTS_FRACTION))
+
+
+def default_scoring_for(difficulty: Difficulty) -> "ScoringMode":
+    return ScoringMode.DYNAMIC if difficulty in DECAYING_DIFFICULTIES else ScoringMode.STATIC
 
 
 class ChallengeState(enum.StrEnum):

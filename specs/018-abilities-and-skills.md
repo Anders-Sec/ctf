@@ -75,17 +75,15 @@ for ranking; the level simply stops.
 who engages unlocks a class; and because 016 already allows free re-speccing after
 unlock, an early gate costs no accuracy — players re-pick as their skills sharpen.
 
-## Open — decay and the floor
+## Decay: the top two tiers only
 
-Difficulty now sets `initial_points`, which leaves two things from 003 to confirm:
+Very Hard and Nearly Impossible are the tie-breakers, and decay is what breaks
+ties — so difficulty **defaults** the scoring mode: those two to `dynamic`,
+everything else to `static`. It stays a per-challenge setting the admin can
+override, because on the day you may need to break a tie some other way.
 
-- Does **dynamic decay** still apply on top? A Very Easy challenge at 50 XP has
-  little room to decay meaningfully.
-- What is `minimum_points` now? Proposed: **40% of the ceiling** (a Hard challenge
-  floors at 80), replacing the flat 100.
-
-Recommended: keep decay for Medium and above, make the two easiest tiers static.
-Flagged rather than assumed.
+`minimum_points` becomes **40% of the ceiling** — a Very Hard challenge floors at
+100, a Nearly Impossible one at 200 — replacing the flat 100.
 
 ---
 
@@ -287,17 +285,19 @@ exact list contents (e.g. `test_admin_skills` expecting `["Hacking"]`) must asse
 ## Decisions — resolved (2026-09-08)
 
 1. XP is **derived from difficulty** × base 10, on the six-tier ladder.
-2. Player curve unchanged (base 100); **capped at level 20**.
-3. Skills are a **parallel overlapping track**; abilities **partition**; player
+2. **Decay defaults on for Very Hard and Nearly Impossible only**, overridable;
+   the floor is 40% of the ceiling.
+3. Player curve unchanged (base 100); **capped at level 20**.
+4. Skills are a **parallel overlapping track**; abilities **partition**; player
    total is still solves only.
-4. Abilities are **scores** (8–20), progress hidden, score shown.
-5. Category→ability **required**, using the rebalanced map.
-6. Abilities and skills are **cosmetic**.
-7. Skill curve `70 × (L−1)^1.25`, soft cap 15, level 0 until first XP.
-8. Undiscovered skills are **redacted server-side** and shown as blurred rows
+5. Abilities are **scores** (8–20), progress hidden, score shown.
+6. Category→ability **required**, using the rebalanced map.
+7. Abilities and skills are **cosmetic**.
+8. Skill curve `70 × (L−1)^1.25`, soft cap 15, level 0 until first XP.
+9. Undiscovered skills are **redacted server-side** and shown as blurred rows
    **inline**.
-9. Public sheets carry **everything except undiscovered skills**.
-10. Content ships as **seed data in a migration**.
-11. Skill picker is **searchable, category skills first**, nothing pre-selected.
-12. 016's class **suggestion off**; unlock moves to **level 5**.
-13. Sample data wiped and rebuilt.
+10. Public sheets carry **everything except undiscovered skills**.
+11. Content ships as **seed data in a migration**.
+12. Skill picker is **searchable, category skills first**, nothing pre-selected.
+13. 016's class **suggestion off**; unlock moves to **level 5**.
+14. Sample data wiped and rebuilt.

@@ -227,13 +227,29 @@ class Settings(BaseSettings):
     #: Turns the whole feature off cleanly, like AI_ENABLED.
     instances_enabled: bool = False
 
-    # --- Progression (spec 015) ----------------------------------------------
+    # --- Progression (specs 015, 018) ----------------------------------------
     #: The level curve base: level L is reached at cumulative XP base*L*(L-1).
     xp_level_base: int = 100
+    #: Level 20 is the D&D cap, and on the planned economy it falls at ~90% of all
+    #: content. XP past it still counts for rank; the level simply stops.
+    player_level_cap: int = 20
+
+    #: A challenge's XP is its difficulty modifier times this.
+    xp_base: int = 10
+
+    #: Ability score = 8 + sqrt(ability_xp / divisor), capped.
+    ability_score_divisor: int = 28
+    ability_score_cap: int = 20
+
+    #: Skill level L costs base*(L-1)**1.25 XP.
+    skill_level_base: int = 70
+    skill_level_cap: int = 15
 
     # --- Classes (spec 016) --------------------------------------------------
     #: The overall level a player must reach before they may choose a class.
-    class_unlock_level: int = 3
+    #: Level 5 is ~11 solves, so nearly everyone who engages unlocks one; 016
+    #: allows free re-speccing afterwards, so an early gate costs no accuracy.
+    class_unlock_level: int = 5
 
     @property
     def instances_configured(self) -> bool:

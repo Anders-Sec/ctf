@@ -19,6 +19,9 @@ from app.models.challenge import (
     Challenge,
     ChallengeAnswer,
     ChallengeState,
+    default_scoring_for,
+    minimum_points_for,
+    points_for,
 )
 from app.models.play import Solve, Submission
 from app.schemas.admin_challenges import (
@@ -155,15 +158,25 @@ async def create_challenge(
     payload: CreateChallengeRequest,
     request: Request,
     db: DbSession,
+    settings: AppSettings,
     current: Admin,
 ) -> AdminChallengeDetail:
     if await db.scalar(select(Challenge.id).where(Challenge.slug == payload.slug)):
         raise ConflictError("That slug is already taken.", code="slug_taken")
 
-    _validate_scoring(payload.initial_points, payload.minimum_points, payload.decay_threshold)
+    _validate_threshold(payload.decay_threshold)
 
     data = payload.model_dump()
     category = await challenge_service.resolve_or_create_category(db, data.pop("category"))
+
+    # Difficulty derives the value; scoring falls back to the difficulty's
+    # default when the admin did not pick one (spec 018).
+    difficulty = data["difficulty"]
+    xp_base = settings.xp_base
+    data["initial_points"] = points_for(difficulty, xp_base)
+    data["minimum_points"] = minimum_points_for(difficulty, xp_base)
+    if data.get("scoring") is None:
+        data["scoring"] = default_scoring_for(difficulty)
 
     challenge = Challenge(
         **data,
@@ -187,16 +200,12 @@ async def create_challenge(
     )
 
 
-def _validate_scoring(initial: int, minimum: int, threshold: int) -> None:
-    # The curve divides by the threshold, and an inverted range would make the
-    # value climb as more people solve.
+def _validate_threshold(threshold: int) -> None:
+    # The curve divides by the threshold. The point range can no longer be
+    # inverted — difficulty derives both ends (spec 018).
     if threshold < 2:
         raise ConflictError(
             "The decay threshold must be at least 2.", code="invalid_decay_threshold"
-        )
-    if minimum > initial:
-        raise ConflictError(
-            "The minimum cannot exceed the initial value.", code="invalid_point_range"
         )
 
 
@@ -213,16 +222,25 @@ async def update_challenge(
     payload: UpdateChallengeRequest,
     request: Request,
     db: DbSession,
+    settings: AppSettings,
     current: Admin,
 ) -> AdminChallengeDetail:
     challenge = await _load(db, challenge_id)
     changes = payload.model_dump(exclude_unset=True)
 
-    _validate_scoring(
-        changes.get("initial_points", challenge.initial_points),
-        changes.get("minimum_points", challenge.minimum_points),
-        changes.get("decay_threshold", challenge.decay_threshold),
-    )
+    _validate_threshold(changes.get("decay_threshold", challenge.decay_threshold))
+
+    # A difficulty change re-derives the ceiling and floor, and re-defaults the
+    # scoring mode unless this same request set one (spec 018).
+    if "difficulty" in changes:
+        xp_base = settings.xp_base
+        changes["initial_points"] = points_for(changes["difficulty"], xp_base)
+        changes["minimum_points"] = minimum_points_for(changes["difficulty"], xp_base)
+        if changes.get("scoring") is None:
+            changes["scoring"] = default_scoring_for(changes["difficulty"])
+    # An explicit null for scoring means "use the default", not "store null".
+    if "scoring" in changes and changes["scoring"] is None:
+        changes.pop("scoring")
 
     renaming = "slug" in changes and changes["slug"] != challenge.slug
     if renaming and await db.scalar(select(Challenge.id).where(Challenge.slug == changes["slug"])):

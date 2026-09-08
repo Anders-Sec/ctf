@@ -164,8 +164,12 @@ def level_for_xp(xp: int, base: int | None = None) -> int:
     """The level a total of ``xp`` reaches, on the standard curve.
 
     Level L needs cumulative ``base*L*(L-1)`` XP, so higher levels cost more.
+    Capped at ``PLAYER_LEVEL_CAP`` (spec 018): on the planned economy level 20
+    falls at ~90% of all content, so the D&D ceiling comes out of the numbers.
+    XP past the cap still counts toward rank — only the level stops.
     """
-    base = base if base is not None else get_settings().xp_level_base
+    settings = get_settings()
+    base = base if base is not None else settings.xp_level_base
     if xp <= 0 or base <= 0:
         return 1
     level = int((1 + math.sqrt(1 + 4 * xp / base)) / 2)
@@ -173,7 +177,7 @@ def level_for_xp(xp: int, base: int | None = None) -> int:
         level += 1
     while level > 1 and xp_for_level(level, base) > xp:
         level -= 1
-    return level
+    return min(level, settings.player_level_cap)
 
 
 def level_progress(xp: int, base: int | None = None) -> tuple[int, int, int]:
@@ -183,8 +187,12 @@ def level_progress(xp: int, base: int | None = None) -> tuple[int, int, int]:
     ``xp_to_next`` is what remains to reach the next level. A negative total (only
     reachable through an admin adjustment) reports level 1 with no progress.
     """
-    base = base if base is not None else get_settings().xp_level_base
+    settings = get_settings()
+    base = base if base is not None else settings.xp_level_base
     level = level_for_xp(xp, base)
+    if level >= settings.player_level_cap:
+        # At the ceiling there is no next level to progress toward.
+        return level, 0, 0
     floor = xp_for_level(level, base)
     ceil = xp_for_level(level + 1, base)
     into = max(0, xp - floor)

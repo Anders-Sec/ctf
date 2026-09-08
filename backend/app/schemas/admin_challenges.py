@@ -32,14 +32,16 @@ class CreateChallengeRequest(BaseModel):
     #: (case-insensitively) or created (spec 013).
     category: str = Field(min_length=2, max_length=60)
     body: str = ""
+    #: Difficulty *derives* the XP ceiling and floor, and defaults the scoring
+    #: mode (spec 018). initial_points/minimum_points are no longer typed.
     difficulty: Difficulty = Difficulty.MEDIUM
     state: ChallengeState = ChallengeState.DRAFT
     release_at: datetime | None = None
     pre_release_state: PreReleaseState = PreReleaseState.HIDDEN
-    initial_points: int = Field(default=500, ge=1, le=100_000)
-    minimum_points: int = Field(default=100, ge=0, le=100_000)
     decay_threshold: int = Field(default=40, ge=2, le=100_000)
-    scoring: ScoringMode = ScoringMode.DYNAMIC
+    #: Omit to take the difficulty's default (dynamic only for the top two
+    #: tiers). Set explicitly to override on the day.
+    scoring: ScoringMode | None = None
     decay_basis: DecayBasis = DecayBasis.PLAYERS
     #: Off by default. Rate limiting is the brute-force defence.
     max_attempts: int | None = Field(default=None, ge=1, le=1000)
@@ -50,11 +52,10 @@ class UpdateChallengeRequest(BaseModel):
     slug: str | None = Field(default=None, min_length=3, max_length=200, pattern=r"^[a-z0-9-]+$")
     category: str | None = Field(default=None, min_length=2, max_length=60)
     body: str | None = None
+    #: Changing difficulty re-derives the XP ceiling and floor (spec 018).
     difficulty: Difficulty | None = None
     release_at: datetime | None = None
     pre_release_state: PreReleaseState | None = None
-    initial_points: int | None = Field(default=None, ge=1, le=100_000)
-    minimum_points: int | None = Field(default=None, ge=0, le=100_000)
     decay_threshold: int | None = Field(default=None, ge=2, le=100_000)
     scoring: ScoringMode | None = None
     decay_basis: DecayBasis | None = None

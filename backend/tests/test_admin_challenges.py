@@ -75,7 +75,7 @@ class TestChallengeCrud:
                 "slug": "packet-puzzle",
                 "category": category.name,
                 "body": "Find the flag in the pcap.",
-                "initial_points": 400,
+                "difficulty": "hard",
             },
         )
 
@@ -83,7 +83,8 @@ class TestChallengeCrud:
         body = response.json()
         # Drafts by default: a challenge must not go live the moment it is made.
         assert body["state"] == "draft"
-        assert body["current_value"] == 400
+        # Hard is modifier 20 against an XP base of 10 (spec 018).
+        assert body["current_value"] == 200
 
     async def test_slugs_are_unique(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -117,26 +118,61 @@ class TestChallengeCrud:
 
         assert response.status_code == 422
 
-    async def test_a_floor_above_the_ceiling_is_rejected(
+    async def test_difficulty_derives_the_value_and_the_scoring_mode(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        """Otherwise the value would climb as more people solve."""
+        """Points are no longer typed, so an inverted range is unreachable by
+        construction (spec 018). Decay is on for the tie-breaker tiers only."""
         await as_role(db_session, client, sign_in, UserRole.ADMIN)
         category = await make_category(db_session)
 
-        response = await client.post(
+        easy = await client.post(
             "/api/admin/challenges",
             json={
-                "title": "Inverted",
-                "slug": "inverted",
+                "title": "Gentle",
+                "slug": "gentle",
                 "category": category.name,
-                "initial_points": 100,
-                "minimum_points": 500,
+                "difficulty": "very_easy",
+            },
+        )
+        brutal = await client.post(
+            "/api/admin/challenges",
+            json={
+                "title": "Brutal",
+                "slug": "brutal",
+                "category": category.name,
+                "difficulty": "nearly_impossible",
             },
         )
 
-        assert response.status_code == 409
-        assert response.json()["error"]["code"] == "invalid_point_range"
+        assert easy.json()["current_value"] == 50
+        assert easy.json()["scoring"] == "static"
+        assert brutal.json()["current_value"] == 500
+        assert brutal.json()["scoring"] == "dynamic"
+
+    async def test_changing_difficulty_rederives_the_value(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        category = await make_category(db_session)
+        created = await client.post(
+            "/api/admin/challenges",
+            json={
+                "title": "Shifting",
+                "slug": "shifting",
+                "category": category.name,
+                "difficulty": "easy",
+            },
+        )
+        assert created.json()["current_value"] == 100
+
+        updated = await client.patch(
+            f"/api/admin/challenges/{created.json()['id']}",
+            json={"difficulty": "very_hard"},
+        )
+
+        assert updated.json()["current_value"] == 250
+        assert updated.json()["scoring"] == "dynamic"
 
     async def test_publishing_is_instant(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

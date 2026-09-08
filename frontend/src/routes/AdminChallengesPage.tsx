@@ -543,7 +543,27 @@ function AnswerRules({
   );
 }
 
-const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard", "insane"];
+const DIFFICULTIES: Difficulty[] = [
+  "very_easy",
+  "easy",
+  "medium",
+  "hard",
+  "very_hard",
+  "nearly_impossible",
+];
+
+/** Difficulty derives the XP, so the editor shows what each tier is worth. */
+export const DIFFICULTY_XP: Record<Difficulty, number> = {
+  very_easy: 50,
+  easy: 100,
+  medium: 150,
+  hard: 200,
+  very_hard: 250,
+  nearly_impossible: 500,
+};
+
+export const difficultyLabel = (d: Difficulty) =>
+  d.replace(/_/g, " ").replace(/\w/g, (c) => c.toUpperCase());
 
 function ChallengeSettingsForm({
   challenge,
@@ -605,7 +625,7 @@ function ChallengeSettingsForm({
           >
             {DIFFICULTIES.map((d) => (
               <option key={d} value={d}>
-                {d}
+                {difficultyLabel(d)} — {DIFFICULTY_XP[d]} XP
               </option>
             ))}
           </select>
