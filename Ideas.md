@@ -89,3 +89,73 @@
 |**Mobile Security**|Permission Paranoia, Reflexive Airplane Mode|
 |**Reverse Engineering**|Hex Staring Endurance, Rubber Duck Dependency|
 |**Malware Analysis**|Reckless Double-Clicking, False Antivirus Confidence|
+
+
+### Classes:
+| Name | Preference Target | Unlock Requirement |
+|---|---|---|
+| Barbarian | Strength (STR), Constitution (CON) | None |
+| Fighter | Strength (STR), Dexterity (DEX) | None |
+| Berserker | Strength (STR), Constitution (CON), Charisma (CHA) | None |
+| Rogue | Dexterity (DEX), Intelligence (INT) | None |
+| Ranger | Dexterity (DEX), Wisdom (WIS) | None |
+| Assassin | Dexterity (DEX), Strength (STR) | None |
+| Guardian | Constitution (CON), Strength (STR) | None |
+| Juggernaut | Constitution (CON), Strength (STR) | None |
+| Warden | Constitution (CON), Wisdom (WIS) | None |
+| Wizard | Intelligence (INT), Wisdom (WIS) | None |
+| Artificer | Intelligence (INT), Dexterity (DEX) | None |
+| Archmage | Intelligence (INT), Charisma (CHA) | None |
+| Cleric | Wisdom (WIS), Charisma (CHA) | None |
+| Druid | Wisdom (WIS), Constitution (CON) | None |
+| Oracle | Wisdom (WIS), Intelligence (INT) | None |
+| Bard | Charisma (CHA), Intelligence (INT) | None |
+| Warlock | Charisma (CHA), Intelligence (INT), Constitution (CON) | None |
+| Sorcerer | Charisma (CHA), Wisdom (WIS) | None |
+| Analyst | Log Divination, Anomaly Sense | None |
+| Technician | Packet Whispering, Circuit Whispering | None |
+| Auditor | Risk Judgment, Policy Skimming Speed | None |
+| Help Desk Adept | Sticky Note Radar, Convincing IT Voice | None |
+| Sysadmin | Packet Whispering, Cloud Instinct | None |
+| Compliance Officer | Risk Judgment | None |
+| Junior Pentester | Injection Artistry, Auth Bypass | None |
+| Scanner | Anomaly Sense, Log Divination | None |
+| Researcher | Threat Hunting Lore, Cryptanalysis | None |
+| Archivist | Evidence Handling, Artifact Recovery | None |
+| Triage Nurse | Triage Under Fire, Containment Instinct | None |
+| Script Kiddie | Exploit Crafting, Reckless Double-Clicking | None |
+
+
+**Tier 1 (Levels 5-8) — Uncommon**
+| Name | Preference Target | Unlock Requirement |
+|---|---|---|
+| Packet Sage | Packet Whispering | Packet Whispering Level 5 required |
+| Cipher Adept | Cryptanalysis | Cryptanalysis Level 6 required |
+| Shadow Broker | Credential Harvesting | Credential Harvesting Level 6 required |
+| Signal Hunter | Anomaly Sense | Anomaly Sense Level 7 required |
+| Wire Stalker | Digital Tracking | Digital Tracking Level 5 required |
+| Breachwright | Exploit Crafting | Exploit Crafting Level 8 required |
+
+**Tier 2 (Levels 8-10) — Rare**
+| Name | Preference Target | Unlock Requirement |
+|---|---|---|
+| Voidcoder | Model Interrogation | Model Interrogation Level 9 required |
+| Ghost Handler | Pretexting | Pretexting Level 8 required |
+| Ashborn Analyst | Static Analysis | Static Analysis Level 10 required |
+| Sentinel Prime | Log Divination | Log Divination Level 9 required |
+| Cryptomancer | Cryptanalysis | Cryptanalysis Level 10 required |
+
+**Tier 3 (Level 13+) — Legendary**
+| Name | Preference Target | Unlock Requirement |
+|---|---|---|
+| Root Ascendant | Privilege Escalation | Privilege Escalation Level 13 required |
+| The Unwritten | Disassembly | Disassembly Level 14 required |
+| Herald of Zero-Day | Exploit Crafting | Exploit Crafting Level 15 required |
+
+**Tier 4 (Level 13+ x2) - Mythic**
+| Name | Preference Target | Unlock Requirement |
+|---|---|---|
+| Architect of the Unbreakable Crypt-Covenant | Cryptanalysis, Pattern Recognition | Cryptanalysis Level 13 + Pattern Recognition Level 13 required |
+| Imperator of the Core-Kernel Continuum | Disassembly, Static Analysis, Sandbox Discipline | Disassembly Level 13 + Static Analysis Level 12 + Sandbox Discipline Level 10 required |
+| Avatar of the Quantum Superposition | Model Interrogation, Threat Hunting Lore | Model Interrogation Level 12 + Threat Hunting Lore Level 12 required |
+| Sovereign of the Absolute Zero-Day Nexus | Exploit Crafting, Privilege Escalation | Exploit Crafting Level 13 + Privilege Escalation Level 12 required |
