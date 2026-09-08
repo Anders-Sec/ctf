@@ -98,6 +98,12 @@ class Category(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    #: The skill this category feeds (spec 015). Nullable: a freshly typed
+    #: category contributes to overall XP but no named skill until an admin maps
+    #: it. SET NULL on skill delete un-maps rather than destroying the category.
+    skill_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("skill.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class Challenge(UUIDPrimaryKeyMixin, TimestampMixin, Base):

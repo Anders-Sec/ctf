@@ -41,6 +41,7 @@ from app.models.instance import (
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.signal import SignalDismissal
+from app.models.skill import Skill
 from app.models.team import (
     Team,
     TeamJoinRequest,
@@ -78,6 +79,7 @@ __all__ = [
     "ScoreAdjustment",
     "ScoringMode",
     "SignalDismissal",
+    "Skill",
     "Solve",
     "Submission",
     "EgressPolicy",

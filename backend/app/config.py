@@ -227,6 +227,10 @@ class Settings(BaseSettings):
     #: Turns the whole feature off cleanly, like AI_ENABLED.
     instances_enabled: bool = False
 
+    # --- Progression (spec 015) ----------------------------------------------
+    #: The level curve base: level L is reached at cumulative XP base*L*(L-1).
+    xp_level_base: int = 100
+
     @property
     def instances_configured(self) -> bool:
         return bool(self.instances_enabled and self.kube_namespace)

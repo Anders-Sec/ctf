@@ -55,6 +55,10 @@ class Solve(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     submission_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("submission.id", ondelete="SET NULL"), nullable=True
     )
+    #: XP banked at solve time (spec 015): the challenge's value then, minus the
+    #: hints the player had used on it. Snapshot, never recomputed, so levels are
+    #: monotonic.
+    xp_awarded: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
 
 class Submission(UUIDPrimaryKeyMixin, TimestampMixin, Base):
