@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ZoneGatePanel from "./ZoneGatePanel";
-import type { GraphZone } from "../api/dungeon";
+import type { Gate, GraphZone } from "../api/dungeon";
 import { renderApp, stubFetch } from "../test/utils";
 
 afterEach(() => {
@@ -19,25 +19,25 @@ const INTRO: GraphZone = {
   gates: [],
 };
 
+const INTRO_GATE: Gate = {
+  id: "g1",
+  requirement_type: "percent_in_category",
+  description: "Clear 100% of Intro",
+  required_category_id: "z1",
+  required_category_name: "Intro",
+  required_skill_id: null,
+  required_skill_name: null,
+  threshold: 100,
+  source_has_no_challenges: false,
+};
+
 const NETWORKING: GraphZone = {
   id: "z2",
   name: "Networking",
   slug: "networking",
   reachable: true,
   published_challenges: 4,
-  gates: [
-    {
-      id: "g1",
-      requirement_type: "percent_in_category",
-      description: "Clear 100% of Intro",
-      required_category_id: "z1",
-      required_category_name: "Intro",
-      required_skill_id: null,
-      required_skill_name: null,
-      threshold: 100,
-      source_has_no_challenges: false,
-    },
-  ],
+  gates: [INTRO_GATE],
 };
 
 function render(zone: GraphZone, { eventRunning = false } = {}) {
@@ -145,7 +145,7 @@ describe("ZoneGatePanel", () => {
     stubFetch(() => ({ status: 200, body: {} }));
     render({
       ...NETWORKING,
-      gates: [{ ...NETWORKING.gates[0], source_has_no_challenges: true }],
+      gates: [{ ...INTRO_GATE, source_has_no_challenges: true }],
     });
 
     // The bug that sealed the whole dungeon in 019: 100% of an empty zone is
