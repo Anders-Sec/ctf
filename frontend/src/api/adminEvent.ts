@@ -6,6 +6,8 @@ export interface EventConfig {
   ends_at: string | null;
   registration_open: boolean;
   assistant_enabled: boolean;
+  /** Dim locked zones on the dungeon map (spec 017). Presentation only. */
+  fog_of_war: boolean;
   /** The clock the gates actually use. Shown so an admin sets times against it. */
   server_time: string;
 }
@@ -18,4 +20,5 @@ export const updateEventConfig = (input: {
   ends_at?: string | null;
   registration_open?: boolean;
   assistant_enabled?: boolean;
+  fog_of_war?: boolean;
 }) => api.patch<EventConfig>("/admin/event-config", input);

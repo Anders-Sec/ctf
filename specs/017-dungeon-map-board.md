@@ -1,6 +1,8 @@
 # Spec 017 — Dungeon-Map Challenge Board
 
-Status: **draft** (2026-09-07) — awaiting sign-off
+Status: **built** (2026-09-08) — Parts 1–3 shipped. One item deliberately
+deferred: the admin UI for *editing* gates (the API is complete and the sample-data
+generator authors them). See "Remaining" at the bottom.
 Phase: 2 (D&D Mechanics)
 Covers: `Plan.md` Phase 2 → dungeon-map challenge board (and completes the
 value-based unlock types 014 left open)
@@ -323,6 +325,17 @@ disagree about what exists.
 3. **Fog of war is in**, event-level, **default on**, and means **greyed out but
    fully readable** — presentation only, no redaction.
 4. **The map is the default view** at `/challenges`, list one toggle away.
+
+## Remaining
+
+Everything in the spec is built except one piece:
+
+- **Admin UI for editing unlock requirements.** `POST/GET/DELETE` on
+  `/admin/challenges/{id}/requirements` and `/admin/categories/{id}/requirements`
+  are done and tested, and the sample-data generator authors a full set of gates
+  through them — so gating is fully usable, just not yet clickable. The challenge
+  editor still shows only 014's `challenge_solved` prerequisites, and there is no
+  screen for zone gates. Worth its own short pass.
 
 ## Open sub-questions
 

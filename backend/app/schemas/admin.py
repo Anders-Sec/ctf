@@ -51,6 +51,7 @@ class UpdateEventConfigRequest(BaseModel):
     #: The runtime kill switch for the dungeon master (spec 011). A redeploy is
     #: the wrong tool at 11pm on day two.
     assistant_enabled: bool | None = None
+    fog_of_war: bool | None = None
 
 
 class EventConfigResponse(BaseModel):
@@ -59,4 +60,5 @@ class EventConfigResponse(BaseModel):
     ends_at: datetime | None
     registration_open: bool
     assistant_enabled: bool
+    fog_of_war: bool
     server_time: datetime

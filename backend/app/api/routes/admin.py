@@ -289,6 +289,7 @@ def _event_response(config: EventConfig) -> EventConfigResponse:
     return EventConfigResponse(
         name=config.name,
         assistant_enabled=config.assistant_enabled,
+        fog_of_war=config.fog_of_war,
         starts_at=config.starts_at,
         ends_at=config.ends_at,
         registration_open=config.registration_open,

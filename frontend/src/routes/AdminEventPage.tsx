@@ -29,6 +29,7 @@ export default function AdminEventPage() {
   const [ends, setEnds] = useState("");
   const [registration, setRegistration] = useState(true);
   const [assistant, setAssistant] = useState(true);
+  const [fog, setFog] = useState(true);
 
   useEffect(() => {
     if (config.data) {
@@ -37,6 +38,7 @@ export default function AdminEventPage() {
       setEnds(toLocalInput(config.data.ends_at));
       setRegistration(config.data.registration_open);
       setAssistant(config.data.assistant_enabled);
+      setFog(config.data.fog_of_war);
     }
   }, [config.data]);
 
@@ -48,6 +50,7 @@ export default function AdminEventPage() {
         ends_at: fromLocalInput(ends),
         registration_open: registration,
         assistant_enabled: assistant,
+        fog_of_war: fog,
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["admin", "event-config"] }),
@@ -129,6 +132,16 @@ export default function AdminEventPage() {
             disabled={!canWrite}
           />
           System AI enabled
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={fog}
+            onChange={(e) => setFog(e.target.checked)}
+            disabled={!canWrite}
+          />
+          Fog of war (dim locked zones on the map)
         </label>
 
         {canWrite && (
