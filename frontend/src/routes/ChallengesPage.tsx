@@ -69,7 +69,8 @@ export default function ChallengesPage() {
   const solved = rows.filter((r) => r.solved).length;
 
   return (
-    <main className="mx-auto max-w-4xl p-6">
+    // The map wants room; the list reads better narrow.
+    <main className={`mx-auto p-6 ${view === "map" ? "max-w-6xl" : "max-w-4xl"}`}>
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Challenges</h1>

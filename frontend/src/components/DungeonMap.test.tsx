@@ -125,6 +125,16 @@ describe("DungeonMap", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("falls back to a procedural chamber when a tile is missing", () => {
+    // jsdom never fires Image.onload, so nothing is "available" here — which is
+    // exactly the partial-art-set case: the zone must still draw and be usable.
+    renderApp(<DungeonMap data={DATA} />);
+
+    const node = screen.getByLabelText("Intro — open, 1 of 1 cleared");
+    expect(node.querySelector("image")).toBeNull();
+    expect(node).toHaveAttribute("tabindex", "0");
+  });
+
   it("says so when there is nothing to draw", () => {
     renderApp(<DungeonMap data={{ ...DATA, zones: [], edges: [] }} />);
 

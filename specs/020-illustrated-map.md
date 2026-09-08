@@ -1,6 +1,7 @@
 # Spec 020 — The Illustrated Zone Map
 
-Status: **draft** (2026-09-08) — awaiting sign-off
+Status: **built** (2026-09-08) — layers, tiles, fallback, ambience and the panel
+are in. Lottie set pieces deferred; positions still auto-derived (see Remaining).
 Phase: 2/3 boundary (mechanics done in 019; this is the art pass over it)
 Depends on: 019 (22 zones, authored positions, the progression graph)
 
@@ -28,9 +29,18 @@ Because the art carries no state, you can redraw any zone without touching logic
 and a zone's lock state cannot disagree with the list view — both read the same
 API.
 
-**The map must work before the art exists.** A zone with no tile falls back to
-017's procedural stone chamber. Art arrives zone by zone; nothing is blocked on a
+**The map must work before the art exists.** A zone with no tile falls back to a
+procedural stone chamber. Art arrives zone by zone; nothing is blocked on a
 complete set.
+
+## Corridors run under the tiles
+
+A tile cannot know how many connections its zone has — Intro has six, a leaf has
+one — so a painted door can never be relied on to line up. Drawing the corridor
+**beneath** the artwork solves it completely: the passage disappears under the
+chamber and reads as entering it, for any number of connections and whatever the
+art happens to depict. Painted doorways become decoration rather than something
+to align against, which is why the prompts do not ask for them.
 
 ## Asset contract
 
@@ -108,6 +118,15 @@ returns to the zone on close.
 3. The drill-down panel.
 4. CSS ambience plus the reduced-motion and visibility budget.
 5. Lottie set pieces, starting with the unlock gate.
+
+## Remaining
+
+- **Authored zone positions.** Positions are still derived — tiers laid out in
+  rows of five. It is correct and deterministic, but the corridors sprawl across
+  the map because the graph is not a tree and a grid cannot express it. With 22
+  nodes, hand-placing them is both feasible and the point; that is the next step
+  and the one that will make the map read as a dungeon rather than a flowchart.
+- **Lottie set pieces**, starting with the gate grinding open on unlock.
 
 ## Non-goals
 

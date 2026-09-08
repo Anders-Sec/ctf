@@ -27,6 +27,10 @@ from app.services import challenges as challenge_service
 from app.services import unlocks
 from app.services.unlocks import RequirementView
 
+#: Wider than this and a tier wraps onto another row, so the map stays a shape
+#: you can take in rather than a strip that scrolls off the side.
+MAX_ZONES_PER_ROW = 5
+
 
 @dataclass(frozen=True)
 class Zone:
@@ -158,11 +162,20 @@ def _layout(categories: list[Category], edges: list[Edge]) -> dict[UUID, tuple[i
         categories,
         key=lambda c: (depths[c.id], c.display_order, c.name, str(c.id)),
     )
-    seen: dict[int, int] = {}
-    positions: dict[UUID, tuple[int, int]] = {}
+
+    # A tier can be wide — the first wave alone is six zones, and a real event
+    # has more — so a tier wraps onto extra rows rather than running off the
+    # side of the map. Rows stay grouped by tier, so the dungeon still reads
+    # outward from Intro.
+    by_depth: dict[int, list] = {}
     for category in ordered:
-        depth = depths[category.id]
-        index = seen.get(depth, 0)
-        seen[depth] = index + 1
-        positions[category.id] = (index, depth)
+        by_depth.setdefault(depths[category.id], []).append(category)
+
+    positions: dict[UUID, tuple[int, int]] = {}
+    row = 0
+    for depth in sorted(by_depth):
+        members = by_depth[depth]
+        for index, category in enumerate(members):
+            positions[category.id] = (index % MAX_ZONES_PER_ROW, row + index // MAX_ZONES_PER_ROW)
+        row += (len(members) - 1) // MAX_ZONES_PER_ROW + 1
     return positions

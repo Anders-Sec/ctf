@@ -18,3 +18,54 @@
 body {
   @apply bg-parchment text-ink antialiased;
 }
+
+/* --- Dungeon map ambience (spec 020) --------------------------------------
+   Budgeted deliberately: two cheap animations, both off under reduced-motion,
+   and both paused when the tab is hidden so a backgrounded map costs nothing. */
+
+@keyframes dungeon-flicker {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  45% {
+    opacity: 0.86;
+  }
+  70% {
+    opacity: 0.64;
+  }
+}
+
+.dungeon-torch {
+  animation: dungeon-flicker 5.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.dungeon-zone {
+  transition: transform 160ms ease-out;
+  transform-origin: center;
+}
+
+.dungeon-zone:hover,
+.dungeon-zone:focus-visible {
+  transform: translateY(-3px);
+}
+
+.dungeon-zone:focus-visible {
+  outline: 2px solid #ff9d3d;
+  outline-offset: 4px;
+}
+
+/* Motion is decoration here; the map must stay fully usable without it. */
+@media (prefers-reduced-motion: reduce) {
+  .dungeon-torch {
+    animation: none;
+  }
+  .dungeon-zone {
+    transition: none;
+  }
+  .dungeon-zone:hover,
+  .dungeon-zone:focus-visible {
+    transform: none;
+  }
+}

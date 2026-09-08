@@ -123,9 +123,12 @@ class TestProgression:
 
         board = await fetch(client)
 
-        assert zone(board, "Test Tier1")["y"] == 0
-        assert zone(board, "Test Tier2")["y"] == 1
-        assert zone(board, "Test Tier3")["y"] == 2
+        # Rows are not fixed to tiers — a wide tier wraps onto extra rows — so
+        # what matters is that depth always moves you further out.
+        first = zone(board, "Test Tier1")["y"]
+        second = zone(board, "Test Tier2")["y"]
+        third = zone(board, "Test Tier3")["y"]
+        assert first < second < third
 
     async def test_layout_is_deterministic_across_players(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

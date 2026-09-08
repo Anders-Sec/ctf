@@ -49,7 +49,7 @@ place turned into a deathtrap.
 DO NOT INCLUDE: text, letters, numbers, labels, symbols, people, creatures, UI
 elements, borders, frames, cards, watermarks, grid lines, drop shadows,
 background colour of any kind, daylight, bright or washed-out areas, angled or
-isometric perspective.
+isometric perspective, corridors or passages extending beyond the shape.
 
 SUBJECT:
 ```
@@ -90,7 +90,7 @@ borders, frames, watermarks, transparency, bright areas, daylight.
 ### Intro → `intro.png`
 ```
 a small orientation chamber with cracked motivational banners on the walls and a
-single lit doorway leading out
+lit doorway
 ```
 
 ### Networking → `networking.png`
