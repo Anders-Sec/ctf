@@ -162,6 +162,51 @@ describe("DungeonMap", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("moves a zone in edit mode and saves where it was dropped", async () => {
+    const onMove = vi.fn();
+    renderApp(<DungeonMap data={DATA} editable onMove={onMove} />);
+    const node = screen.getByLabelText("Intro — open, 1 of 1 cleared");
+
+    await userEvent.pointer([
+      { keys: "[MouseLeft>]", target: node, coords: { clientX: 10, clientY: 10 } },
+      { target: node, coords: { clientX: 50, clientY: 40 } },
+      { target: node, coords: { clientX: 90, clientY: 70 } },
+      { keys: "[/MouseLeft]", target: node },
+    ]);
+
+    // Total travel is 80x60 from where the drag began, snapped to the 8px grid.
+    // The intermediate move must not be counted twice.
+    expect(onMove).toHaveBeenCalledWith("z1", 80, 64);
+  });
+
+  it("does not open a zone that was dragged", async () => {
+    renderApp(<DungeonMap data={DATA} editable onMove={vi.fn()} />);
+
+    await userEvent.click(screen.getByLabelText("Intro — open, 1 of 1 cleared"));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("bends each corridor the same way every render", () => {
+    // Curves only — the grid pattern is a path too, and a straight one.
+    const curves = () =>
+      [...document.querySelectorAll("path")]
+        .map((path) => path.getAttribute("d") ?? "")
+        .filter((d) => d.includes(" Q "));
+
+    const { unmount } = renderApp(<DungeonMap data={DATA} />);
+    const first = curves();
+    unmount();
+
+    renderApp(<DungeonMap data={DATA} />);
+    const second = curves();
+
+    // Derived from the zone ids, not from chance: every player sees the same
+    // dungeon, and it does not twitch on reload.
+    expect(first).not.toHaveLength(0);
+    expect(second).toEqual(first);
+  });
+
   it("says so when there is nothing to draw", () => {
     renderApp(<DungeonMap data={{ ...DATA, zones: [], edges: [] }} />);
 

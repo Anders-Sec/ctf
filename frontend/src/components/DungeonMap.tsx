@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { DungeonMap as MapData, Zone } from "../api/dungeon";
 import { useMapViewport } from "./useMapViewport";
@@ -43,16 +43,41 @@ const PALETTE = {
   inkDim: "#9b8f7d",
 };
 
-const COLUMN = LAYOUT.tile + LAYOUT.columnGap;
-const ROW = LAYOUT.tile + LAYOUT.labelHeight + LAYOUT.rowGap;
-
 const tileUrl = (slug: string) => `/map/zones/${slug}.png`;
 
+/** Zone coordinates are the tile's top-left corner, in map pixels — authored by
+ *  an admin (spec 021) or derived by the server, and the client cannot tell. */
 function centre(zone: Zone) {
-  return {
-    cx: LAYOUT.margin + zone.x * COLUMN + LAYOUT.tile / 2,
-    cy: LAYOUT.margin + zone.y * ROW + LAYOUT.tile / 2,
-  };
+  return { cx: zone.x + LAYOUT.tile / 2, cy: zone.y + LAYOUT.tile / 2 };
+}
+
+/**
+ * An organic corridor between two zones.
+ *
+ * A quadratic curve whose control point is the midpoint pushed perpendicular to
+ * the line. The push is derived from the two zone ids, so every corridor gets
+ * its own consistent bend with no authoring at all — and it is identical for
+ * every player and across reloads, which a random one would not be.
+ */
+function corridorPath(
+  from: { cx: number; cy: number },
+  to: { cx: number; cy: number },
+  seed: string,
+): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  const dx = to.cx - from.cx;
+  const dy = to.cy - from.cy;
+  const length = Math.hypot(dx, dy) || 1;
+  // Bend proportional to length, so short hops stay nearly straight and long
+  // runs sweep — and never so far that the corridor loses its own endpoints.
+  const amount = (((hash % 100) / 100) * 0.16 + 0.06) * length;
+  const sign = hash % 2 === 0 ? 1 : -1;
+  const mx = (from.cx + to.cx) / 2 + (-dy / length) * amount * sign;
+  const my = (from.cy + to.cy) / 2 + (dx / length) * amount * sign;
+  return `M ${from.cx} ${from.cy} Q ${mx} ${my} ${to.cx} ${to.cy}`;
 }
 
 /**
@@ -80,24 +105,51 @@ function useAvailableTiles(slugs: string[]): Set<string> {
   return available;
 }
 
-export default function DungeonMap({ data }: { data: MapData }) {
+/** Free placement, snapped just enough that saved values stay tidy and two
+ *  zones nudged to "the same" spot actually match (spec 021). */
+const SNAP = 8;
+
+export default function DungeonMap({
+  data,
+  editable = false,
+  onMove,
+}: {
+  data: MapData;
+  /** Admin edit mode: drag zones instead of opening them. */
+  editable?: boolean;
+  onMove?: (zoneId: string, x: number, y: number) => void;
+}) {
   const [openZone, setOpenZone] = useState<Zone | null>(null);
+  const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(
+    null,
+  );
   const view = useMapViewport();
 
   const zones = data.zones ?? [];
   const slugs = useMemo(() => zones.map((z) => z.slug), [zones]);
   const tiles = useAvailableTiles(slugs);
 
-  const { width, height } = useMemo(() => {
-    const columns = Math.max(1, ...zones.map((z) => z.x + 1));
-    const rows = Math.max(1, ...zones.map((z) => z.y + 1));
-    return {
-      width: LAYOUT.margin * 2 + columns * COLUMN - LAYOUT.columnGap,
-      height: LAYOUT.margin * 2 + rows * ROW - LAYOUT.rowGap,
-    };
-  }, [zones]);
+  const { width, height } = useMemo(
+    () => ({
+      width:
+        Math.max(LAYOUT.tile, ...zones.map((z) => z.x + LAYOUT.tile)) + LAYOUT.margin,
+      height:
+        Math.max(LAYOUT.tile, ...zones.map((z) => z.y + LAYOUT.tile + LAYOUT.labelHeight)) +
+        LAYOUT.margin,
+    }),
+    [zones],
+  );
 
-  const points = useMemo(() => new Map(zones.map((z) => [z.id, centre(z)])), [zones]);
+  // While a zone is being dragged, draw it (and its corridors) at the pointer
+  // rather than where the server last saw it.
+  const placed = useMemo(
+    () =>
+      zones.map((z) =>
+        dragging && dragging.id === z.id ? { ...z, x: dragging.x, y: dragging.y } : z,
+      ),
+    [zones, dragging],
+  );
+  const points = useMemo(() => new Map(placed.map((z) => [z.id, centre(z)])), [placed]);
 
   if (zones.length === 0) {
     return <p className="mt-8 text-muted">The dungeon is empty for now.</p>;
@@ -139,7 +191,7 @@ export default function DungeonMap({ data }: { data: MapData }) {
 
           {/* Torchlight pools under the zones you can enter. */}
           <g filter="url(#dungeon-bloom)" opacity={0.75} className="dungeon-torch">
-            {zones
+            {placed
               .filter((z) => !z.locked)
               .map((z) => {
                 const point = points.get(z.id);
@@ -164,26 +216,27 @@ export default function DungeonMap({ data }: { data: MapData }) {
               const from = points.get(edge.from_zone_id);
               const to = points.get(edge.to_zone_id);
               if (!from || !to) return null;
-              const target = zones.find((z) => z.id === edge.to_zone_id);
+              const target = placed.find((z) => z.id === edge.to_zone_id);
               const dark = data.fog_of_war && target?.locked;
+              const path = corridorPath(
+                from,
+                to,
+                `${edge.from_zone_id}${edge.to_zone_id}`,
+              );
               return (
                 <g key={`${edge.from_zone_id}-${edge.to_zone_id}`}>
-                  <line
-                    x1={from.cx}
-                    y1={from.cy}
-                    x2={to.cx}
-                    y2={to.cy}
+                  <path
+                    d={path}
+                    fill="none"
                     stroke={PALETTE.wall}
-                    strokeWidth={30}
+                    strokeWidth={34}
                     strokeLinecap="round"
                   />
-                  <line
-                    x1={from.cx}
-                    y1={from.cy}
-                    x2={to.cx}
-                    y2={to.cy}
+                  <path
+                    d={path}
+                    fill="none"
                     stroke={dark ? PALETTE.stoneMid : PALETTE.stoneLit}
-                    strokeWidth={17}
+                    strokeWidth={19}
                     strokeLinecap="round"
                     opacity={dark ? 0.35 : 0.8}
                   />
@@ -192,15 +245,32 @@ export default function DungeonMap({ data }: { data: MapData }) {
             })}
           </g>
 
-          {zones.map((zone) => (
+          {placed.map((zone) => (
             <ZoneNode
               key={zone.id}
               zone={zone}
               hasTile={tiles.has(zone.slug)}
               unlit={data.fog_of_war && zone.locked}
+              editable={editable}
               // A drag that happens to start on a zone is a pan, not a click.
               onOpen={() => {
                 if (!view.wasPan()) setOpenZone(zone);
+              }}
+              // Deltas are measured from where the drag began, so they are
+              // applied to that same starting position — never to the in-flight
+              // one, which would compound every move event.
+              onDragMove={(startX, startY, dx, dy) =>
+                setDragging({
+                  id: zone.id,
+                  x: Math.round((startX + dx / view.viewport.scale) / SNAP) * SNAP,
+                  y: Math.round((startY + dy / view.viewport.scale) / SNAP) * SNAP,
+                })
+              }
+              onDragEnd={() => {
+                if (dragging && dragging.id === zone.id) {
+                  onMove?.(zone.id, dragging.x, dragging.y);
+                }
+                setDragging(null);
               }}
             />
           ))}
@@ -304,16 +374,21 @@ function ZoneNode({
   zone,
   hasTile,
   unlit,
+  editable,
   onOpen,
+  onDragMove,
+  onDragEnd,
 }: {
   zone: Zone;
   hasTile: boolean;
   unlit: boolean;
+  editable: boolean;
   onOpen: () => void;
+  onDragMove: (startX: number, startY: number, dx: number, dy: number) => void;
+  onDragEnd: () => void;
 }) {
-  const { cx, cy } = centre(zone);
-  const x = cx - LAYOUT.tile / 2;
-  const y = cy - LAYOUT.tile / 2;
+  //: Where the pointer went down, and where the zone sat at that moment.
+  const origin = useRef<{ x: number; y: number; zx: number; zy: number } | null>(null);
   const condition = zone.unlock_requirements.map((r) => r.description).join(", ");
 
   // Spelled out rather than left to the lighting, so the state survives
@@ -324,18 +399,56 @@ function ZoneNode({
 
   return (
     <g
-      transform={`translate(${x}, ${y})`}
+      transform={`translate(${zone.x}, ${zone.y})`}
       role="button"
       tabIndex={0}
       aria-label={label}
-      className="dungeon-zone cursor-pointer"
-      onClick={onOpen}
+      className={`dungeon-zone ${editable ? "cursor-move" : "cursor-pointer"}`}
+      onClick={editable ? undefined : onOpen}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (!editable && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
           onOpen();
         }
       }}
+      onPointerDown={
+        editable
+          ? (event) => {
+              // Stop the map's own pan: in edit mode a drag on a zone moves the
+              // zone, and a drag on the floor moves the map.
+              event.stopPropagation();
+              (event.target as Element).setPointerCapture?.(event.pointerId);
+              origin.current = {
+                x: event.clientX,
+                y: event.clientY,
+                zx: zone.x,
+                zy: zone.y,
+              };
+            }
+          : undefined
+      }
+      onPointerMove={
+        editable
+          ? (event) => {
+              const start = origin.current;
+              if (!start) return;
+              onDragMove(
+                start.zx,
+                start.zy,
+                event.clientX - start.x,
+                event.clientY - start.y,
+              );
+            }
+          : undefined
+      }
+      onPointerUp={
+        editable
+          ? () => {
+              if (origin.current) onDragEnd();
+              origin.current = null;
+            }
+          : undefined
+      }
     >
       {hasTile ? (
         <image
