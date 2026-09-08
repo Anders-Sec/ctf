@@ -1,6 +1,8 @@
 # Spec 015 — Character Sheet, XP, Levels & Skills
 
-Status: **approved** (2026-09-07) — build
+Status: **done** (2026-09-07) — built across six commits (schema, XP banking +
+deferred hints, scoring/scoreboard, admin skills API, `/character` endpoints,
+frontend)
 Phase: 2 (D&D Mechanics — the foundation)
 Covers: `Plan.md` Phase 2 → character sheets, stat blocks tied to categories, leveling/XP
 Depends on: 003 (challenges/scoring/categories), 004 (hints), 005 (scoreboard)

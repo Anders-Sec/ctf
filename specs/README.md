@@ -41,6 +41,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 012 | `012-load-and-nfr-verification.md` | Non-Functional Requirements | **done** — harness + runbook + automated NFR tests |
 | 013 | `013-system-ai-and-ui-polish.md` | Polish: System AI persona, admin/player nav split, typed categories | **done** |
 | 014 | `014-challenge-editor-and-prerequisites.md` | Editor completion, prerequisite locks, event settings | **done** |
+| 015 | `015-character-xp-and-skills.md` | Phase 2 — character sheet, banked XP, levels, skills (deferred-hint economy) | **done** |
 
 ## Sequencing rationale
 
