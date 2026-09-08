@@ -1,6 +1,7 @@
 # Spec 018 — The XP Economy, Abilities & Skills
 
-Status: **draft** (2026-09-08) — awaiting sign-off
+Status: **done** (2026-09-08) — built across seven commits (difficulty ladder,
+schema, seed content, scoring, admin surface, character endpoints, frontend)
 Phase: 2 (D&D Mechanics)
 Covers: `Ideas.md` — difficulty-driven XP, core abilities, the category→ability
 map, and the useful/funny skill lists

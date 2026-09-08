@@ -44,6 +44,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 015 | `015-character-xp-and-skills.md` | Phase 2 — character sheet, banked XP, levels, skills (deferred-hint economy) | **done** |
 | 016 | `016-classes.md` | Phase 2 — character classes, level-gated, with the System AI's suggested-class nudge | **done** |
 | 017 | `017-dungeon-map-board.md` | Phase 2 — dungeon map, value-based unlock gates, zone gating + fog of war | **built** — admin gate-editing UI still to do |
+| 018 | `018-abilities-and-skills.md` | Phase 2 — difficulty-driven XP, D&D ability scores, per-challenge skills, real seed content | **done** |
 
 ## Sequencing rationale
 
