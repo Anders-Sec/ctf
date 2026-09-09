@@ -52,6 +52,8 @@ lore, art, a wider tone pass) is intentionally not started.
 | 023 | `023-map-atmosphere.md` | Phase 2/3 — non-repeating background, map fit & feathering, progression fog, corridor texture | **done** |
 | 024 | `024-class-roster.md` | Phase 2 — the 48-class roster, rarity, preference targets, skill-level gates, recommender | **done** |
 | 025 | `025-dungeon-sample-data.md` | Phase 2/3 — sample data that fills the real 22 zones with the real skills | **done** |
+| 026 | `026-challenge-csv.md` | Phase 2/3 — challenge import/export as CSV, with a pre-filled 242-row template | **done** |
+| 027 | `027-map-layout-portability.md` | Phase 2/3 — export/import the map layout between instances, keyed on slug | **done** |
 
 ## Sequencing rationale
 
