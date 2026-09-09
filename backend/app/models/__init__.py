@@ -46,6 +46,12 @@ from app.models.instance import (
     InstanceProtocol,
     InstanceStatus,
 )
+from app.models.notification import (
+    Achievement,
+    AchievementAward,
+    Notification,
+    NotificationKind,
+)
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.signal import SignalDismissal
@@ -58,6 +64,10 @@ from app.models.team import (
 from app.models.user import User
 
 __all__ = [
+    "NotificationKind",
+    "Notification",
+    "AchievementAward",
+    "Achievement",
     "EVENT_CONFIG_ID",
     "AssistantConversation",
     "AssistantFinding",
