@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Request
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from app.api.deps import Admin, DbSession, Player, Staff
 from app.errors import NotFoundError
@@ -15,7 +15,10 @@ from app.schemas.dungeon import (
     EdgeResponse,
     GateResponse,
     GraphZoneResponse,
+    LayoutImportResult,
+    LayoutZone,
     MapGraphResponse,
+    MapLayoutFile,
     MapPositionResponse,
     MapResponse,
     SetMapPositionRequest,
@@ -120,6 +123,69 @@ async def set_zone_position(
         request_id=getattr(request.state, "request_id", None),
     )
     return MapPositionResponse(x=category.map_x, y=category.map_y)
+
+
+@router.get("/admin/map/layout")
+async def export_layout(db: DbSession, current: Staff) -> MapLayoutFile:
+    """The authored layout, for carrying to another instance (spec 027).
+
+    Only zones that have actually been placed. Writing derived positions out too
+    would silently freeze every automatic one, so a later change to the layout
+    algorithm could never reach a map that had once been exported.
+    """
+    rows = (
+        await db.execute(
+            select(Category.slug, Category.map_x, Category.map_y).where(
+                Category.map_x.is_not(None), Category.map_y.is_not(None)
+            )
+        )
+    ).all()
+    return MapLayoutFile(
+        version=1,
+        zones={slug: LayoutZone(x=x, y=y) for slug, x, y in rows},
+    )
+
+
+@router.post("/admin/map/layout")
+async def import_layout(
+    payload: MapLayoutFile, request: Request, db: DbSession, current: Admin
+) -> LayoutImportResult:
+    """Apply a layout exported elsewhere, matching on slug.
+
+    Additive: it sets the positions it names and leaves every other zone alone.
+    Clearing already has a verb — reset-layout — and quietly wiping unlisted
+    zones would make this a far sharper tool than it looks.
+    """
+    known = {
+        slug: category_id
+        for slug, category_id in (await db.execute(select(Category.slug, Category.id))).all()
+    }
+
+    applied = 0
+    unknown: list[str] = []
+    for slug, position in payload.zones.items():
+        category_id = known.get(slug)
+        if category_id is None:
+            unknown.append(slug)
+            continue
+        await db.execute(
+            update(Category)
+            .where(Category.id == category_id)
+            .values(map_x=position.x, map_y=position.y)
+        )
+        applied += 1
+    await db.flush()
+
+    await record_audit(
+        db,
+        action="map.import_layout",
+        target_type="event",
+        target_id=None,
+        actor_user_id=current.user.id,
+        meta={"applied": applied, "unknown": len(unknown)},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return LayoutImportResult(applied=applied, unknown=sorted(unknown))
 
 
 @router.post("/admin/map/reset-layout")

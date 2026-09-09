@@ -519,3 +519,123 @@ class TestAdminGraph:
 
         assert zones["Legacy One"]["reachable"] is False
         assert zones["Legacy Two"]["reachable"] is False
+
+
+class TestLayoutPortability:
+    """Carrying a layout from one instance to another (spec 027)."""
+
+    async def test_export_holds_only_authored_positions(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        placed = await make_category(db_session, name="Layout Placed")
+        await make_category(db_session, name="Layout Derived")
+        placed.map_x, placed.map_y = 320, 480
+        await db_session.flush()
+
+        response = await client.get("/api/admin/map/layout")
+        zones = response.json()["zones"]
+
+        # Writing derived positions out too would silently freeze every
+        # automatic one, so a later layout change could never reach the map.
+        assert zones[placed.slug] == {"x": 320, "y": 480}
+        assert "layout-derived" not in zones
+
+    async def test_export_reset_import_restores_the_layout(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        zone = await make_category(db_session, name="Layout Round Trip")
+        zone.map_x, zone.map_y = 128, 256
+        await db_session.flush()
+
+        exported = (await client.get("/api/admin/map/layout")).json()
+        await client.post("/api/admin/map/reset-layout")
+        applied = await client.post("/api/admin/map/layout", json=exported)
+
+        assert applied.status_code == 200
+        await db_session.refresh(zone)
+        assert (zone.map_x, zone.map_y) == (128, 256)
+
+    async def test_it_matches_on_slug_not_id(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Categories are seeded with gen_random_uuid(), so every environment
+        has different ids for the same zones. A file keyed on id would import as
+        nothing at all, and silently."""
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        zone = await make_category(db_session, name="Layout By Slug")
+
+        response = await client.post(
+            "/api/admin/map/layout",
+            json={"version": 1, "zones": {zone.slug: {"x": 64, "y": 96}}},
+        )
+
+        assert response.json()["applied"] == 1
+        await db_session.refresh(zone)
+        assert (zone.map_x, zone.map_y) == (64, 96)
+
+    async def test_an_unknown_slug_is_reported_not_fatal(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        zone = await make_category(db_session, name="Layout Partial")
+
+        response = await client.post(
+            "/api/admin/map/layout",
+            json={
+                "version": 1,
+                "zones": {
+                    zone.slug: {"x": 8, "y": 16},
+                    "a-zone-that-is-not-here": {"x": 0, "y": 0},
+                },
+            },
+        )
+
+        # Environments drift; 21 of 22 placing beats none.
+        body = response.json()
+        assert body["applied"] == 1
+        assert body["unknown"] == ["a-zone-that-is-not-here"]
+
+    async def test_import_leaves_unlisted_zones_alone(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        listed = await make_category(db_session, name="Layout Listed")
+        untouched = await make_category(db_session, name="Layout Untouched")
+        untouched.map_x, untouched.map_y = 500, 600
+        await db_session.flush()
+
+        await client.post(
+            "/api/admin/map/layout",
+            json={"version": 1, "zones": {listed.slug: {"x": 1, "y": 2}}},
+        )
+
+        # Additive: reset-layout already exists for clearing, and quietly wiping
+        # unlisted zones would make import a much sharper tool than it looks.
+        await db_session.refresh(untouched)
+        assert (untouched.map_x, untouched.map_y) == (500, 600)
+
+    async def test_malformed_coordinates_apply_nothing(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in, role=UserRole.ADMIN)
+        zone = await make_category(db_session, name="Layout Malformed")
+
+        response = await client.post(
+            "/api/admin/map/layout",
+            json={"version": 1, "zones": {zone.slug: {"x": "over there", "y": 4}}},
+        )
+
+        assert response.status_code == 422
+        await db_session.refresh(zone)
+        assert zone.map_x is None
+
+    async def test_players_may_not_import_a_layout(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+
+        response = await client.post("/api/admin/map/layout", json={"version": 1, "zones": {}})
+
+        assert response.status_code == 403

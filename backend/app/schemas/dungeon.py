@@ -77,3 +77,27 @@ class GraphZoneResponse(BaseModel):
 
 class MapGraphResponse(BaseModel):
     zones: list[GraphZoneResponse]
+
+
+class LayoutZone(BaseModel):
+    x: int
+    y: int
+
+
+class MapLayoutFile(BaseModel):
+    """A portable layout (spec 027).
+
+    Keyed on **slug**, never on category id: categories are seeded with
+    ``gen_random_uuid()``, so every environment has different ids for the same
+    zones and an id-keyed file would import as nothing at all — silently.
+    """
+
+    version: int = 1
+    zones: dict[str, LayoutZone]
+
+
+class LayoutImportResult(BaseModel):
+    applied: int
+    #: Slugs with no matching category here. Reported, not fatal: environments
+    #: drift, and 21 of 22 zones placing is better than none.
+    unknown: list[str]
