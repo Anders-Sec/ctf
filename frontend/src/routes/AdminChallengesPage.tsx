@@ -32,6 +32,7 @@ import {
   listSkills,
   setChallengeSkills,
 } from "../api/adminSkills";
+import ChallengeCsvPanel from "../components/ChallengeCsvPanel";
 import ErrorMessage from "../components/ErrorMessage";
 import SkillPicker from "../components/SkillPicker";
 import Spinner from "../components/Spinner";
@@ -138,6 +139,8 @@ export default function AdminChallengesPage() {
           ))}
         </ul>
       )}
+
+      <ChallengeCsvPanel />
     </main>
   );
 }

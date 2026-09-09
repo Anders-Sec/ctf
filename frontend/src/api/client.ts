@@ -85,17 +85,22 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const csrfToken = readCookie(CSRF_COOKIE);
   const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
 
+  // A file upload goes as FormData: it must not be stringified, and it must
+  // not carry our Content-Type — the browser sets one with the multipart
+  // boundary, which we cannot construct here.
+  const isForm = body instanceof FormData;
+
   const response = await fetch(`${API_BASE}${path}`, {
     ...rest,
     // Sessions are httpOnly cookies (spec 002); without this they are not sent.
     credentials: "same-origin",
     headers: {
       Accept: "application/json",
-      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(body === undefined || isForm ? {} : { "Content-Type": "application/json" }),
       ...(needsCsrf && csrfToken ? { [CSRF_HEADER]: csrfToken } : {}),
       ...headers,
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
   });
 
   const requestId = response.headers.get("X-Request-ID");
