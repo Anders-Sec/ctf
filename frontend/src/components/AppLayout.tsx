@@ -7,6 +7,7 @@ import { useAdminView } from "../auth/adminView";
 import { useSession } from "../auth/session";
 import AssistantPanel from "./AssistantPanel";
 import Avatar from "./Avatar";
+import NotificationCentre from "./NotificationCentre";
 
 export default function AppLayout() {
   const { me } = useSession();
@@ -39,7 +40,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen">
-      <nav className="border-b border-stone bg-white/40">
+      <nav className="relative border-b border-stone bg-white/40">
         <div className="mx-auto flex max-w-3xl items-center gap-4 p-4">
           <NavLink to="/" className="font-semibold">
             CTF
@@ -112,6 +113,7 @@ export default function AppLayout() {
           )}
 
           <span className="ml-auto flex items-center gap-3">
+            {me?.capabilities.play && <NotificationCentre />}
             {isAdmin && (
               // The one cross-over control. Player view is the default so an
               // admin can see the event as a player does.
