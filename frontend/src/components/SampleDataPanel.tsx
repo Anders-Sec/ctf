@@ -79,6 +79,7 @@ export default function SampleDataPanel() {
               ["Players", summary.players],
               ["Parties", summary.teams],
               ["Solves", summary.solves],
+              ["Achievements", summary.achievements],
             ] as const
           ).map(([label, value]) => (
             <div key={label}>

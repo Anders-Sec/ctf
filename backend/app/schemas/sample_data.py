@@ -14,3 +14,4 @@ class SampleDataSummary(BaseModel):
     teams: int
     solves: int
     gates: int
+    achievements: int

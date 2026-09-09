@@ -9,6 +9,7 @@ export interface SampleDataSummary {
   teams: number;
   solves: number;
   gates: number;
+  achievements: number;
 }
 
 /** `standalone` builds a self-contained four-zone event; `dungeon` fills the

@@ -24,7 +24,7 @@ from app.models.challenge import (
 from app.models.play import MAX_SUBMISSION_LENGTH, Solve, Submission
 from app.models.user import User
 from app.services import answers as answer_service
-from app.services import scoring, unlocks
+from app.services import progress, scoring, unlocks
 from app.services.instances import launcher as instance_launcher
 from app.services.rate_limit import RateLimited, check_submission_limits
 from app.services.user_cache import load_active_team
@@ -303,6 +303,9 @@ async def submit_answer(
     # Bank the XP now (spec 015): the challenge's value at this moment, minus the
     # hints this player used on it. A snapshot — it never changes again, so levels
     # stay monotonic. Hints are only "paid for" here, out of the reward.
+    # Read before the solve lands, so the diff afterwards can tell what moved.
+    before = await progress.snapshot(db, user.id)
+
     count = await scoring.solve_count(db, challenge)
     value = scoring.challenge_value(challenge, count + 1)
     hint_cost = await _hint_cost_for(db, user.id, challenge.id)
@@ -326,6 +329,10 @@ async def submit_answer(
         # Two correct submissions raced. The constraint decided; the loser is
         # told they had already solved it, which is true.
         return SubmissionOutcome(True, True, 0, remaining)
+
+    # Anything the solve moved — an achievement, a level, an ability score, a
+    # whole wing opening — is noticed and announced here (spec 028).
+    await progress.announce_changes(db, user.id, before, redis=redis)
 
     return SubmissionOutcome(True, False, xp_awarded, remaining)
 

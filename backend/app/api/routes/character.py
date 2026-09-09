@@ -22,6 +22,8 @@ from app.schemas.character import (
     SetClassRequest,
     SkillRowResponse,
 )
+from app.schemas.notifications import AchievementResponse, AchievementsResponse
+from app.services import achievements as achievement_service
 from app.services import character as character_service
 from app.services import classes as class_service
 from app.services import narrator, scoreboard_cache
@@ -104,6 +106,19 @@ async def list_classes(db: DbSession, current: Player) -> list[ClassResponse]:
     024 makes the roster a mystery, and a total would give the game away.
     """
     return [_class_response(c) for c in await class_service.available_classes(db, current.user.id)]
+
+
+@router.get("/achievements")
+async def my_achievements(db: DbSession, current: Player) -> AchievementsResponse:
+    """The full roster, unearned ones redacted, plus the rarest this player holds."""
+    rows = await achievement_service.roster_for(db, current.user.id)
+    rarest = await achievement_service.rarest_held(db, current.user.id)
+    return AchievementsResponse(
+        earned=sum(1 for r in rows if r.earned),
+        total=len(rows),
+        items=[AchievementResponse(**vars(r)) for r in rows],
+        rarest=[AchievementResponse(**vars(r)) for r in rarest],
+    )
 
 
 @router.get("/{user_id}")

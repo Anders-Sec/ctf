@@ -75,6 +75,7 @@ class SampleSummary:
     teams: int = 0
     solves: int = 0
     gates: int = 0
+    achievements: int = 0
 
 
 def _slug(*parts: str) -> str:
@@ -487,7 +488,25 @@ async def generate_dungeon(db: AsyncSession) -> SampleSummary:
     await db.flush()
 
     await _build_dungeon_players(db, categories, depths, built, now, summary)
+
+    # Achievements never backfill (spec 028), so seeding them against solves
+    # that already exist awards nothing. Running the evaluator here is what
+    # keeps the feature visible in the environment it is built in.
+    await _award_achievements(db, summary)
     return summary
+
+
+async def _award_achievements(db: AsyncSession, summary: SampleSummary) -> None:
+    from app.services import achievements as achievement_service
+
+    users = (
+        (await db.execute(select(User.id).where(User.email.endswith(f"@{SAMPLE_EMAIL_DOMAIN}"))))
+        .scalars()
+        .all()
+    )
+    for user_id in users:
+        earned = await achievement_service.evaluate(db, user_id, achievement_service.SOLVE)
+        summary.achievements += len(earned)
 
 
 async def _zone_depths(db: AsyncSession, categories: list[Category]) -> dict:

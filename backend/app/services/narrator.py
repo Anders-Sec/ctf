@@ -23,3 +23,39 @@ def class_suggestion(reason: str, class_name: str) -> str:
         f"You keep hammering {reason} problems. "
         f"The {class_name} build fits the pattern — take it or don't."
     )
+
+
+# --- Notification copy (spec 028) ------------------------------------------
+# Every line the System AI says to a player lives here, so the coming narrative
+# pass can restyle all of it without touching a caller. Deterministic templates,
+# never a model call: no latency, no token cost, no guardrail surface, and no
+# path for a challenge answer to reach a prompt.
+
+
+def achievement_earned(name: str, description: str) -> str:
+    return f"Logged: {name}. {description} Noted, for whatever that is worth."
+
+
+def class_unlocked(class_name: str) -> str:
+    return (
+        f"You have done enough to qualify as {class_name}. "
+        "The designation is available on your sheet. Take it or don't."
+    )
+
+
+def zone_unlocked(zone_name: str) -> str:
+    return (
+        f"{zone_name} is open. Something in there was waiting for someone with "
+        "your particular set of bad habits."
+    )
+
+
+def level_up(level: int) -> str:
+    return f"Level {level}. The number went up. The dungeon did not get easier."
+
+
+def ability_milestone(ability_name: str, score: int) -> str:
+    return (
+        f"{ability_name} is at {score}. That is measurably above average, "
+        "which says more about the average than about you."
+    )
