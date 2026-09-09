@@ -103,6 +103,60 @@ describe("AdminMapPage", () => {
     expect(await screen.findByText(/1 zone is unreachable/i)).toBeInTheDocument();
   });
 
+  it("reports what an imported layout placed, and what it did not recognise", async () => {
+    stubFetch((path) => {
+      if (path.endsWith("/auth/me")) {
+        return {
+          status: 200,
+          body: me({ capabilities: capabilities({ view_admin: true, administer: true }) }),
+        };
+      }
+      if (path.endsWith("/admin/map/graph")) return { status: 200, body: GRAPH };
+      if (path.endsWith("/admin/skills")) return { status: 200, body: [] };
+      if (path.endsWith("/admin/map/layout")) {
+        return { status: 200, body: { applied: 1, unknown: ["gone-away"] } };
+      }
+      if (path.endsWith("/map")) return { status: 200, body: MAP };
+      return { status: 200, body: { message: "ok" } };
+    });
+    renderApp(<AdminMapPage />);
+
+    const file = new File(
+      [JSON.stringify({ version: 1, zones: { intro: { x: 8, y: 8 } } })],
+      "map-layout.json",
+      { type: "application/json" },
+    );
+    await userEvent.upload(await screen.findByLabelText("Layout file"), file);
+
+    // An unrecognised slug is reported rather than fatal: environments drift,
+    // and placing 21 of 22 zones beats placing none.
+    expect(await screen.findByText(/placed 1 zone/i)).toBeInTheDocument();
+    expect(screen.getByText(/gone-away/)).toBeInTheDocument();
+  });
+
+  it("says so when the layout file is not readable JSON", async () => {
+    stubFetch((path) => {
+      if (path.endsWith("/auth/me")) {
+        return {
+          status: 200,
+          body: me({ capabilities: capabilities({ view_admin: true, administer: true }) }),
+        };
+      }
+      if (path.endsWith("/admin/map/graph")) return { status: 200, body: GRAPH };
+      if (path.endsWith("/admin/skills")) return { status: 200, body: [] };
+      if (path.endsWith("/map")) return { status: 200, body: MAP };
+      return { status: 200, body: {} };
+    });
+    renderApp(<AdminMapPage />);
+
+    const file = new File(["not json at all"], "broken.json", {
+      type: "application/json",
+    });
+    await userEvent.upload(await screen.findByLabelText("Layout file"), file);
+
+    expect(await screen.findByText(/not readable json/i)).toBeInTheDocument();
+  });
+
   it("does not offer editing to someone who cannot administer", async () => {
     render({ administer: false });
 

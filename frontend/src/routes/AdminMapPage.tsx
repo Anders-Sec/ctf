@@ -1,16 +1,35 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { listSkills } from "../api/adminSkills";
-import { getMap, getMapGraph, resetMapLayout, setZonePosition } from "../api/dungeon";
+import {
+  exportLayout,
+  getMap,
+  getMapGraph,
+  importLayout,
+  resetMapLayout,
+  setZonePosition,
+  type MapLayoutFile,
+} from "../api/dungeon";
 import { useSession } from "../auth/session";
 import DungeonMap from "../components/DungeonMap";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 import ZoneGatePanel from "../components/ZoneGatePanel";
 
+/** FileReader rather than `file.text()`: the latter is missing in jsdom, and
+ *  this is supported everywhere without a shim. */
+function readText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
 /**
- * Laying out the dungeon and wiring it up (specs 021, 022).
+ * Laying out the dungeon and wiring it up (specs 021, 022, 027).
  *
  * The same map component players see, in edit mode — so the layout cannot look
  * one way here and another way to them. Drag a zone to move it, click one to
@@ -37,6 +56,48 @@ export default function AdminMapPage() {
     mutationFn: resetMapLayout,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["map"] }),
   });
+
+  // Carrying the layout between instances (spec 027). The file keys on slug,
+  // because category ids differ per environment.
+  const layoutInput = useRef<HTMLInputElement>(null);
+  const [layoutNote, setLayoutNote] = useState<string | null>(null);
+
+  const download = useMutation({
+    mutationFn: exportLayout,
+    onSuccess: (layout) => {
+      const blob = new Blob([JSON.stringify(layout, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "map-layout.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    },
+  });
+
+  const upload = useMutation({
+    mutationFn: (layout: MapLayoutFile) => importLayout(layout),
+    onSuccess: (result) => {
+      setLayoutNote(
+        `Placed ${result.applied} ${result.applied === 1 ? "zone" : "zones"}.` +
+          (result.unknown.length
+            ? ` Not recognised here: ${result.unknown.join(", ")}.`
+            : ""),
+      );
+      queryClient.invalidateQueries({ queryKey: ["map"] });
+    },
+  });
+
+  const onLayoutFile = async (file: File) => {
+    setLayoutNote(null);
+    try {
+      upload.mutate(JSON.parse(await readText(file)) as MapLayoutFile);
+    } catch {
+      setLayoutNote("That file is not readable JSON.");
+    }
+  };
 
   const zones = useMemo(() => graph.data?.zones ?? [], [graph.data]);
   const unreachable = useMemo(
@@ -70,13 +131,41 @@ export default function AdminMapPage() {
           </p>
         </div>
         {canWrite && (
-          <button
-            onClick={() => reset.mutate()}
-            disabled={reset.isPending}
-            className="rounded border border-stone px-4 py-2 text-sm disabled:opacity-50"
-          >
-            {reset.isPending ? "Resetting…" : "Reset layout"}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => download.mutate()}
+              disabled={download.isPending}
+              className="rounded border border-stone px-4 py-2 text-sm disabled:opacity-50"
+            >
+              Export layout
+            </button>
+            <button
+              onClick={() => layoutInput.current?.click()}
+              disabled={upload.isPending}
+              className="rounded border border-stone px-4 py-2 text-sm disabled:opacity-50"
+            >
+              {upload.isPending ? "Importing…" : "Import layout"}
+            </button>
+            <input
+              ref={layoutInput}
+              type="file"
+              accept="application/json,.json"
+              aria-label="Layout file"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void onLayoutFile(file);
+                event.target.value = "";
+              }}
+            />
+            <button
+              onClick={() => reset.mutate()}
+              disabled={reset.isPending}
+              className="rounded border border-stone px-4 py-2 text-sm disabled:opacity-50"
+            >
+              {reset.isPending ? "Resetting…" : "Reset layout"}
+            </button>
+          </div>
         )}
       </header>
 
@@ -93,7 +182,15 @@ export default function AdminMapPage() {
         </p>
       )}
 
-      <ErrorMessage error={move.error ?? reset.error ?? graph.error} />
+      {layoutNote && (
+        <p className="mt-4 rounded border border-stone bg-white/50 px-3 py-2 text-sm">
+          {layoutNote}
+        </p>
+      )}
+
+      <ErrorMessage
+        error={move.error ?? reset.error ?? graph.error ?? upload.error ?? download.error}
+      />
 
       <DungeonMap
         data={map.data}

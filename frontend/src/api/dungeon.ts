@@ -107,3 +107,15 @@ export const addCategoryGate = (
 
 export const removeGate = (requirementId: string) =>
   api.delete<{ message: string }>(`/admin/requirements/${requirementId}`);
+
+/** A portable layout, keyed on slug — category ids differ per environment
+ *  because they are seeded with gen_random_uuid() (spec 027). */
+export interface MapLayoutFile {
+  version: number;
+  zones: Record<string, { x: number; y: number }>;
+}
+
+export const exportLayout = () => api.get<MapLayoutFile>("/admin/map/layout");
+
+export const importLayout = (layout: MapLayoutFile) =>
+  api.post<{ applied: number; unknown: string[] }>("/admin/map/layout", layout);
