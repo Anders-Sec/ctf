@@ -319,7 +319,7 @@ class TestPointsOverride:
         category = await make_category(db_session)
         csv = (
             "category,title,difficulty,description,flag,points,state,max_attempts,release_at,skills\n"
-            "Prompt Injection,Very Easy,very_easy,,flag{a_test_value},100,,,,\n"
+            f"{category.name},Very Easy,very_easy,,flag{{a_test_value}},100,,,,\n"
         )
 
         await challenge_csv.import_csv(db_session, csv)
@@ -335,7 +335,7 @@ class TestPointsOverride:
         category = await make_category(db_session)
         csv = (
             "category,title,difficulty,description,flag,points,state,max_attempts,release_at,skills\n"
-            "Prompt Injection,Derived,very_easy,,flag{a_test_value},,,,,\n"
+            f"{category.name},Derived,very_easy,,flag{{a_test_value}},,,,,\n"
         )
 
         await challenge_csv.import_csv(db_session, csv)
@@ -351,7 +351,7 @@ class TestPointsOverride:
         category = await make_category(db_session)
         csv = (
             "category,title,difficulty,description,flag,points,state,max_attempts,release_at,skills\n"
-            "Prompt Injection,Bad,very_easy,,flag{a_test_value},nonsense,,,,\n"
+            f"{category.name},Bad,very_easy,,flag{{a_test_value}},nonsense,,,,\n"
         )
 
         report = await challenge_csv.import_csv(db_session, csv)
