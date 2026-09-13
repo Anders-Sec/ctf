@@ -349,14 +349,20 @@ of a flag. These are the jokes that write themselves.
 
 ## What "needs recording" would cost
 
-Eight of the above need storage we do not have. They are grouped so the cost is
+Eight of the above need storage we do not have (one of them less than it first appeared). They are grouped so the cost is
 visible before anything is committed to:
 
 - **Rate limiting** (`slow_down`, `told_twice`) — limits live in Redis and leave
   no trace once the window passes. Needs a counter or a small event row.
-- **Refused access** (`rattling_the_handle`, `above_your_pay_grade`, `eager`) —
-  all three are requests the API rejects *before* anything is written, which is
-  correct behaviour and exactly why nothing is left behind.
+- **Refused access** (`above_your_pay_grade`, `eager`) — both are requests the
+  API rejects *before* anything is written, which is correct behaviour and
+  exactly why nothing is left behind.
+- **Locked-challenge probes** (`rattling_the_handle`) — *correction*: these are
+  already logged. `submit_answer` records the attempt before raising, precisely
+  so 007 can see someone rattling handles. What is missing is narrower than it
+  looked: the row does not say the challenge was locked *at the time*, so it is
+  indistinguishable from an ordinary wrong answer. A flag on the row, not new
+  storage.
 - **Server errors** (`you_broke_it`) — logged, but to the log, not the database.
 - **Class history** (`identity_crisis`) — the current class is a column; changing
   it overwrites. Counting changes needs a history row.
