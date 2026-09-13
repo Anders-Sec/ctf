@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth";
 import AppLayout from "./components/AppLayout";
 import AdminChallengesPage from "./routes/AdminChallengesPage";
+import AdminAchievementsPage from "./routes/AdminAchievementsPage";
 import AdminClassesPage from "./routes/AdminClassesPage";
 import AdminDashboardPage from "./routes/AdminDashboardPage";
 import AdminMapPage from "./routes/AdminMapPage";
@@ -119,6 +120,14 @@ export default function App() {
           element={
             <RequireAuth staffOnly>
               <AdminSkillsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/achievements"
+          element={
+            <RequireAuth staffOnly>
+              <AdminAchievementsPage />
             </RequireAuth>
           }
         />
