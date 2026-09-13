@@ -31,7 +31,7 @@ Requires Node 18+ (uses built-in `fetch`). No dependencies.
 import { createEngine } from './src/engine.mjs';
 
 const engine = createEngine({
-  endpoint:   'http://127.0.0.1:1235/v1/chat/completions',
+  endpoint:   '<the model endpoint, from configuration>',
   model:      'llama3.3-8b-instruct-...',
   eventName:  'the Borderline Security Crawl',
   eventFacts: '- The Crawl runs 09:00-16:00.\n- Four floors: ...',

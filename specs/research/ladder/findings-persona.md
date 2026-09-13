@@ -1,7 +1,7 @@
 # System AI — build notes and test results
 
 Target model: `llama3.3-8b-instruct-thinking-heretic-uncensored-claude-4.5-opus-high-reasoning-i1`
-via LM Studio, `http://127.0.0.1:1235` (also reachable on `10.0.0.151` and `172.17.0.1`).
+via LM Studio, the model host (address in configuration, never in this repository).
 
 ## Files
 
