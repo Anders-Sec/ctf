@@ -250,6 +250,10 @@ class Settings(BaseSettings):
     #: Level 5 is ~11 solves, so nearly everyone who engages unlocks one; 016
     #: allows free re-speccing afterwards, so an early gate costs no accuracy.
     class_unlock_level: int = 5
+    #: Hours to add to a stored UTC timestamp to get the hour players actually
+    #: experienced. The event runs in one place, so "01:00" in an achievement
+    #: has to mean 01:00 there rather than 01:00 UTC (spec 029).
+    event_utc_offset_hours: int = 0
 
     @property
     def instances_configured(self) -> bool:
