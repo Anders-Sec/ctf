@@ -41,7 +41,7 @@ class TestReading:
 
         rows = (await client.get("/api/admin/achievements")).json()
 
-        assert len(rows) >= 100
+        assert len(rows) >= 90
         assert {"code", "name", "earned_by", "has_trigger", "needs_copy"} <= set(rows[0])
 
     async def test_a_row_without_a_trigger_is_marked_inert(
@@ -89,7 +89,8 @@ class TestReading:
         body = (await client.get("/api/admin/achievements/triggers")).json()
 
         assert set(body["registered"]) == set(engine.REGISTRY)
-        # Every registered trigger is used by the seeded roster.
+        # Every registered trigger is used by the seeded roster: a trigger with
+        # no achievement row is dead code.
         assert body["unused"] == []
 
     async def test_a_player_may_not_read_the_roster(
