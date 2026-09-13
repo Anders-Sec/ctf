@@ -1,6 +1,6 @@
 # Spec 029 — The Achievement Roster
 
-Status: **draft** (2026-09-13) — awaiting sign-off
+Status: **done** (2026-09-13)
 Phase: 2 (D&D Mechanics)
 Depends on: 028 (the notification and achievement engine)
 
@@ -225,6 +225,18 @@ is factual and stays true — "Ten wrong flags at a single challenge". The
 `description` is voice, and is the part being hand-written per achievement to
 fit the System AI's tone. Seeding a stand-in for it would risk placeholder prose
 reaching a player, so the seeded value is unmistakably not finished copy.
+
+## As built
+
+The roster was cut from 112 to **95** in review; the seventeen that went are
+listed in migration 0031. **92 of the 95 have triggers.** The three that do not
+are the ones this spec already flagged as needing storage that does not exist:
+`you_broke_it`, `above_your_pay_grade` and `identity_crisis`. They sit in the
+roster marked inert, which is a legitimate state rather than a defect.
+
+Against the dungeon sample data the spread came out as intended — 25
+achievements for the deepest player, 2 for the shallowest, and a tail of
+single-holder rarities for the top-five bar to draw on.
 
 ## Open questions
 
