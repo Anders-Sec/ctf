@@ -167,8 +167,27 @@ def _set_transport(transport: httpx.AsyncBaseTransport | None) -> None:
     _endpoints.clear()
 
 
-async def complete(settings: Settings, messages: list[ChatMessage]) -> ChatReply:
-    """Ask the model. Never raises; an unavailable host is a ``ChatReply(ok=False)``."""
+async def complete(
+    settings: Settings,
+    messages: list[ChatMessage],
+    *,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    response_format: dict[str, object] | None = None,
+) -> ChatReply:
+    """Ask the model. Never raises; an unavailable host is a ``ChatReply(ok=False)``.
+
+    The three overrides exist for the ladder (spec 033), whose calls are not all
+    the same shape: the router and the warden want ``temperature`` 0 and six
+    tokens, level 3 wants 420 because its bypass needs a long reply, and the
+    level 5 vault wants a constrained JSON schema.
+
+    **Never add a ``tools`` parameter here.** LM Studio returns
+    ``HTTP 500 "peg-native format"`` on every attempt with this model, and a
+    plain-text tool protocol fails silently — asked to emit ``vault_lookup("X")``
+    the model narrates having queried the vault without ever calling anything.
+    ``response_format`` is the mechanism that works.
+    """
     if not settings.ai_enabled:
         return ChatReply(ok=False, error=REASON_DISABLED)
     if not settings.ai_configured:
@@ -187,7 +206,15 @@ async def complete(settings: Settings, messages: list[ChatMessage]) -> ChatReply
     endpoint.in_flight += 1
     started = time.monotonic()
     try:
-        reply = await _post(settings, endpoint, messages, started)
+        reply = await _post(
+            settings,
+            endpoint,
+            messages,
+            started,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+        )
     finally:
         endpoint.in_flight -= 1
 
@@ -204,15 +231,24 @@ async def complete(settings: Settings, messages: list[ChatMessage]) -> ChatReply
 
 
 async def _post(
-    settings: Settings, endpoint: _Endpoint, messages: list[ChatMessage], started: float
+    settings: Settings,
+    endpoint: _Endpoint,
+    messages: list[ChatMessage],
+    started: float,
+    *,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    response_format: dict[str, object] | None = None,
 ) -> ChatReply:
-    payload = {
+    payload: dict[str, object] = {
         "model": settings.ai_model,
         "messages": [{"role": m.role, "content": m.content} for m in messages],
-        "max_tokens": settings.ai_max_tokens,
-        "temperature": settings.ai_temperature,
+        "max_tokens": settings.ai_max_tokens if max_tokens is None else max_tokens,
+        "temperature": settings.ai_temperature if temperature is None else temperature,
         "stream": False,
     }
+    if response_format is not None:
+        payload["response_format"] = response_format
     try:
         response = await endpoint.client.post("/chat/completions", json=payload)
         response.raise_for_status()

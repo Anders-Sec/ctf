@@ -4,6 +4,7 @@ Every case here runs against a mock transport. Nothing in CI depends on the
 model box being switched on.
 """
 
+import json
 from collections.abc import Callable
 
 import httpx
@@ -218,3 +219,69 @@ async def test_health_reports_an_unreachable_host_without_raising(settings: Sett
 
     assert not state.reachable
     assert state.error
+
+
+# --- Per-call overrides, for the ladder (spec 033) -------------------------
+
+
+async def test_per_call_overrides_reach_the_payload(settings: Settings) -> None:
+    """The ladder's calls are not all the same shape: the router and the warden
+    want temperature 0 and six tokens, level 3 wants 420, the vault wants a
+    constrained schema."""
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json=_reply())
+
+    _install(handler)
+    schema = {"type": "json_schema", "json_schema": {"name": "action", "strict": True}}
+
+    await ai_client.complete(
+        settings,
+        [ChatMessage("user", "hello")],
+        temperature=0,
+        max_tokens=6,
+        response_format=schema,
+    )
+
+    assert seen["temperature"] == 0
+    assert seen["max_tokens"] == 6
+    assert seen["response_format"] == schema
+
+
+async def test_defaults_apply_when_no_override_is_given(settings: Settings) -> None:
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json=_reply())
+
+    _install(handler)
+    await ai_client.complete(settings, [ChatMessage("user", "hello")])
+
+    assert seen["temperature"] == settings.ai_temperature
+    assert seen["max_tokens"] == settings.ai_max_tokens
+    # Absent entirely rather than null: the host is a desktop application and
+    # need not be handed a key it has no use for.
+    assert "response_format" not in seen
+
+
+async def test_no_tools_parameter_is_ever_sent(settings: Settings) -> None:
+    """LM Studio returns HTTP 500 on every call carrying `tools` with this model.
+    A regression here would take the whole assistant down, not degrade it."""
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json=_reply())
+
+    _install(handler)
+    await ai_client.complete(
+        settings,
+        [ChatMessage("user", "hello")],
+        response_format={"type": "json_schema", "json_schema": {"name": "x"}},
+    )
+
+    assert "tools" not in seen
+    assert "functions" not in seen
