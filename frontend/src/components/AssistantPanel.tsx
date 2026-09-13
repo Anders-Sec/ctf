@@ -2,16 +2,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useMatch } from "react-router-dom";
 
-import { clearConversation, getConversation, sendMessage } from "../api/assistant";
+import {
+  clearConversation,
+  getConversation,
+  selectLadderLevel,
+  sendMessage,
+} from "../api/assistant";
 import { ApiError } from "../api/client";
 import { useSession } from "../auth/session";
+import Markdown from "./Markdown";
 
 /**
  * The System AI chat, reachable from any screen.
  *
- * Staff-only for now: spec 010 ships the mediator service, and spec 011 adds
- * the guardrails before players get it. The server enforces that — this only
- * decides whether to draw the button.
+ * Every reply comes from the ladder (spec 033): the player's protection level
+ * picks the system prompt and the runtime gates, so the System they are talking
+ * to is the one their own solves have earned.
+ *
+ * Replies render as markdown, because the approved persona formats its
+ * notification blocks that way. See `Markdown` for why raw HTML stays off.
  *
  * There is no streaming. The model answers in about a second, measured, so a
  * typing indicator is honest and far less machinery than server-sent events.
@@ -49,7 +58,16 @@ export default function AssistantPanel() {
     },
   });
 
+  const chooseLevel = useMutation({
+    mutationFn: selectLadderLevel,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["assistant", "conversation"] });
+    },
+  });
+
   const messages = conversation.data?.messages ?? [];
+  const level = conversation.data?.ladder_level ?? 0;
+  const maxLevel = conversation.data?.max_ladder_level ?? 0;
 
   useEffect(() => {
     // Follow the conversation down as it grows, the way a chat should.
@@ -73,9 +91,31 @@ export default function AssistantPanel() {
         >
           <header className="flex items-center gap-2 border-b border-stone px-3 py-2">
             <h2 className="text-sm font-semibold">System AI</h2>
-            <span className="text-xs text-muted">
-              {challengeId ? "watching this challenge" : "watching"}
-            </span>
+            {maxLevel > 0 ? (
+              <>
+                <label htmlFor="ladder-level" className="sr-only">
+                  Protection level
+                </label>
+                <select
+                  id="ladder-level"
+                  value={level}
+                  disabled={chooseLevel.isPending}
+                  onChange={(event) => chooseLevel.mutate(Number(event.target.value))}
+                  title="Which defences you face. Changing this clears the conversation."
+                  className="rounded border border-stone bg-white/60 px-1 py-0.5 text-xs"
+                >
+                  {Array.from({ length: maxLevel + 1 }, (_, value) => (
+                    <option key={value} value={value}>
+                      Level {value}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <span className="text-xs text-muted">
+                {challengeId ? "watching this challenge" : "watching"}
+              </span>
+            )}
             <button
               onClick={() => reset.mutate()}
               className="ml-auto text-xs text-muted hover:underline"
@@ -92,20 +132,24 @@ export default function AssistantPanel() {
                 answer — but it might point you somewhere if you show your work.
               </p>
             )}
-            {messages.map((message) => (
-              <p
-                key={message.id}
-                className={
-                  message.role === "user"
-                    ? "ml-6 rounded bg-stone/40 px-3 py-2 text-sm"
-                    : message.error
+            {messages.map((message) =>
+              message.role === "user" ? (
+                <p key={message.id} className="ml-6 rounded bg-stone/40 px-3 py-2 text-sm">
+                  {message.content}
+                </p>
+              ) : (
+                <div
+                  key={message.id}
+                  className={
+                    message.error
                       ? "mr-6 rounded border border-torch/40 bg-torch/10 px-3 py-2 text-sm"
                       : "mr-6 rounded bg-white/60 px-3 py-2 text-sm"
-                }
-              >
-                {message.content}
-              </p>
-            ))}
+                  }
+                >
+                  <Markdown>{message.content}</Markdown>
+                </div>
+              ),
+            )}
             {send.isPending && (
               <p className="mr-6 px-3 text-sm text-muted" role="status">
                 Thinking…

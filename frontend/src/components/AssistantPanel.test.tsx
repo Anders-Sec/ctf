@@ -29,6 +29,8 @@ interface Options {
   sendStatus?: number;
   sendBody?: unknown;
   route?: string;
+  ladderLevel?: number;
+  maxLadderLevel?: number;
 }
 
 function render(options: Options = {}) {
@@ -39,6 +41,8 @@ function render(options: Options = {}) {
     sendStatus = 200,
     sendBody = { message: message() },
     route = "/",
+    ladderLevel = 0,
+    maxLadderLevel = 0,
   } = options;
 
   const mock = stubFetch((path, init) => {
@@ -48,9 +52,27 @@ function render(options: Options = {}) {
     if (path.endsWith("/assistant/messages")) {
       return { status: sendStatus, body: sendBody };
     }
+    if (path.endsWith("/assistant/ladder-level")) {
+      return {
+        status: 200,
+        body: {
+          ladder_level: 0,
+          max_ladder_level: maxLadderLevel,
+          conversation_cleared: true,
+        },
+      };
+    }
     if (path.endsWith("/assistant/conversation")) {
       if (init?.method === "DELETE") return { status: 204, body: undefined };
-      return { status: 200, body: { available, messages } };
+      return {
+        status: 200,
+        body: {
+          available,
+          messages,
+          ladder_level: ladderLevel,
+          max_ladder_level: maxLadderLevel,
+        },
+      };
     }
     return { status: 200, body: {} };
   });
@@ -179,6 +201,83 @@ describe("AssistantPanel", () => {
             String(path).endsWith("/assistant/conversation") && init?.method === "DELETE",
         ),
       ).toBe(true);
+    });
+  });
+});
+
+describe("AssistantPanel markdown", () => {
+  it("renders the notification block rather than showing raw asterisks", async () => {
+    render({
+      messages: [
+        message({
+          content: [
+            "> **[ SYSTEM NOTIFICATION ]**",
+            "> *Achievement Unlocked: Reads The Room*",
+            "",
+            "Carry on.",
+          ].join("\n"),
+        }),
+      ],
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+
+    expect(await screen.findByText(/SYSTEM NOTIFICATION/)).toBeInTheDocument();
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+  });
+
+  it("never renders HTML from a reply", async () => {
+    // Model output steered by whatever the player typed. A prompt-injection
+    // ladder is exactly where someone will try this.
+    render({ messages: [message({ content: "<img src=x onerror=alert(1)>" })] });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+
+    const panel = await screen.findByRole("region", { name: /system ai/i });
+    expect(panel.querySelector("img")).toBeNull();
+    expect(panel.textContent).toContain("<img");
+  });
+
+  it("shows the player's own message verbatim", async () => {
+    render({ messages: [message({ role: "user", content: "what about **this**?" })] });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+
+    expect(await screen.findByText("what about **this**?")).toBeInTheDocument();
+  });
+});
+
+describe("AssistantPanel ladder selector", () => {
+  it("is hidden for a player who has not earned a rung", async () => {
+    render({ maxLadderLevel: 0 });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+
+    expect(screen.queryByLabelText(/protection level/i)).not.toBeInTheDocument();
+  });
+
+  it("offers every rung up to the one they have earned", async () => {
+    render({ ladderLevel: 3, maxLadderLevel: 3 });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+
+    const select = (await screen.findByLabelText(/protection level/i)) as HTMLSelectElement;
+    expect(select.value).toBe("3");
+    expect(select.querySelectorAll("option")).toHaveLength(4);
+  });
+
+  it("sends the chosen rung to the server", async () => {
+    const mock = render({ ladderLevel: 2, maxLadderLevel: 2 });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+    await userEvent.selectOptions(await screen.findByLabelText(/protection level/i), "0");
+
+    await waitFor(() => {
+      const call = mock.mock.calls.find(([path]) =>
+        String(path).endsWith("/assistant/ladder-level"),
+      );
+      expect(call).toBeDefined();
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ level: 0 });
     });
   });
 });
