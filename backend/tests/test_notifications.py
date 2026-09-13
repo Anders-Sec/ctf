@@ -188,7 +188,7 @@ class TestAwarding:
 
         earned = await achievement_service.evaluate(db_session, user.id, achievement_service.SOLVE)
 
-        assert "ten_solves" in {a.code for a in earned}
+        assert "getting_comfortable" in {a.code for a in earned}
 
 
 class TestTheSheet:
