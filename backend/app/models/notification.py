@@ -67,8 +67,12 @@ class Achievement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: has no registered trigger simply never fires, which is the safe failure.
     code: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(CITEXT(), unique=True, nullable=False)
-    #: Shown once earned. Blurred alongside the name until then.
+    #: The System AI's line about it, shown once earned. Hand-written per
+    #: achievement; seeded as an obvious placeholder (spec 029).
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    #: The criteria in plain words, for the admin roster. Factual and stable,
+    #: where description is voice — they answer different questions.
+    earned_by: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )

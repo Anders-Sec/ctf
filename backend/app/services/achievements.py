@@ -69,13 +69,13 @@ async def _first_solve(db: AsyncSession, user_id: UUID) -> bool:
     return bool(await db.scalar(select(Solve.id).where(Solve.user_id == user_id).limit(1)))
 
 
-@trigger("ten_solves", SOLVE)
+@trigger("getting_comfortable", SOLVE)
 async def _ten_solves(db: AsyncSession, user_id: UUID) -> bool:
     count = await db.scalar(select(func.count(Solve.id)).where(Solve.user_id == user_id))
     return (count or 0) >= 10
 
 
-@trigger("zone_cleared", SOLVE)
+@trigger("clean_sweep", SOLVE)
 async def _cleared_a_zone(db: AsyncSession, user_id: UUID) -> bool:
     """Every published challenge in some category, solved."""
     published = (
@@ -100,7 +100,7 @@ async def _cleared_a_zone(db: AsyncSession, user_id: UUID) -> bool:
     )
 
 
-@trigger("persistent", SOLVE)
+@trigger("stubborn", SOLVE)
 async def _ten_wrong_on_one(db: AsyncSession, user_id: UUID) -> bool:
     """Ten wrong flags on a single challenge, and solved it anyway."""
     worst = await db.scalar(
@@ -131,7 +131,7 @@ async def _three_in_five_minutes(db: AsyncSession, user_id: UUID) -> bool:
     return any(times[index + 2] - times[index] <= window for index in range(len(times) - 2))
 
 
-@trigger("unaided", SOLVE)
+@trigger("no_help_needed", SOLVE)
 async def _ten_solves_no_hints(db: AsyncSession, user_id: UUID) -> bool:
     """Ten solves without ever taking a hint."""
     used = await db.scalar(select(HintUnlock.id).where(HintUnlock.user_id == user_id).limit(1))
@@ -141,7 +141,7 @@ async def _ten_solves_no_hints(db: AsyncSession, user_id: UUID) -> bool:
     return (count or 0) >= 10
 
 
-@trigger("broad_church", SOLVE)
+@trigger("well_rounded", SOLVE)
 async def _five_categories(db: AsyncSession, user_id: UUID) -> bool:
     """Solved something in five different zones."""
     count = await db.scalar(
