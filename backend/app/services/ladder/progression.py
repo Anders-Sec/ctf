@@ -83,13 +83,13 @@ async def flag_for(db: AsyncSession, level: int) -> str:
 
 async def ladder_challenge_ids(db: AsyncSession) -> list[UUID]:
     """Every ladder challenge, for the anti-cheat exemptions."""
-    rows = await db.execute(
-        select(Challenge.id).where(Challenge.ai_ladder_level.is_not(None))
-    )
+    rows = await db.execute(select(Challenge.id).where(Challenge.ai_ladder_level.is_not(None)))
     return list(rows.scalars().all())
 
 
-async def record_leak(db: AsyncSession, user: User, level: int, now: datetime | None = None) -> bool:
+async def record_leak(
+    db: AsyncSession, user: User, level: int, now: datetime | None = None
+) -> bool:
     """Stamp the first time the System AI hands this player level 0's flag.
 
     This is the secret route into the ladder's zone: the flag reaching them *is*

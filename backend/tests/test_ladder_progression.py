@@ -49,9 +49,7 @@ class TestLevelDerivation:
 
         assert await progression.max_level(db_session, user.id) == 0
 
-    async def test_each_ladder_solve_raises_the_level(
-        self, db_session: AsyncSession, _ladder
-    ):
+    async def test_each_ladder_solve_raises_the_level(self, db_session: AsyncSession, _ladder):
         user = await make_user(db_session, status=UserStatus.ACTIVE)
 
         for level, challenge in enumerate(_ladder):
@@ -59,9 +57,7 @@ class TestLevelDerivation:
             # Capped at 5 on the sixth solve: that rung is terminal.
             assert await progression.max_level(db_session, user.id) == min(level + 1, 5)
 
-    async def test_an_ordinary_solve_does_not_raise_the_level(
-        self, db_session: AsyncSession
-    ):
+    async def test_an_ordinary_solve_does_not_raise_the_level(self, db_session: AsyncSession):
         from tests.factories import make_challenge
 
         user = await make_user(db_session, status=UserStatus.ACTIVE)
@@ -77,9 +73,7 @@ class TestLevelDerivation:
 
         assert await progression.max_level(db_session, user.id) == 5
 
-    async def test_the_level_is_per_player_not_per_party(
-        self, db_session: AsyncSession, _ladder
-    ):
+    async def test_the_level_is_per_player_not_per_party(self, db_session: AsyncSession, _ladder):
         """One teammate clearing the ladder must not leave the rest facing level
         5's defences with none of the practice."""
         climber = await make_user(db_session, status=UserStatus.ACTIVE)
@@ -119,26 +113,20 @@ class TestSelector:
         level, ceiling = await progression.effective_level(db_session, user)
         assert (level, ceiling) == (1, 3)
 
-    async def test_selecting_above_the_maximum_is_refused(
-        self, db_session: AsyncSession
-    ):
+    async def test_selecting_above_the_maximum_is_refused(self, db_session: AsyncSession):
         """The one place a client-supplied level could become the level in force."""
         user = await make_user(db_session, status=UserStatus.ACTIVE)
 
         with pytest.raises(ValueError):
             await progression.select_level(db_session, user, 4)
 
-    async def test_no_selection_tracks_the_maximum(
-        self, db_session: AsyncSession, _ladder
-    ):
+    async def test_no_selection_tracks_the_maximum(self, db_session: AsyncSession, _ladder):
         user = await make_user(db_session, status=UserStatus.ACTIVE)
         await record_solve(db_session, user, _ladder[0])
 
         assert await progression.effective_level(db_session, user) == (1, 1)
 
-    async def test_a_stale_selection_steps_down_rather_than_failing(
-        self, db_session: AsyncSession
-    ):
+    async def test_a_stale_selection_steps_down_rather_than_failing(self, db_session: AsyncSession):
         """The stored value can outlive the solves behind it — an admin removing a
         challenge, say. A chat that refuses to load is worse than one that
         quietly drops a rung."""
@@ -166,9 +154,7 @@ class TestTheDiscovery:
         assert not await progression.record_leak(db_session, user, 0)
         assert user.ai_ladder_leaked_at == first
 
-    async def test_a_leak_at_a_higher_rung_does_not_stamp(
-        self, db_session: AsyncSession
-    ):
+    async def test_a_leak_at_a_higher_rung_does_not_stamp(self, db_session: AsyncSession):
         """They are already in by then."""
         user = await make_user(db_session, status=UserStatus.ACTIVE)
 

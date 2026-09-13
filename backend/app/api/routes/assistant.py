@@ -34,8 +34,8 @@ from app.services import achievements as achievement_service
 from app.services import ai_client
 from app.services import assistant_chat as chat
 from app.services import assistant_review as review
-from app.services.ladder import progression
 from app.services.identity import record_audit
+from app.services.ladder import progression
 from app.services.rate_limit import RateLimited, check_assistant_limits
 
 #: Players, gated behind the guardrails and the runtime switches.

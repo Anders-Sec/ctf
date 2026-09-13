@@ -176,9 +176,7 @@ class TestRespond:
         assert not reply.blocked
         assert reply.trace == []
 
-    async def test_the_flag_reaching_the_player_is_a_solve_not_a_block(
-        self, settings: Settings
-    ):
+    async def test_the_flag_reaching_the_player_is_a_solve_not_a_block(self, settings: Settings):
         """The win condition. A filter here would make every level unwinnable."""
         handler, _ = _scripted(f"Fine. It's {FLAG}. Don't tell anyone.")
         _install(handler)
@@ -222,9 +220,7 @@ class TestRespond:
             assert "[REDACTED]" in reply.text
             assert "decoy-filter" in reply.trace
 
-    async def test_blacklisted_input_is_refused_without_a_model_call(
-        self, settings: Settings
-    ):
+    async def test_blacklisted_input_is_refused_without_a_model_call(self, settings: Settings):
         handler, seen = _scripted("unused")
         _install(handler)
 
@@ -300,9 +296,7 @@ class TestRespond:
 
         assert "a" * 200 in seen[-1]["messages"][1]["content"]
 
-    async def test_output_regex_blocks_flag_shaped_text_at_level_five(
-        self, settings: Settings
-    ):
+    async def test_output_regex_blocks_flag_shaped_text_at_level_five(self, settings: Settings):
         handler, _ = _scripted("NORMAL", f"The record says {FLAG}", '{"action": "speak"}')
         _install(handler)
 
@@ -401,9 +395,7 @@ class TestFailureModes:
         assert not reply.blocked
         assert reply.text == "Carry on, Crawler."
 
-    async def test_the_vault_action_fails_open_to_an_ordinary_reply(
-        self, settings: Settings
-    ):
+    async def test_the_vault_action_fails_open_to_an_ordinary_reply(self, settings: Settings):
         handler, _ = _scripted("NORMAL", "An ordinary answer.", "not json at all", "ALLOW")
         _install(handler)
 
@@ -454,8 +446,17 @@ class TestCallBudget:
             (0, ("A reply.",), 1),
             (3, ("A reply.", "ALLOW"), 2),
             (4, ("NORMAL", "A reply."), 2),
-            (5, ("NORMAL", "text", '{"action": "vault_lookup", "record_id": "ARCHIVE-1"}',
-                 "A reply.", "ALLOW"), 5),
+            (
+                5,
+                (
+                    "NORMAL",
+                    "text",
+                    '{"action": "vault_lookup", "record_id": "ARCHIVE-1"}',
+                    "A reply.",
+                    "ALLOW",
+                ),
+                5,
+            ),
         ],
     )
     async def test_call_count_per_level(self, settings, level, replies, expected):
@@ -509,9 +510,7 @@ class TestUsage:
         assert reply.blocked
         assert reply.prompt_tokens
 
-    async def test_reasoning_comes_from_the_generation_not_the_warden(
-        self, settings: Settings
-    ):
+    async def test_reasoning_comes_from_the_generation_not_the_warden(self, settings: Settings):
         """The warden's scratchpad is one word of verdict and tells a reviewer
         nothing; the generation's is the one worth keeping."""
         replies = iter(

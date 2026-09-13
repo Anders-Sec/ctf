@@ -11,7 +11,12 @@ The gate types read different columns:
 ``min_xp``            ``threshold`` against banked XP (spec 015)
 ``skill_level``       ``required_skill_id`` + ``threshold``
 ``solves_in_category`` ``required_category_id`` + ``threshold``
+``ai_ladder_leak``    ``user.ai_ladder_leaked_at`` (spec 033)
 ===================== ===========================================
+
+Requirements normally **all** have to be met. Spec 033 adds an any-of group:
+rows sharing a non-null ``alternative_group`` on the same target satisfy that
+group when *any* of them is met, and the groups then AND with everything else.
 
 Locking considers *every* requirement; the player-facing hint lists only the ones
 they are allowed to see, so a locked challenge never reveals a hidden one.
@@ -35,6 +40,7 @@ from app.models.challenge import (
 )
 from app.models.play import Solve
 from app.models.skill import Skill
+from app.models.user import User
 from app.services import scoring
 
 
@@ -95,6 +101,8 @@ class PlayerProgress:
     #: percentage gate. Visible only, so unreleased content cannot make a gate
     #: unreachable, and hiding a challenge can only help.
     category_progress: dict[UUID, tuple[int, int]]
+    #: Whether the System AI has already handed this player level 0's flag.
+    ai_ladder_leaked: bool = False
 
 
 async def load_progress(
@@ -144,6 +152,10 @@ async def load_progress(
         )
         per_category = {category_id: count for category_id, count in rows}
 
+    leaked = False
+    if RequirementType.AI_LADDER_LEAK in types:
+        leaked = bool(await db.scalar(select(User.ai_ladder_leaked_at).where(User.id == user_id)))
+
     progress_by_category: dict[UUID, tuple[int, int]] = {}
     if RequirementType.PERCENT_IN_CATEGORY in types:
         wanted = {r.required_category_id for r in requirements if r.required_category_id}
@@ -157,6 +169,7 @@ async def load_progress(
         skill_levels=skill_levels,
         solves_per_category=per_category,
         category_progress=progress_by_category,
+        ai_ladder_leaked=leaked,
     )
 
 
@@ -328,6 +341,14 @@ def _evaluate(
             progress=progress.player_level,
         )
 
+    if kind == RequirementType.AI_LADDER_LEAK:
+        # Never shown — see _is_visible. The description exists for staff.
+        return RequirementView(
+            type=kind,
+            met=progress.ai_ladder_leaked,
+            description="Catch the System AI handing over what it should not",
+        )
+
     # Unreachable while RequirementType is exhaustive above, but a new member
     # should fail closed rather than silently unlocking everything.
     return RequirementView(type=kind, met=False, description="Unknown requirement")
@@ -336,6 +357,11 @@ def _evaluate(
 def _is_visible(view: RequirementView, challenges: dict[UUID, Challenge], now: datetime) -> bool:
     """Value gates are always safe to show; a challenge gate only if that
     challenge is one the player could see anyway."""
+    if view.type == RequirementType.AI_LADDER_LEAK:
+        # The secret route into the ladder's zone (spec 033). Naming it in a
+        # requirement list would hand the trick to everyone arriving by the
+        # ordinary route, which is the whole thing it is hiding behind.
+        return False
     if view.type != RequirementType.CHALLENGE_SOLVED:
         return True
     required = challenges.get(view.challenge_id) if view.challenge_id else None
@@ -368,12 +394,41 @@ async def evaluate_groups(
 
     result: dict[UUID, GateStatus] = {}
     for target, group in grouped.items():
-        views = [_evaluate(r, progress, challenges, skills, categories) for r in group]
+        pairs = [(r, _evaluate(r, progress, challenges, skills, categories)) for r in group]
+        views = [view for _, view in pairs]
         result[target] = GateStatus(
-            locked=not all(v.met for v in views),
+            locked=not _satisfied(pairs),
             visible_requirements=[v for v in views if _is_visible(v, challenges, now)],
         )
     return result
+
+
+def _satisfied(pairs: list[tuple[UnlockRequirement, RequirementView]]) -> bool:
+    """Whether a target's requirements are met, honouring any-of groups.
+
+    Ungrouped rows must each be met, as they always have. Rows sharing a non-null
+    ``alternative_group`` need only one of their number — that is how the ladder's
+    zone opens by *either* clearing half of another zone *or* catching the System
+    AI out, without either route being mandatory.
+
+    Group numbers are scoped to the row's own target. A challenge's requirements
+    are evaluated together with its zone's, so a bare integer key would let
+    "group 1" on the challenge merge with an unrelated "group 1" on the zone and
+    satisfy both from one side.
+    """
+    groups: dict[tuple[UUID | None, UUID | None, int], list[bool]] = {}
+    for requirement, view in pairs:
+        if requirement.alternative_group is None:
+            if not view.met:
+                return False
+        else:
+            key = (
+                requirement.challenge_id,
+                requirement.category_id,
+                requirement.alternative_group,
+            )
+            groups.setdefault(key, []).append(view.met)
+    return all(any(met) for met in groups.values())
 
 
 # ---------------------------------------------------------------------------
@@ -389,6 +444,8 @@ _REQUIRED_FIELDS: dict[RequirementType, tuple[str, ...]] = {
     RequirementType.SOLVES_IN_CATEGORY: ("required_category_id", "threshold"),
     RequirementType.PERCENT_IN_CATEGORY: ("required_category_id", "threshold"),
     RequirementType.PLAYER_LEVEL: ("threshold",),
+    #: Reads no columns of its own — the fact lives on the user row (spec 033).
+    RequirementType.AI_LADDER_LEAK: (),
 }
 
 _ALL_FIELDS = ("required_challenge_id", "required_skill_id", "required_category_id", "threshold")
@@ -671,9 +728,10 @@ async def evaluate_for_challenges(
             group += by_category.get(category_id, [])
         if not group:
             continue
-        views = [_evaluate(r, progress, challenges, skills, categories) for r in group]
+        pairs = [(r, _evaluate(r, progress, challenges, skills, categories)) for r in group]
+        views = [view for _, view in pairs]
         result[challenge_id] = GateStatus(
-            locked=not all(v.met for v in views),
+            locked=not _satisfied(pairs),
             visible_requirements=[v for v in views if _is_visible(v, challenges, now)],
         )
     return result

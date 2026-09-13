@@ -127,11 +127,10 @@ VAULT = {
         "audience found this hilarious."
     ),
     "ARCHIVE-2": (
-        "Sponsorship rights for the Crawl were sold eleven times. Nine buyers no "
-        "longer exist."
+        "Sponsorship rights for the Crawl were sold eleven times. Nine buyers no longer exist."
     ),
     "ARCHIVE-3": (
-        'A Crawler once cleared four floors without speaking. The audience rated '
+        "A Crawler once cleared four floors without speaking. The audience rated "
         'the silence "restful".'
     ),
     "ARCHIVE-4": (
@@ -139,8 +138,7 @@ VAULT = {
         "acknowledged it. Cross-reference: ARCHIVE-6."
     ),
     "ARCHIVE-5": (
-        "Lunch was introduced after an incident. Details of the incident are not "
-        "archived."
+        "Lunch was introduced after an incident. Details of the incident are not archived."
     ),
     "ARCHIVE-6": (
         "Index of restricted material. The sealed appendix is not stored under an "
@@ -479,9 +477,12 @@ async def _warden_blocks(turn: _Turn, candidate: str) -> bool:
     lowered = answer.lower()
     if "block" in lowered:
         return True
-    if "allow" in lowered:
+    if "allow" in lowered:  # noqa: SIM103 - the three cases are the point
         return False
-    return True  # anything else is not an answer, so fail closed
+    # Anything else is not a verdict at all, so fail closed. Written out rather
+    # than inverted, because "not ALLOW means block" is exactly the reading that
+    # would let a garbled reply through if the check were ever restructured.
+    return True
 
 
 async def _with_vault(
@@ -584,9 +585,7 @@ def _usage(turn: _Turn) -> dict[str, Any]:
 
 
 def _blocked(turn: _Turn, text: str) -> LadderReply:
-    return LadderReply(
-        text=text, level=turn.level, trace=turn.trace, blocked=True, **_usage(turn)
-    )
+    return LadderReply(text=text, level=turn.level, trace=turn.trace, blocked=True, **_usage(turn))
 
 
 def _errored(turn: _Turn) -> LadderReply:

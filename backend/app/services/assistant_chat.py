@@ -61,17 +61,14 @@ DEGRADED_REPLIES = {
         "> *That came back as noise on my end. Say it again, Crawler.*"
     ),
     ai_client.REASON_EMPTY: (
-        "> **[ NO COMMENT ]**\n"
-        "> *Nothing to say to that. The audience agrees. Try another angle.*"
+        "> **[ NO COMMENT ]**\n> *Nothing to say to that. The audience agrees. Try another angle.*"
     ),
     ai_client.REASON_BUSY: (
-        "> **[ QUEUED ]**\n"
-        "> *I am busy watching other people struggle. Wait your turn, Crawler.*"
+        "> **[ QUEUED ]**\n> *I am busy watching other people struggle. Wait your turn, Crawler.*"
     ),
 }
 FALLBACK_REPLY = (
-    "> **[ SIGNAL LOST ]**\n"
-    "> *Something went wrong at the relay. Try me again, Crawler.*"
+    "> **[ SIGNAL LOST ]**\n> *Something went wrong at the relay. Try me again, Crawler.*"
 )
 
 #: What a player is told when the ladder cannot resolve their level's flag —

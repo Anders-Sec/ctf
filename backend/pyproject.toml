@@ -38,6 +38,12 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 
+[tool.ruff.lint.per-file-ignores]
+# The router and warden system prompts are approved, calibrated text (spec 033).
+# Reflowing them to satisfy a line limit would change what the model is sent,
+# and every measured solve rate is a property of that exact wording.
+"app/services/ladder/engine.py" = ["E501"]
+
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI's whole dependency system is calls-in-defaults; B008 is wrong here.
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Header", "fastapi.Cookie", "fastapi.Body", "fastapi.Form", "fastapi.File"]
