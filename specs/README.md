@@ -57,6 +57,8 @@ lore, art, a wider tone pass) is intentionally not started.
 | 028 | `028-notifications-and-achievements.md` | Phase 2 — System AI notification feed, live socket, achievements and rarity | **done** |
 | 029 | `029-achievement-roster.md` | Phase 2 — the achievement roster and its triggers, plus the earned_by column | **done** — 95 in the roster, 92 wired |
 | 030 | `030-admin-achievements.md` | Phase 2 — admin CRUD over the roster, with trigger and copy status | **done** |
+| 031 | `031-boss-encounters.md` | Phase 2 — one boss per zone, six tiers, derived stars, per-zone achievements | **done** |
+| 032 | `032-broadcast-notifications.md` | Phase 2 — fan-out broadcasts: boss first kills, admin announcements, daily dispatch | **approved** — not yet built |
 
 ## Sequencing rationale
 

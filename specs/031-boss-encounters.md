@@ -1,6 +1,6 @@
 # Spec 031 — Boss Encounters
 
-Status: **draft** (2026-09-13) — awaiting sign-off
+Status: **done** (2026-09-13)
 Phase: 2 (D&D Mechanics)
 Depends on: 019 (zones), 028 (notifications and achievements), 029 (the roster)
 Pairs with: 032 (broadcasts — a boss first kill is its motivating case)
@@ -46,9 +46,9 @@ Tier is chosen by the admin and is independent of difficulty — a Neighborhood
 Boss in a late wing may be harder than a City Boss in an early one, and that is
 the point.
 
-**Celestial needs a colour picked.** Proposal: a pale iridescent violet-white
-that reads as "above legendary" without turning into a second gold. It is the
-one tier with no obvious real-world metal to borrow from.
+**Celestial** is a pale iridescent violet-white — it reads as "above legendary"
+without turning into a second gold, and it is the one tier with no real-world
+metal to borrow from.
 
 The tier names already carry their loot-box names in your notes
 (Bronze Boss Box … Celestial Boss Box). Those are recorded here but nothing in
