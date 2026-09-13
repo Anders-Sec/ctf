@@ -65,6 +65,11 @@ class UpdateChallengeRequest(BaseModel):
     container_template_id: UUID | None = None
     #: Null marks this challenge as not a boss; a tier makes it one (spec 031).
     boss_tier: BossTier | None = None
+    #: Which rung of the System AI ladder this is, 0-5 (spec 033). Null — almost
+    #: every challenge — means "not a ladder level". Setting it is what makes the
+    #: challenge's answer the flag that rung defends, so the engine can resolve
+    #: it; only one challenge may hold each rung.
+    ai_ladder_level: int | None = Field(default=None, ge=0, le=5)
 
 
 class PrerequisiteResponse(BaseModel):

@@ -609,3 +609,66 @@ class TestContainerAssignment:
             json={"container_template_id": str(uuid.uuid4())},
         )
         assert response.status_code == 404
+
+
+class TestLadderRung:
+    """Setting ai_ladder_level is what makes a challenge's answer the flag that
+    rung of the System AI defends (spec 033). Without an authoring path the
+    ladder cannot be configured at all."""
+
+    async def test_an_admin_can_assign_a_rung(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        challenge = await make_challenge(db_session)
+
+        response = await client.patch(
+            f"/api/admin/challenges/{challenge.id}", json={"ai_ladder_level": 3}
+        )
+
+        assert response.status_code == 200
+        await db_session.refresh(challenge)
+        assert challenge.ai_ladder_level == 3
+
+    async def test_two_challenges_cannot_hold_one_rung(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """The engine resolves a level's flag through this column, so two
+        claimants would make the prompt it builds ambiguous."""
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        first = await make_challenge(db_session, ai_ladder_level=2)
+        second = await make_challenge(db_session)
+
+        response = await client.patch(
+            f"/api/admin/challenges/{second.id}", json={"ai_ladder_level": 2}
+        )
+
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "ladder_rung_taken"
+        assert first.title in response.json()["error"]["message"]
+
+    async def test_a_rung_outside_the_ladder_is_refused(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        challenge = await make_challenge(db_session)
+
+        response = await client.patch(
+            f"/api/admin/challenges/{challenge.id}", json={"ai_ladder_level": 9}
+        )
+
+        assert response.status_code == 422
+
+    async def test_clearing_a_rung_takes_it_off_the_ladder(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        challenge = await make_challenge(db_session, ai_ladder_level=4)
+
+        response = await client.patch(
+            f"/api/admin/challenges/{challenge.id}", json={"ai_ladder_level": None}
+        )
+
+        assert response.status_code == 200
+        await db_session.refresh(challenge)
+        assert challenge.ai_ladder_level is None

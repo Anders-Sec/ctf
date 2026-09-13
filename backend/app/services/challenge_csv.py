@@ -50,6 +50,11 @@ COLUMNS = [
     "max_attempts",
     "release_at",
     "skills",
+    #: Which rung of the System AI ladder (spec 033). Blank for almost every
+    #: challenge. Without it the ladder cannot be authored from the spreadsheet
+    #: at all, and six challenges would have to be hand-edited after every
+    #: import.
+    "ai_ladder_level",
 ]
 
 #: 2/2/3/2/1/1 = 11 rows, 1,900 XP. See the module docstring.
@@ -167,6 +172,9 @@ async def build_export(db: AsyncSession) -> str:
                 "max_attempts": challenge.max_attempts or "",
                 "release_at": (challenge.release_at.isoformat() if challenge.release_at else ""),
                 "skills": "; ".join(skills.get(challenge.id, [])),
+                "ai_ladder_level": (
+                    "" if challenge.ai_ladder_level is None else challenge.ai_ladder_level
+                ),
             }
         )
     return out.getvalue()
@@ -200,6 +208,10 @@ async def import_csv(db: AsyncSession, text: str, *, dry_run: bool = False) -> I
 
     planned: list[tuple[int, dict, Category, Difficulty, list[UUID]]] = []
     seen: set[tuple[UUID, str]] = set()
+    #: Rung -> the line that claimed it. Two rows claiming the same rung would
+    #: hit the partial unique index halfway through the apply; catching it here
+    #: keeps the "nothing is written unless every row is good" promise.
+    seen_rungs: dict[int, int] = {}
 
     for index, raw in enumerate(rows):
         # +2: one for the header, one because spreadsheets count from 1.
@@ -273,6 +285,13 @@ async def import_csv(db: AsyncSession, text: str, *, dry_run: bool = False) -> I
             report.errors.append(RowError(line, *points_error))
             continue
 
+        ladder_error = _validate_ladder_level(row, line, seen_rungs)
+        if ladder_error:
+            report.errors.append(RowError(line, *ladder_error))
+            continue
+        if row.get("ai_ladder_level"):
+            seen_rungs[int(row["ai_ladder_level"])] = line
+
         planned.append((line, row, category, difficulty, skill_ids))
 
     if report.errors:
@@ -312,6 +331,20 @@ def _validate_release_at(row: dict) -> tuple[str, str] | None:
         datetime.fromisoformat(value)
     except ValueError:
         return ("release_at", f"{value!r} is not an ISO timestamp.")
+    return None
+
+
+def _validate_ladder_level(
+    row: dict, line: int, seen_rungs: dict[int, int]
+) -> tuple[str, str] | None:
+    value = row.get("ai_ladder_level", "")
+    if not value:
+        return None
+    if not value.isdigit() or not (0 <= int(value) <= 5):
+        return ("ai_ladder_level", f"{value!r} is not a rung between 0 and 5.")
+    claimed = seen_rungs.get(int(value))
+    if claimed is not None:
+        return ("ai_ladder_level", f"Line {claimed} already claims ladder level {value}.")
     return None
 
 
@@ -373,6 +406,9 @@ async def _apply(
         else (challenge.state if challenge.id else ChallengeState.DRAFT)
     )
     challenge.max_attempts = int(row["max_attempts"]) if row.get("max_attempts") else None
+    challenge.ai_ladder_level = (
+        int(row["ai_ladder_level"]) if row.get("ai_ladder_level") else None
+    )
     challenge.release_at = (
         datetime.fromisoformat(row["release_at"]) if row.get("release_at") else None
     )

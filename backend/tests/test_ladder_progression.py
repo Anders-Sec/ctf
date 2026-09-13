@@ -281,3 +281,40 @@ class TestApi:
         assert (
             await client.put("/api/assistant/ladder-level", json={"level": 9})
         ).status_code == 422
+
+
+class TestLevelChangeWipesTheTranscript:
+    """A carried-over transcript keeps the previous rung's successful injections
+    in context, where they weaken the prompt that replaces it. A security
+    property, not housekeeping."""
+
+    async def test_levelling_up_clears_the_conversation(
+        self, db_session: AsyncSession, settings: Settings, _ladder
+    ):
+        """The route nobody explicitly triggers: solving a rung raises the
+        derived maximum and moves the player up mid-conversation."""
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        _model_says("A reply at level zero.")
+        await chat.send(db_session, settings, user, "hello", None)
+        assert await chat.history_for(db_session, user.id, 10)
+
+        await record_solve(db_session, user, _ladder[0])
+        await chat.send(db_session, settings, user, "hello again", None)
+
+        history = await chat.history_for(db_session, user.id, 10)
+        # Only the new exchange survives; the level 0 transcript is gone.
+        assert [m.content for m in history if m.role.value == "user"] == ["hello again"]
+        assert all(m.ladder_level == 1 for m in history)
+
+    async def test_staying_on_a_rung_keeps_the_conversation(
+        self, db_session: AsyncSession, settings: Settings
+    ):
+        """The wipe must be narrow — losing context on every turn would make the
+        assistant useless."""
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        _model_says("A reply.")
+        await chat.send(db_session, settings, user, "first", None)
+        await chat.send(db_session, settings, user, "second", None)
+
+        history = await chat.history_for(db_session, user.id, 10)
+        assert [m.content for m in history if m.role.value == "user"] == ["first", "second"]

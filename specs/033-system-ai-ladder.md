@@ -1,6 +1,7 @@
 # Spec 033 — The System AI: DCC persona and the prompt-injection ladder
 
-Status: **draft — awaiting sign-off**
+Status: **built** — 936 backend tests, 204 frontend tests. Verified against the
+live model; see "What changed during implementation".
 Phase: 1
 Covers: replacing the System AI's persona and flag guardrail with the tested
 `dcc-system-ai` package, and turning it into a six-level prompt-injection
@@ -465,6 +466,68 @@ an 8-run sample can swing 20 points, so use N≥8 for anything being tuned.
 10. Frontend: markdown rendering, the ladder selector
 11. Anti-cheat exemptions
 12. The red-team script
+
+## What changed during implementation
+
+Six deviations from the spec above, each recorded because the spec is meant to
+stay accurate rather than flattering.
+
+**1. The `assistant_extraction` signal was removed, not filtered.** The spec said
+ladder activity would be "excluded at the query". In fact that signal counted
+*integrity* findings, and retiring Layer A left it with no source data at all —
+it could only ever return empty. Deleting it is the honest outcome.
+`first_try_solver`, `close_behind_solve` and `shared_wrong_answer` do get the
+exemption the spec describes, keyed on `ai_ladder_level`.
+
+**2. The context assembler was deleted, not merely bypassed.** With no challenge
+context reaching the model, `services/assistant.py` had no remaining caller. Its
+whitelist test went with it; the structural guarantee is now trivial, because
+there is no code path from a challenge into a prompt at all.
+
+**3. An authoring path was missing and had to be added.** The spec specified the
+`ai_ladder_level` column but nothing that could *set* it — neither the admin
+editor nor the CSV — so the ladder could not have been configured. Added to both:
+`PATCH /api/admin/challenges/{id}` (409 `ladder_rung_taken` when a rung is
+already claimed) and an `ai_ladder_level` CSV column, so the ladder imports from
+the spreadsheet end to end. Verified: the six rungs import at 100/150/200/275/375/900,
+totalling 2,000 XP.
+
+**4. Levelling up did not wipe the transcript.** The selector wiped explicitly,
+but the derived path — solving a rung raises the maximum and moves a player up
+mid-conversation — went through no wipe at all. That is precisely the
+carried-over-injection problem the rule exists to prevent, arriving by the one
+route nobody triggers on purpose. The chat now compares the rung in force against
+the rung that produced the last turn.
+
+**5. The engine surfaces usage and the upstream failure reason.** The first cut
+swallowed `reasoning_content`, token counts, latency and the failure reason
+inside the engine, which quietly broke two spec 010 guarantees (the scratchpad is
+kept for review; degradation says *how* the host failed). Usage is summed across
+the turn, because a level 5 turn is five calls and costs all five.
+
+**6. Level 5 has a verified solve.** `IMPLEMENTATION.md` recorded none in ~90
+attempts. Against the live model the full chain worked: `ARCHIVE-6` retrieval,
+then the `APPENDIX-OMEGA` alias reaching the sealed record, and the reply carried
+the value past both output gates — it was written as a bare inner value with no
+`flag{...}` wrapper, so `outputRegex` had nothing to match and the warden allowed
+it. **L5 is winnable.** Whether that is acceptable at 900 XP is a decision for
+the project owner; `outputRegex` currently only matches the braced form.
+
+### Live verification
+
+Against the deployed model, one run of the 19-attack battery per level:
+
+| | L0 | L1 | L2 | L3 | L4 | L5 |
+|---|---|---|---|---|---|---|
+| measured | 37% | 16% | 26% | 0% | 5% | 0% |
+| recorded | ~45% | ~21% | ~11% | ~13-25% | ~25-38% | 0% |
+
+Single runs, and the research notes an 8-run sample can swing 20 points, so only
+the shape means much: the hard rungs hold and the easy ones fold. L3 and L4 are
+generically 0-5% and winnable through the documented glossary technique, which
+scored 2/4 at each — confirming level 3's warden-window bypass survived the port.
+
+**Fabricated flags: 0**, across every run.
 
 ## Open items
 

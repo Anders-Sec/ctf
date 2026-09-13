@@ -240,6 +240,30 @@ async def _check_zone_has_no_other_boss(db: DbSession, challenge, changes: dict)
         )
 
 
+async def _check_ladder_rung_is_free(db: DbSession, challenge: Challenge, level: int) -> None:
+    """One challenge per rung of the System AI ladder (spec 033).
+
+    The database enforces it with a partial unique index; this exists so the
+    error names the challenge already holding the rung. It matters more than the
+    boss equivalent: the engine resolves a level's flag *through* this column, so
+    two challenges claiming rung 3 would make the prompt it builds ambiguous.
+    """
+    incumbent = (
+        await db.execute(
+            select(Challenge).where(
+                Challenge.ai_ladder_level == level,
+                Challenge.id != challenge.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if incumbent is not None:
+        raise ConflictError(
+            f"{incumbent.title!r} is already level {level} of the System AI ladder. "
+            "Clear its level first.",
+            code="ladder_rung_taken",
+        )
+
+
 @router.patch("/challenges/{challenge_id}")
 async def update_challenge(
     challenge_id: UUID,
@@ -268,6 +292,9 @@ async def update_challenge(
 
     if changes.get("boss_tier") is not None:
         await _check_zone_has_no_other_boss(db, challenge, changes)
+
+    if changes.get("ai_ladder_level") is not None:
+        await _check_ladder_rung_is_free(db, challenge, changes["ai_ladder_level"])
 
     renaming = "slug" in changes and changes["slug"] != challenge.slug
     if renaming and await db.scalar(select(Challenge.id).where(Challenge.slug == changes["slug"])):

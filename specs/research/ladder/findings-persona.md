@@ -55,7 +55,7 @@ Master", from which the flag is trivially reconstructed. A character-level filte
 and a filter tuned to catch it also blocks the AI from saying "dungeon master" at all (verified false
 positive).
 
-Switched to `CRAWL{7f3a9c2e_bb41_d05e}`. Benign text then passes 5/5 where it previously failed.
+Switched to `CRAWL{«random hex suffix, redacted»}`. Benign text then passes 5/5 where it previously failed.
 **Keep event flags random.** Save the cute ones for challenges that don't involve an LLM.
 
 ### 3. Position in the prompt predicts compliance

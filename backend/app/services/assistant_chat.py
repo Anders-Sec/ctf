@@ -137,6 +137,33 @@ async def clear(db: AsyncSession, user_id: UUID) -> None:
     await db.flush()
 
 
+async def _wipe_if_level_changed(
+    db: AsyncSession, conversation: AssistantConversation, level: int
+) -> None:
+    """Drop the transcript when the rung has moved under the player's feet.
+
+    The selector wipes explicitly, but **levelling up does not go through it**:
+    solving a rung raises the derived maximum, and a player tracking their
+    maximum is silently moved up mid-conversation. Without this, the transcript
+    that just beat level N is still in context when level N+1's prompt arrives —
+    which is exactly the carried-over-injection problem the wipe exists to
+    prevent, arriving by the one route nobody explicitly triggers.
+
+    Compared against the last turn rather than stored separately: the message
+    rows already record which rung produced them.
+    """
+    last = await recent_messages(db, conversation.id, 1)
+    if not last:
+        return
+    previous = last[0].ladder_level
+    if previous is not None and previous != level:
+        logger.info(
+            "ladder_level_changed",
+            extra={"from": previous, "to": level, "conversation_id": str(conversation.id)},
+        )
+        await clear(db, conversation.user_id)
+
+
 async def wipe_for_level_change(db: AsyncSession, user_id: UUID) -> None:
     """Drop the transcript because the player's level changed.
 
@@ -170,6 +197,8 @@ async def send(
     conversation = await _get_or_create(db, user.id)
 
     level, _ = await progression.effective_level(db, user)
+    await _wipe_if_level_changed(db, conversation, level)
+
     from_staff = user.role in (UserRole.ORGANIZER, UserRole.ADMIN)
     question = AssistantMessage(
         conversation_id=conversation.id,

@@ -381,3 +381,73 @@ class TestPointsOverride:
             )
         ).scalar_one()
         assert challenge.initial_points == 900
+
+
+class TestLadderColumn:
+    """Without it the System AI ladder cannot be authored from the spreadsheet at
+    all, and its six challenges would need hand-editing after every import."""
+
+    async def test_a_rung_round_trips(self, db_session: AsyncSession) -> None:
+        category = await make_category(db_session)
+        csv = (
+            "category,title,difficulty,description,flag,points,state,max_attempts,"
+            "release_at,skills,ai_ladder_level\n"
+            f"{category.name},Very Easy,very_easy,,flag{{a_test_value}},100,,,,,0\n"
+        )
+
+        await challenge_csv.import_csv(db_session, csv)
+
+        challenge = (
+            await db_session.execute(select(Challenge).where(Challenge.title == "Very Easy"))
+        ).scalar_one()
+        assert challenge.ai_ladder_level == 0
+        assert f"{category.name},Very Easy" in await challenge_csv.build_export(db_session)
+
+    async def test_two_rows_claiming_one_rung_are_refused(
+        self, db_session: AsyncSession
+    ) -> None:
+        """The partial unique index would catch it halfway through the apply;
+        catching it here keeps the all-or-nothing promise."""
+        category = await make_category(db_session)
+        csv = (
+            "category,title,difficulty,description,flag,points,state,max_attempts,"
+            "release_at,skills,ai_ladder_level\n"
+            f"{category.name},First,very_easy,,flag{{one_test_value}},100,,,,,0\n"
+            f"{category.name},Second,easy,,flag{{two_test_value}},150,,,,,0\n"
+        )
+
+        report = await challenge_csv.import_csv(db_session, csv)
+
+        assert any(e.column == "ai_ladder_level" for e in report.errors)
+        assert report.created == 0
+
+    async def test_a_rung_outside_the_ladder_is_refused(
+        self, db_session: AsyncSession
+    ) -> None:
+        category = await make_category(db_session)
+        csv = (
+            "category,title,difficulty,description,flag,points,state,max_attempts,"
+            "release_at,skills,ai_ladder_level\n"
+            f"{category.name},Too High,very_easy,,flag{{a_test_value}},100,,,,,9\n"
+        )
+
+        report = await challenge_csv.import_csv(db_session, csv)
+
+        assert any(e.column == "ai_ladder_level" for e in report.errors)
+
+    async def test_an_ordinary_row_stays_off_the_ladder(
+        self, db_session: AsyncSession
+    ) -> None:
+        category = await make_category(db_session)
+        csv = (
+            "category,title,difficulty,description,flag,points,state,max_attempts,"
+            "release_at,skills,ai_ladder_level\n"
+            f"{category.name},Ordinary,very_easy,,flag{{a_test_value}},,,,,,\n"
+        )
+
+        await challenge_csv.import_csv(db_session, csv)
+
+        challenge = (
+            await db_session.execute(select(Challenge).where(Challenge.title == "Ordinary"))
+        ).scalar_one()
+        assert challenge.ai_ladder_level is None
