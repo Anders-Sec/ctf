@@ -8,10 +8,11 @@ from httpx import AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings
 from app.models.challenge import Category, Challenge, ChallengeState, Difficulty, points_for
 from app.models.user import UserRole, UserStatus
 from app.services import challenge_csv
-from tests.factories import make_user
+from tests.factories import make_category, make_challenge, make_user
 
 pytestmark = pytest.mark.usefixtures("running_event")
 
@@ -307,3 +308,76 @@ class TestAccess:
         assert response.status_code == 200
         assert "text/csv" in response.headers["content-type"]
         assert "attachment" in response.headers["content-disposition"]
+
+
+class TestPointsOverride:
+    """Spec 033: areas differ in size, and six ladder levels have to total what an
+    eleven-challenge zone does. Without the column a re-import silently resets
+    them to what difficulty derives."""
+
+    async def test_points_override_difficulty(self, db_session: AsyncSession) -> None:
+        category = await make_category(db_session)
+        csv = (
+            "category,title,difficulty,description,flag,points,state,max_attempts,release_at,skills\n"
+            "Prompt Injection,Very Easy,very_easy,,flag{a_test_value},100,,,,\n"
+        )
+
+        await challenge_csv.import_csv(db_session, csv)
+
+        challenge = (
+            await db_session.execute(select(Challenge).where(Challenge.title == "Very Easy"))
+        ).scalar_one()
+        assert challenge.initial_points == 100  # not difficulty x xp_base
+
+    async def test_an_empty_points_cell_still_derives_from_difficulty(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        category = await make_category(db_session)
+        csv = (
+            "category,title,difficulty,description,flag,points,state,max_attempts,release_at,skills\n"
+            "Prompt Injection,Derived,very_easy,,flag{a_test_value},,,,,\n"
+        )
+
+        await challenge_csv.import_csv(db_session, csv)
+
+        challenge = (
+            await db_session.execute(select(Challenge).where(Challenge.title == "Derived"))
+        ).scalar_one()
+        assert challenge.initial_points == points_for(Difficulty.VERY_EASY, settings.xp_base)
+
+    async def test_a_negative_or_junk_points_cell_is_refused(
+        self, db_session: AsyncSession
+    ) -> None:
+        category = await make_category(db_session)
+        csv = (
+            "category,title,difficulty,description,flag,points,state,max_attempts,release_at,skills\n"
+            "Prompt Injection,Bad,very_easy,,flag{a_test_value},nonsense,,,,\n"
+        )
+
+        report = await challenge_csv.import_csv(db_session, csv)
+
+        assert any(e.column == "points" for e in report.errors)
+        assert report.created == 0
+
+    async def test_an_override_round_trips_through_export(
+        self, db_session: AsyncSession
+    ) -> None:
+        """The point of the column: re-importing an export must not reset it."""
+        category = await make_category(db_session)
+        await make_challenge(
+            db_session,
+            category=category,
+            title="Nearly Impossible",
+            difficulty=Difficulty.NEARLY_IMPOSSIBLE,
+            initial_points=900,
+        )
+
+        exported = await challenge_csv.build_export(db_session)
+        await challenge_csv.import_csv(db_session, exported)
+
+        challenge = (
+            await db_session.execute(
+                select(Challenge).where(Challenge.title == "Nearly Impossible")
+            )
+        ).scalar_one()
+        assert challenge.initial_points == 900

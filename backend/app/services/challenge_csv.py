@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.errors import AppError
 from app.models.challenge import (
+    MINIMUM_POINTS_FRACTION,
     Category,
     Challenge,
     ChallengeAnswer,
@@ -44,6 +45,7 @@ COLUMNS = [
     "difficulty",
     "description",
     "flag",
+    "points",
     "state",
     "max_attempts",
     "release_at",
@@ -141,6 +143,7 @@ async def build_export(db: AsyncSession) -> str:
         ).all()
     }
     skills = await _skill_names_by_challenge(db)
+    xp_base = get_settings().xp_base
 
     out = io.StringIO()
     writer = csv.DictWriter(out, fieldnames=COLUMNS, lineterminator="\n")
@@ -153,6 +156,13 @@ async def build_export(db: AsyncSession) -> str:
                 "difficulty": challenge.difficulty.value,
                 "description": challenge.body or "",
                 "flag": answers.get(challenge.id, ""),
+                # Only written when it differs from what difficulty would derive,
+                # so an ordinary export stays a file of difficulties.
+                "points": (
+                    challenge.initial_points
+                    if challenge.initial_points != points_for(challenge.difficulty, xp_base)
+                    else ""
+                ),
                 "state": challenge.state.value,
                 "max_attempts": challenge.max_attempts or "",
                 "release_at": (challenge.release_at.isoformat() if challenge.release_at else ""),
@@ -258,6 +268,11 @@ async def import_csv(db: AsyncSession, text: str, *, dry_run: bool = False) -> I
             report.errors.append(RowError(line, *attempts_error))
             continue
 
+        points_error = _validate_points(row)
+        if points_error:
+            report.errors.append(RowError(line, *points_error))
+            continue
+
         planned.append((line, row, category, difficulty, skill_ids))
 
     if report.errors:
@@ -300,6 +315,15 @@ def _validate_release_at(row: dict) -> tuple[str, str] | None:
     return None
 
 
+def _validate_points(row: dict) -> tuple[str, str] | None:
+    value = row.get("points", "")
+    if not value:
+        return None
+    if not value.isdigit() or int(value) < 1:
+        return ("points", f"{value!r} is not a positive whole number.")
+    return None
+
+
 def _validate_max_attempts(row: dict) -> tuple[str, str] | None:
     value = row.get("max_attempts", "")
     if not value:
@@ -331,10 +355,17 @@ async def _apply(
     challenge.title = row["title"]
     challenge.body = row.get("description", "")
     challenge.difficulty = difficulty
-    # Derived from difficulty, exactly as the admin editor does — the CSV says
-    # how hard, never how many points.
-    challenge.initial_points = points_for(difficulty, xp_base)
-    challenge.minimum_points = minimum_points_for(difficulty, xp_base)
+    # Difficulty derives the XP, exactly as the admin editor does. `points` is
+    # the deliberate override (spec 033): areas differ in size, and six ladder
+    # levels have to total what an eleven-challenge zone does. Without the
+    # column, a re-import would silently reset them.
+    override = int(row["points"]) if row.get("points") else None
+    challenge.initial_points = override or points_for(difficulty, xp_base)
+    challenge.minimum_points = (
+        max(1, int(override * MINIMUM_POINTS_FRACTION))
+        if override
+        else minimum_points_for(difficulty, xp_base)
+    )
     challenge.scoring = default_scoring_for(difficulty)
     challenge.state = (
         ChallengeState(row["state"].lower())
