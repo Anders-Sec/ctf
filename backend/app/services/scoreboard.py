@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.models.play import ScoreAdjustment, Solve
 from app.models.team import Team, TeamMembership
 from app.models.user import User, UserRole, UserStatus
+from app.services import achievements as achievement_service
 from app.services.scoring import level_for_xp
 
 
@@ -139,6 +140,9 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
 
     team_names = {team.id: team.name for team in teams}
 
+    # Boss kills, for the star column. One query for the whole board rather
+    # than one per player.
+    stars = await achievement_service.star_counts(db)
     player_entries = _rank_players(
         players,
         solves_by_user,
@@ -147,6 +151,7 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
         team_of_user,
         team_names,
         level_base,
+        stars,
     )
     team_entries = _rank_teams(
         members_of_team,
@@ -170,8 +175,10 @@ def _rank_players(
     team_of_user: dict[UUID, UUID],
     team_names: dict[UUID, str],
     level_base: int,
+    stars: dict[UUID, int],
 ) -> list[PlayerEntry]:
     rows = []
+
     for player in players:
         solved = solves_by_user.get(player.id, {})
         score = sum(xp for _, xp in solved.values())
@@ -193,6 +200,7 @@ def _rank_players(
                 "level": level_for_xp(score, level_base),
                 "solve_count": len(solved),
                 "last_gain_at": max(gains) if gains else None,
+                "stars": stars.get(player.id, 0),
                 "sort_name": player.display_name.casefold(),
             }
         )

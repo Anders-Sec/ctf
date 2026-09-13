@@ -38,3 +38,14 @@ class AchievementsResponse(BaseModel):
     items: list[AchievementResponse]
     #: The player's rarest earned achievements — their bragging rights.
     rarest: list[AchievementResponse]
+
+
+class StarResponse(BaseModel):
+    """A boss kill (spec 031). Derived from the solve, never stored."""
+
+    challenge_id: UUID
+    challenge_title: str
+    zone_name: str
+    tier: str
+    #: 1 (Neighborhood) to 6 (Floor), so a client can order without the names.
+    level: int

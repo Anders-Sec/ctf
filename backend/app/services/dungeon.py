@@ -21,7 +21,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.challenge import Category, UnlockRequirement
+from app.models.challenge import Category, Challenge, UnlockRequirement
 from app.models.event import EventConfig
 from app.services import challenges as challenge_service
 from app.services import unlocks
@@ -54,6 +54,9 @@ class Zone:
     unlock_requirements: list[RequirementView]
     cleared: int
     total: int
+    #: The tier of this zone's boss, if it has one (spec 031). A wing with
+    #: something waiting in it reads differently from one that merely ends.
+    boss_tier: str | None = None
 
 
 @dataclass(frozen=True)
@@ -98,6 +101,17 @@ async def build(db: AsyncSession, user_id: UUID, now: datetime) -> DungeonMap:
         if row["solved"]:
             cleared[category_id] = cleared.get(category_id, 0) + 1
 
+    boss_tiers = {
+        category_id: tier.value
+        for category_id, tier in (
+            await db.execute(
+                select(Challenge.category_id, Challenge.boss_tier).where(
+                    Challenge.boss_tier.is_not(None)
+                )
+            )
+        ).all()
+    }
+
     edges = _edges(categories, list(requirements))
     positions = _layout(categories, edges)
 
@@ -122,6 +136,7 @@ async def build(db: AsyncSession, user_id: UUID, now: datetime) -> DungeonMap:
                 unlock_requirements=gate.visible_requirements if gate else [],
                 cleared=cleared.get(category.id, 0),
                 total=total.get(category.id, 0),
+                boss_tier=boss_tiers.get(category.id),
             )
         )
 

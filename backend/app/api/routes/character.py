@@ -22,7 +22,11 @@ from app.schemas.character import (
     SetClassRequest,
     SkillRowResponse,
 )
-from app.schemas.notifications import AchievementResponse, AchievementsResponse
+from app.schemas.notifications import (
+    AchievementResponse,
+    AchievementsResponse,
+    StarResponse,
+)
 from app.services import achievements as achievement_service
 from app.services import character as character_service
 from app.services import classes as class_service
@@ -120,6 +124,15 @@ async def my_achievements(db: DbSession, current: Player) -> AchievementsRespons
         items=[AchievementResponse(**vars(r)) for r in rows],
         rarest=[AchievementResponse(**vars(r)) for r in rarest],
     )
+
+
+@router.get("/stars")
+async def my_stars(db: DbSession, current: Player) -> list[StarResponse]:
+    """Bosses this player has beaten, biggest fight first."""
+    return [
+        StarResponse(**vars(star))
+        for star in await achievement_service.stars_for(db, current.user.id)
+    ]
 
 
 @router.get("/{user_id}")

@@ -21,6 +21,8 @@ class ZoneResponse(BaseModel):
     unlock_requirements: list[UnlockRequirementResponse] = []
     cleared: int
     total: int
+    #: The tier of this zone's boss, if it has one (spec 031).
+    boss_tier: str | None = None
 
 
 class EdgeResponse(BaseModel):

@@ -64,6 +64,7 @@ async def get_map(db: DbSession, current: Player) -> MapResponse:
                 unlock_requirements=[_requirement(r) for r in zone.unlock_requirements],
                 cleared=zone.cleared,
                 total=zone.total,
+                boss_tier=zone.boss_tier,
             )
             for zone in board.zones
         ],

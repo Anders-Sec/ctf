@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.challenge import (
+    BossTier,
     ChallengeState,
     DecayBasis,
     Difficulty,
@@ -62,6 +63,8 @@ class UpdateChallengeRequest(BaseModel):
     max_attempts: int | None = Field(default=None, ge=1, le=1000)
     #: Attach (or, with an explicit null, detach) a container template. spec 014.
     container_template_id: UUID | None = None
+    #: Null marks this challenge as not a boss; a tier makes it one (spec 031).
+    boss_tier: BossTier | None = None
 
 
 class PrerequisiteResponse(BaseModel):

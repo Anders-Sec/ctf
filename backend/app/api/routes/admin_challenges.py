@@ -216,6 +216,30 @@ async def get_challenge(challenge_id: UUID, db: DbSession, current: Staff) -> Ad
     return await _detail_response(db, challenge, count, scoring.challenge_value(challenge, count))
 
 
+async def _check_zone_has_no_other_boss(db: DbSession, challenge, changes: dict) -> None:
+    """One boss per zone (spec 031).
+
+    The database enforces it with a partial unique index; this exists so the
+    error names the challenge already holding the slot instead of surfacing a
+    constraint violation.
+    """
+    category_id = changes.get("category_id", challenge.category_id)
+    incumbent = (
+        await db.execute(
+            select(Challenge).where(
+                Challenge.category_id == category_id,
+                Challenge.boss_tier.is_not(None),
+                Challenge.id != challenge.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if incumbent is not None:
+        raise ConflictError(
+            f"{incumbent.title!r} is already the boss of this zone. Clear its tier first.",
+            code="zone_has_boss",
+        )
+
+
 @router.patch("/challenges/{challenge_id}")
 async def update_challenge(
     challenge_id: UUID,
@@ -241,6 +265,9 @@ async def update_challenge(
     # An explicit null for scoring means "use the default", not "store null".
     if "scoring" in changes and changes["scoring"] is None:
         changes.pop("scoring")
+
+    if changes.get("boss_tier") is not None:
+        await _check_zone_has_no_other_boss(db, challenge, changes)
 
     renaming = "slug" in changes and changes["slug"] != challenge.slug
     if renaming and await db.scalar(select(Challenge.id).where(Challenge.slug == changes["slug"])):
