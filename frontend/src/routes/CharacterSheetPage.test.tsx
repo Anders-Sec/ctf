@@ -63,6 +63,7 @@ describe("CharacterSheetPage", () => {
     stubFetch((path) => {
       if (path.endsWith("/auth/me")) return { status: 200, body: me() };
       if (path.endsWith("/character/me")) return { status: 200, body: OWN_SHEET };
+      if (path.endsWith("/character/stars")) return { status: 200, body: [] };
       if (path.endsWith("/character/achievements"))
         return { status: 200, body: { earned: 0, total: 0, items: [], rarest: [] } };
       if (path.endsWith("/character/classes")) return { status: 200, body: [] };
@@ -83,6 +84,7 @@ describe("CharacterSheetPage", () => {
     stubFetch((path) => {
       if (path.endsWith("/auth/me")) return { status: 200, body: me() };
       if (path.endsWith("/character/me")) return { status: 200, body: OWN_SHEET };
+      if (path.endsWith("/character/stars")) return { status: 200, body: [] };
       if (path.endsWith("/character/achievements"))
         return { status: 200, body: { earned: 0, total: 0, items: [], rarest: [] } };
       if (path.endsWith("/character/classes")) return { status: 200, body: [] };
@@ -185,6 +187,7 @@ describe("class rarity and the System AI nudge (spec 024)", () => {
       if (path.endsWith("/auth/me")) return { status: 200, body: me() };
       if (path.endsWith("/character/me"))
         return { status: 200, body: { ...OWN_SHEET, ...overrides } };
+      if (path.endsWith("/character/stars")) return { status: 200, body: [] };
       if (path.endsWith("/character/achievements"))
         return { status: 200, body: { earned: 0, total: 0, items: [], rarest: [] } };
       if (path.endsWith("/character/classes")) return { status: 200, body: roster };

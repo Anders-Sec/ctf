@@ -15,6 +15,7 @@ import {
 import { useSession } from "../auth/session";
 import Avatar from "../components/Avatar";
 import AchievementsSection from "../components/AchievementsSection";
+import StarsSection from "../components/StarsSection";
 import ErrorMessage from "../components/ErrorMessage";
 import RarityBadge from "../components/RarityBadge";
 import Spinner from "../components/Spinner";
@@ -82,6 +83,7 @@ function OwnSheet({ sheet }: { sheet: CharacterSheet }) {
       </section>
 
       <StatBlock abilities={sheet.abilities} />
+      <StarsSection />
       <AchievementsSection />
       <SkillTable skills={sheet.skills} />
     </main>
