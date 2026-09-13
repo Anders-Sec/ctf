@@ -152,7 +152,7 @@
 | The Unwritten | Disassembly | Disassembly Level 14 required |
 | Herald of Zero-Day | Exploit Crafting | Exploit Crafting Level 15 required |
 
-**Tier 4 (Level 13+ x2) - Mythic**
+**Tier 4 (Level 13+ x2) — Mythic**
 | Name | Preference Target | Unlock Requirement |
 |---|---|---|
 | Architect of the Unbreakable Crypt-Covenant | Cryptanalysis, Pattern Recognition | Cryptanalysis Level 13 + Pattern Recognition Level 13 required |
