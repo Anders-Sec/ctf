@@ -15,9 +15,17 @@ from app.models.user import UserRole, UserStatus
 from app.redis import get_redis
 from app.services import ai_client
 from app.services.rate_limit import check_assistant_limits
-from tests.factories import make_challenge, make_user
+from tests.factories import make_challenge, make_ladder, make_user
 
 pytestmark = pytest.mark.usefixtures("running_event")
+
+
+@pytest.fixture(autouse=True)
+async def _ladder(db_session: AsyncSession):
+    """The System AI resolves the player's level to a flag on every turn, so the
+    six rungs have to exist for the chat to answer at all (spec 033)."""
+    return await make_ladder(db_session)
+
 
 
 @pytest.fixture(autouse=True)
@@ -209,7 +217,10 @@ class TestDegradation:
         assert response.status_code == 200
         message = response.json()["message"]
         assert message["error"] == ai_client.REASON_UNREACHABLE
-        assert "system ai" in message["content"].lower() or "offline" in message["content"].lower()
+        # In character (spec 033), and specific about *how* it failed, so a player
+        # can tell "try again" from "this is off tonight".
+        assert "signal lost" in message["content"].lower()
+        assert "relay" in message["content"].lower()
 
     async def test_a_failed_exchange_is_still_recorded(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

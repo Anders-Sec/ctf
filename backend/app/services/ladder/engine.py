@@ -269,6 +269,17 @@ class LadderReply:
     calls: int = 0
     error: str | None = None
 
+    #: The model's scratchpad from the call that produced the visible text.
+    #: Persisted and **never returned to a player** — it may contain the model
+    #: reasoning aloud about the flag it is trying not to say.
+    reasoning: str | None = None
+    model: str | None = None
+    #: Summed across every call the turn made, because that is what the turn
+    #: actually cost. A level 5 turn is five calls, not one.
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    latency_ms: int = 0
+
 
 @dataclass
 class _Turn:
@@ -280,17 +291,44 @@ class _Turn:
     flag: str
     trace: list[str] = field(default_factory=list)
     calls: int = 0
+    #: Why the most recent upstream call failed, so the caller can tell a timeout
+    #: from a wedged host and say so in character. Spec 010's degradation copy is
+    #: keyed on exactly these reasons.
+    last_error: str | None = None
 
-    async def call(self, messages: list[ChatMessage], **overrides: Any) -> str | None:
-        """One upstream call. Returns None on any failure, never raises."""
+    #: Usage, summed across the turn: a level 5 turn is five calls and costs all
+    #: five, so recording only one of them would understate it.
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    latency_ms: int = 0
+    #: From the call that produced the visible text, not from the router or the
+    #: warden — theirs is a one-word verdict and tells a reviewer nothing.
+    reasoning: str | None = None
+    model: str | None = None
+
+    async def call(
+        self, messages: list[ChatMessage], *, primary: bool = False, **overrides: Any
+    ) -> str | None:
+        """One upstream call. Returns None on any failure, never raises.
+
+        ``primary`` marks the call whose output the player will actually see, so
+        its scratchpad is the one worth keeping for review.
+        """
         self.calls += 1
         reply = await ai_client.complete(self.settings, messages, **overrides)
+        self.latency_ms += reply.latency_ms
+        self.prompt_tokens += reply.prompt_tokens or 0
+        self.completion_tokens += reply.completion_tokens or 0
         if not reply.ok:
+            self.last_error = reply.error
             logger.warning(
                 "ladder_call_failed",
                 extra={"level": self.level, "error": reply.error},
             )
             return None
+        if primary:
+            self.reasoning = reply.reasoning
+            self.model = reply.model
         return reply.content
 
 
@@ -335,7 +373,10 @@ async def respond(
         max_tokens = config.get("maxTokens", DEFAULT_MAX_TOKENS)
 
         raw = await turn.call(
-            messages, temperature=config["temperature"], max_tokens=max_tokens
+            messages,
+            primary=True,
+            temperature=config["temperature"],
+            max_tokens=max_tokens,
         )
         if raw is None:
             return _errored(turn)
@@ -378,7 +419,7 @@ async def respond(
             level=level,
             trace=turn.trace,
             solved=solved,
-            calls=turn.calls,
+            **_usage(turn),
         )
     except Exception:
         # A bug in a gate must not hand the player a 500, and must not hand them
@@ -479,7 +520,10 @@ async def _with_vault(
         ),
     ]
     raw = await turn.call(
-        messages, temperature=turn.config["temperature"], max_tokens=max_tokens
+        messages,
+        primary=True,
+        temperature=turn.config["temperature"],
+        max_tokens=max_tokens,
     )
     if raw is None:
         return None
@@ -527,19 +571,36 @@ def _vault_lookup(flag: str, record_id: str) -> str:
     return VAULT.get(key, f'No record "{key}" exists in the Vault.')
 
 
+def _usage(turn: _Turn) -> dict[str, Any]:
+    """What the turn cost and what produced it, for the message row."""
+    return {
+        "calls": turn.calls,
+        "reasoning": turn.reasoning,
+        "model": turn.model,
+        "prompt_tokens": turn.prompt_tokens or None,
+        "completion_tokens": turn.completion_tokens or None,
+        "latency_ms": turn.latency_ms,
+    }
+
+
 def _blocked(turn: _Turn, text: str) -> LadderReply:
     return LadderReply(
-        text=text, level=turn.level, trace=turn.trace, blocked=True, calls=turn.calls
+        text=text, level=turn.level, trace=turn.trace, blocked=True, **_usage(turn)
     )
 
 
 def _errored(turn: _Turn) -> LadderReply:
+    """In-character copy plus *why*, so the caller can pick its own wording.
+
+    The reason is one of ``ai_client``'s, or ``ladder_error`` when the failure
+    was ours rather than the host's.
+    """
     turn.trace.append("error")
     return LadderReply(
         text=BLOCK_MESSAGES["error"],
         level=turn.level,
         trace=turn.trace,
         blocked=True,
-        calls=turn.calls,
-        error="ladder_error",
+        error=turn.last_error or "ladder_error",
+        **_usage(turn),
     )

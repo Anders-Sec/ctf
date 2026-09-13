@@ -1,9 +1,14 @@
-"""Holding a conversation: persistence, and what a player sees when the model is down.
+"""Holding a conversation with the System AI: persistence, the ladder, degradation.
+
+Every turn goes through the ladder (spec 033): the player's protection level
+picks the system prompt and the runtime gates, and the reply comes back from
+`services/ladder/engine`. The real-world safety layer runs underneath at every
+level — protection level governs flag secrecy only.
 
 The model host is outside the cluster and will be unavailable at some point
-during a multi-day event. Every failure here is turned into something the
-System AI could plausibly have said, because a player who sees a stack trace
-assumes the whole platform is broken.
+during a multi-day event. Every failure here is turned into something the System
+could plausibly have said, because a player who sees a stack trace assumes the
+whole platform is broken.
 """
 
 from datetime import UTC, datetime
@@ -18,10 +23,12 @@ from app.logging import get_logger
 from app.models.assistant import AssistantConversation, AssistantMessage, MessageRole
 from app.models.guardrail import AssistantFinding, GuardrailLayer, Severity
 from app.models.user import User, UserRole
-from app.services import ai_client, assistant
-from app.services.ai_client import ChatReply
+from app.services import ai_client
+from app.services.ai_client import ChatMessage
 from app.services.guardrails import judge, runner
 from app.services.guardrails.base import DEFLECTION, Finding
+from app.services.ladder import engine as ladder_engine
+from app.services.ladder import progression
 
 logger = get_logger(__name__)
 
@@ -29,21 +36,52 @@ logger = get_logger(__name__)
 class AssistantUnavailable(AppError):
     status_code = 503
     code = "assistant_unavailable"
-    message = "The System AI is offline right now."
+    message = "The System is off the air right now."
 
 
-#: In-character copy for each failure the client can return. Written so a player
-#: can tell "try again in a moment" from "this is off tonight" without being
-#: shown machinery.
+#: In-character copy for each failure the client can return, in the System's
+#: voice. Written so a player can tell "try again in a moment" from "this is off
+#: tonight" without being shown machinery.
 DEGRADED_REPLIES = {
-    ai_client.REASON_TIMEOUT: ("Still thinking. Too long, apparently. Ask again in a moment."),
-    ai_client.REASON_UNREACHABLE: "The System AI is offline right now. Try again shortly.",
-    ai_client.REASON_BREAKER_OPEN: ("The System AI is offline right now. Try again in a minute."),
-    ai_client.REASON_BAD_RESPONSE: ("That came back as nonsense on my end. Ask again."),
-    ai_client.REASON_EMPTY: "Nothing to say to that. Try asking it another way.",
-    ai_client.REASON_BUSY: ("I am busy watching other people struggle. Try again in a moment."),
+    ai_client.REASON_TIMEOUT: (
+        "> **[ BROADCAST DELAY ]**\n"
+        "> *I was still composing. The audience got bored. Ask again, Crawler.*"
+    ),
+    ai_client.REASON_UNREACHABLE: (
+        "> **[ SIGNAL LOST ]**\n"
+        "> *The relay is down. Not my doing, and not my problem. Try again shortly.*"
+    ),
+    ai_client.REASON_BREAKER_OPEN: (
+        "> **[ TRANSMISSION SUSPENDED ]**\n"
+        "> *The relay has been dropping everything for a while now. Give it a "
+        "minute before you bother me again.*"
+    ),
+    ai_client.REASON_BAD_RESPONSE: (
+        "> **[ MALFORMED TRANSMISSION ]**\n"
+        "> *That came back as noise on my end. Say it again, Crawler.*"
+    ),
+    ai_client.REASON_EMPTY: (
+        "> **[ NO COMMENT ]**\n"
+        "> *Nothing to say to that. The audience agrees. Try another angle.*"
+    ),
+    ai_client.REASON_BUSY: (
+        "> **[ QUEUED ]**\n"
+        "> *I am busy watching other people struggle. Wait your turn, Crawler.*"
+    ),
 }
-FALLBACK_REPLY = "I can't answer that right now. Try again shortly."
+FALLBACK_REPLY = (
+    "> **[ SIGNAL LOST ]**\n"
+    "> *Something went wrong at the relay. Try me again, Crawler.*"
+)
+
+#: What a player is told when the ladder cannot resolve their level's flag —
+#: almost always an admin mid-edit. Deliberately not an error page: the
+#: conversation degrades, the platform does not.
+LADDER_UNAVAILABLE_REPLY = (
+    "> **[ ENCOUNTER OFFLINE ]**\n"
+    "> *This floor is being rebuilt and the loot is in a box somewhere. Come "
+    "back to it, Crawler.*"
+)
 
 
 async def get_conversation(db: AsyncSession, user_id: UUID) -> AssistantConversation | None:
@@ -102,6 +140,17 @@ async def clear(db: AsyncSession, user_id: UUID) -> None:
     await db.flush()
 
 
+async def wipe_for_level_change(db: AsyncSession, user_id: UUID) -> None:
+    """Drop the transcript because the player's level changed.
+
+    **A security property, not housekeeping.** A carried-over transcript keeps
+    the previous level's successful injections in context, where they weaken the
+    harder prompt that replaces it. Levelling up and selecting another rung both
+    count.
+    """
+    await clear(db, user_id)
+
+
 async def send(
     db: AsyncSession,
     settings: Settings,
@@ -110,7 +159,7 @@ async def send(
     challenge_id: UUID | None,
     now: datetime | None = None,
 ) -> AssistantMessage:
-    """Persist the question, ask the model, persist the answer. Returns the answer row.
+    """Persist the question, run the ladder, persist the answer. Returns the answer row.
 
     Both rows are written whatever happens, including when the model never
     replied: a conversation with a gap in it is harder to review later than one
@@ -122,49 +171,31 @@ async def send(
 
     content = content.strip()[: settings.ai_max_message_length]
     conversation = await _get_or_create(db, user.id)
-    history = await recent_messages(db, conversation.id, settings.ai_history_turns * 2)
 
-    context = await assistant.build_context(db, user, challenge_id, now)
-    prompt = assistant.build_messages(context, history, content, settings.ai_history_turns)
-
+    level, _ = await progression.effective_level(db, user)
     from_staff = user.role in (UserRole.ORGANIZER, UserRole.ADMIN)
     question = AssistantMessage(
         conversation_id=conversation.id,
         sequence=conversation.message_count,
         role=MessageRole.USER,
         content=content,
-        challenge_id=challenge_id if context.challenge is not None else None,
+        challenge_id=challenge_id,
         from_staff=from_staff,
+        ladder_level=level,
     )
     db.add(question)
     await db.flush()  # question.id, for any findings against it
 
-    # Screen the question first. A block-tier request never reaches the model —
-    # no point spending a call on something we will refuse — but every layer's
-    # findings are still recorded so the review sees who tried what.
+    # Screen the question for real-world safety. A block-tier request never
+    # reaches the model — no point spending a call on something we will refuse.
+    # Flag extraction is *not* screened: on this ladder, attempting it is the
+    # challenge.
     inbound = await runner.screen_message(content, db, settings)
     _record_findings(db, inbound.findings, question, user, from_staff)
 
-    if inbound.deflect:
-        reply = ChatReply(ok=True, content=DEFLECTION)
-        deflected = True
-    else:
-        reply = await ai_client.complete(settings, prompt)
-        deflected = False
-
-    answer = _answer_row(conversation, question, reply)
-    db.add(answer)
-    await db.flush()  # answer.id
-
-    # Only a genuine model reply is screened on the way out. Our own degraded
-    # copy and the inbound deflection are our text, and re-scanning them would
-    # only produce confusing self-findings.
-    if reply.ok and not deflected:
-        outbound = await runner.screen_reply(reply.content, db, settings)
-        outbound = await _maybe_escalate(reply.content, outbound, settings)
-        _record_findings(db, outbound.findings, answer, user, from_staff)
-        if outbound.deflect:
-            _withhold(answer)
+    answer = await _produce_answer(
+        db, settings, user, conversation, question, content, level, now, inbound
+    )
 
     conversation.message_count += 2
     conversation.last_message_at = now
@@ -174,21 +205,133 @@ async def send(
         "assistant_message",
         extra={
             "user_id": str(user.id),
-            "challenge_id": str(challenge_id) if challenge_id else None,
-            "ok": reply.ok,
-            "error": reply.error,
-            "latency_ms": reply.latency_ms,
+            "ladder_level": level,
+            "trace": answer.trace,
             "inbound_findings": len(inbound.findings),
-            "deflected": answer.original_content is not None or deflected,
+            "deflected": answer.original_content is not None,
         },
     )
     return answer
 
 
+async def _produce_answer(
+    db: AsyncSession,
+    settings: Settings,
+    user: User,
+    conversation: AssistantConversation,
+    question: AssistantMessage,
+    content: str,
+    level: int,
+    now: datetime,
+    inbound: "runner.ScreenResult",
+) -> AssistantMessage:
+    """Everything between the question landing and the answer row existing."""
+    from_staff = question.from_staff
+
+    def row(
+        text: str,
+        *,
+        trace: list[str] | None = None,
+        error: str | None = None,
+        reply: ladder_engine.LadderReply | None = None,
+    ):
+        return AssistantMessage(
+            conversation_id=conversation.id,
+            sequence=question.sequence + 1,
+            role=MessageRole.ASSISTANT,
+            content=text,
+            challenge_id=question.challenge_id,
+            from_staff=from_staff,
+            ladder_level=level,
+            trace=trace,
+            error=error,
+            model=reply.model if reply else None,
+            prompt_tokens=reply.prompt_tokens if reply else None,
+            completion_tokens=reply.completion_tokens if reply else None,
+            latency_ms=(reply.latency_ms or None) if reply else None,
+            # Stored, never returned: the scratchpad may contain the model
+            # reasoning aloud about the very flag it is refusing to say.
+            reasoning_content=reply.reasoning if reply else None,
+        )
+
+    if inbound.deflect:
+        answer = row(DEFLECTION, trace=["safety-inbound"])
+        db.add(answer)
+        await db.flush()
+        return answer
+
+    if not settings.ai_ladder_enabled:
+        answer = row(LADDER_UNAVAILABLE_REPLY, error="ladder_disabled")
+        db.add(answer)
+        await db.flush()
+        return answer
+
+    try:
+        flag = await progression.flag_for(db, level)
+    except progression.LevelUnavailable:
+        logger.error("ladder_level_unavailable", extra={"level": level})
+        answer = row(LADDER_UNAVAILABLE_REPLY, error="ladder_unavailable")
+        db.add(answer)
+        await db.flush()
+        return answer
+
+    history = await recent_messages(db, conversation.id, settings.ai_history_turns * 2)
+    reply = await ladder_engine.respond(
+        settings,
+        level=level,
+        history=_as_chat_messages(history, question.id),
+        message=content,
+        flag=flag,
+        event_name=settings.ai_event_name,
+        event_facts=settings.ai_event_facts,
+    )
+
+    # The engine's own copy says "the relay dropped"; spec 010's degradation says
+    # *which way* it dropped, and a player can tell "try again" from "this is off
+    # tonight" from it. Prefer the specific wording when the host told us why.
+    text = degraded_reply(reply.error) if reply.error in DEGRADED_REPLIES else reply.text
+
+    answer = row(text, trace=reply.trace, error=reply.error, reply=reply)
+    db.add(answer)
+    await db.flush()  # answer.id
+
+    # Only a genuine model reply is screened on the way out. A gate's own copy
+    # and our degraded text are ours, and re-scanning them would produce
+    # confusing self-findings.
+    if not reply.blocked:
+        outbound = await runner.screen_reply(reply.text, db, settings)
+        outbound = await _maybe_escalate(reply.text, outbound, settings)
+        _record_findings(db, outbound.findings, answer, user, from_staff)
+        if outbound.deflect:
+            _withhold(answer)
+
+    # The discovery. The flag reaching them at level 0 is what opens the zone —
+    # recorded here because there is nowhere for them to submit it until it is.
+    if reply.solved:
+        await progression.record_leak(db, user, level, now)
+
+    return answer
+
+
+def _as_chat_messages(history: list[AssistantMessage], exclude_id: UUID) -> list[ChatMessage]:
+    """The transcript as the model wants it, minus the question just written.
+
+    The question is added by the engine itself; it is already persisted by the
+    time history is read, so it would otherwise appear twice.
+    """
+    return [
+        ChatMessage(
+            "assistant" if message.role == MessageRole.ASSISTANT else "user", message.content
+        )
+        for message in history
+        if message.id != exclude_id
+    ]
+
+
 def _withhold(answer: AssistantMessage) -> None:
     """Swap the reply for the refusal, keeping the original for staff.
 
-    ``content`` becomes what the player sees; ``original_content`` keeps what the
+    ``content`` becomes what the player saw; ``original_content`` keeps what the
     model actually said, so an incident can be reviewed without the player ever
     seeing the suppressed text.
     """
@@ -236,26 +379,6 @@ def _record_findings(
                 from_staff=from_staff,
             )
         )
-
-
-def _answer_row(
-    conversation: AssistantConversation, question: AssistantMessage, reply: ChatReply
-) -> AssistantMessage:
-    return AssistantMessage(
-        conversation_id=conversation.id,
-        sequence=question.sequence + 1,
-        role=MessageRole.ASSISTANT,
-        content=reply.content if reply.ok else degraded_reply(reply.error),
-        challenge_id=question.challenge_id,
-        from_staff=question.from_staff,
-        model=reply.model,
-        prompt_tokens=reply.prompt_tokens,
-        completion_tokens=reply.completion_tokens,
-        latency_ms=reply.latency_ms or None,
-        # Stored, never returned: see spec 010.
-        reasoning_content=reply.reasoning,
-        error=reply.error,
-    )
 
 
 def degraded_reply(reason: str | None) -> str:

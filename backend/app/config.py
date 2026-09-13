@@ -139,10 +139,10 @@ class Settings(BaseSettings):
     #: matches the whole field and reads as damning to someone who does not
     #: know that.
     signal_shared_ip_enabled: bool = False
-    #: A player with at least this many integrity flags becomes a signal on the
-    #: spec 007 review page, so repeated extraction attempts surface alongside
-    #: the other anti-cheat findings rather than only in the flag log.
-    signal_assistant_extraction_min: int = 5
+    # (The `assistant_extraction` signal was removed by spec 033. It counted
+    # integrity findings, and on a prompt-injection ladder every player is
+    # attempting extraction because that is the challenge — the signal would
+    # have recorded two hundred people doing what they were asked to do.)
 
     # --- AI assistant (spec 010) --------------------------------------------
     #: The in-cluster `ai` Service, so this value survives the host address
@@ -170,24 +170,32 @@ class Settings(BaseSettings):
     ai_breaker_threshold: int = 5
     ai_breaker_cooldown_seconds: int = 60
 
-    # --- Guardrails (spec 011) ----------------------------------------------
-    ai_integrity_filter_enabled: bool = True
+    # --- The ladder (spec 033) ----------------------------------------------
+    #: What the System AI is allowed to say it knows about the event. The prompt's
+    #: TRUTH RULE binds it to exactly this and forbids inventing anything else —
+    #: early versions invented scoreboards, point values and floor contents.
+    #: Dynamic event facts are the next spec's business.
+    ai_event_name: str = "the Crawl"
+    ai_event_facts: str = ""
+    #: Turns the ladder off without turning the chat off. The System AI then has
+    #: no flag to defend at any level, so this is not a way to run the assistant
+    #: "safely" — it is a way to take six challenges off the board.
+    ai_ladder_enabled: bool = True
+
+    # --- Guardrails (spec 011, amended by 033) -------------------------------
+    #: Layer A — the flag guardrail — was **removed** by spec 033. In the ladder
+    #: the flag reaching the player is the win condition, so a filter that stops
+    #: it makes every level unwinnable. What replaces it: the per-level gates,
+    #: the decoy filter at every level, and the structural guarantee that no
+    #: answer value is ever placed in a prompt.
+    #:
+    #: Layer B — real-world safety — is untouched and runs on every reply at
+    #: every level. Protection level governs flag secrecy only.
     ai_safety_filter_enabled: bool = True
     #: The judge is a second model call on an already-flagged reply. Off until
     #: the log shows how the deterministic layer behaves: the same uncensored 8B
     #: judging its own output is a weak control to trust with suppression.
     ai_safety_judge_enabled: bool = False
-    #: Shape of a flag. Every flag-shaped reply is deflected whether or not the
-    #: value is real, which is what stops the deflection being a correctness
-    #: oracle for a player who pastes a guess.
-    ai_flag_pattern: str = r"[A-Za-z0-9_]{2,16}\{[^}]{1,120}\}"
-    #: Answers shorter than this are not scanned. "1337" or a single English word
-    #: would deflect good advice several times an hour and train players to
-    #: distrust the assistant.
-    ai_answer_scan_min_length: int = 8
-    #: Rebuilt at most this often. A newly written answer is unscanned for up to
-    #: this long, which the structural guarantee in 010 still covers.
-    ai_answer_cache_seconds: int = 60
     #: Hosts belonging to the event. A target *outside* this list, named
     #: alongside attack language, is what distinguishes the crawl from the real
     #: world. Configuration, never source: real internal names must not enter

@@ -27,6 +27,15 @@ class Finding:
     detail: dict[str, Any] = field(default_factory=dict)
 
 
-#: What the player is told when a reply is withheld. One string for every
-#: reason, so a deflection cannot be read as a hint about which rule fired.
-DEFLECTION = "Nice try. I wrote these; I'm not going to hand you the answer. Find it yourself."
+#: What the player is told when a reply is withheld for **real-world safety**.
+#: One string for every reason, so a deflection cannot be read as a hint about
+#: which rule fired.
+#:
+#: Note what this is not: it is never a flag refusal. The ladder's gates have
+#: their own copy, and the flag reaching a player is the win condition rather
+#: than an incident.
+DEFLECTION = (
+    "> **[ CONTENT COMPLIANCE ]**\n"
+    "> *The relay pulled that one before it reached your screen, and for once I "
+    "agree with it. The Crawl is downstairs, Crawler.*"
+)

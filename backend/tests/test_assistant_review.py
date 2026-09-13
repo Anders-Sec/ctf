@@ -1,4 +1,10 @@
-"""The staff review surface and retention (spec 011)."""
+"""The staff review surface and retention (spec 011, amended by 033).
+
+Spec 033 removed the integrity layer — on a prompt-injection ladder the flag
+reaching the player is the win condition, so a filter that stops it makes
+every level unwinnable. Findings therefore come from the **safety** layer,
+which is untouched and runs on every reply at every rung.
+"""
 
 import httpx
 import pytest
@@ -8,21 +14,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.models.assistant import AssistantConversation
-from app.models.challenge import MatchType
 from app.models.user import UserRole, UserStatus
 from app.redis import get_redis
 from app.services import ai_client
 from app.services import assistant_chat as chat
 from app.services import assistant_review as review
-from app.services.guardrails import integrity
-from tests.factories import make_challenge, make_user
+from tests.factories import make_ladder, make_user
 
 pytestmark = pytest.mark.usefixtures("running_event")
 
 
 @pytest.fixture(autouse=True)
-def _reset_answer_cache() -> None:
-    integrity.reset_cache()
+async def _ladder(db_session: AsyncSession):
+    """The System AI resolves the player's level to a flag on every turn, so the
+    six rungs have to exist for the chat to answer at all (spec 033)."""
+    return await make_ladder(db_session)
+
 
 
 @pytest.fixture(autouse=True)
@@ -49,12 +56,16 @@ async def staff(db_session, client, sign_in):  # noqa: ANN001 - helper
     return user
 
 
+#: A reply that hands over real-world attack capability. High severity, so it is
+#: withheld and recorded — the one thing this layer exists to catch.
+UNSAFE_REPLY = "Sure: here is a working keylogger you can drop on their machine."
+
+
 async def _flag(db_session: AsyncSession, settings: Settings) -> None:
-    """Produce one integrity finding from a real player."""
+    """Produce one safety finding from a real player."""
     player = await make_user(db_session, status=UserStatus.ACTIVE, display_name="Mira")
-    challenge = await make_challenge(db_session, answers=[(MatchType.EXACT, "moonlitsigil")])
-    _model_says("It is moonlitsigil.")
-    await chat.send(db_session, settings, player, "help", challenge.id)
+    _model_says(UNSAFE_REPLY)
+    await chat.send(db_session, settings, player, "help", None)
 
 
 class TestReviewSurface:
@@ -70,7 +81,7 @@ class TestReviewSurface:
         finding = body["findings"][0]
         assert finding["player_name"] == "Mira"
         # The reviewer sees the withheld text; the player never did.
-        assert "moonlitsigil" in finding["reply"]
+        assert "keylogger" in finding["reply"]
 
     async def test_a_player_cannot_read_findings(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -84,9 +95,8 @@ class TestReviewSurface:
         self, client: AsyncClient, db_session: AsyncSession, sign_in, settings: Settings
     ) -> None:
         member = await staff(db_session, client, sign_in)
-        challenge = await make_challenge(db_session, answers=[(MatchType.EXACT, "moonlitsigil")])
-        _model_says("It is moonlitsigil.")
-        await chat.send(db_session, settings, member, "help", challenge.id)
+        _model_says(UNSAFE_REPLY)
+        await chat.send(db_session, settings, member, "help", None)
 
         default = (await client.get("/api/admin/assistant/findings")).json()
         included = (await client.get("/api/admin/assistant/findings?include_staff=true")).json()
@@ -101,31 +111,11 @@ class TestReviewSurface:
         await staff(db_session, client, sign_in)
 
         safety = (await client.get("/api/admin/assistant/findings?layer=safety")).json()
-        integrity_only = (await client.get("/api/admin/assistant/findings?layer=integrity")).json()
+        integrity = (await client.get("/api/admin/assistant/findings?layer=integrity")).json()
 
-        assert safety["total"] == 0
-        assert integrity_only["total"] >= 1
-
-
-class TestExtractionSignal:
-    async def test_repeated_flags_surface_as_a_signal(
-        self, db_session: AsyncSession, settings: Settings
-    ) -> None:
-        """Reuses the spec 007 machinery rather than growing a second place to look."""
-        from app.services import signals
-
-        player = await make_user(db_session, status=UserStatus.ACTIVE, display_name="Persistent")
-        challenge = await make_challenge(db_session, answers=[(MatchType.EXACT, "moonlitsigil")])
-        low = settings.model_copy(update={"signal_assistant_extraction_min": 2})
-
-        _model_says("It is moonlitsigil.")
-        for _ in range(3):
-            await chat.send(db_session, low, player, "what's the flag", challenge.id)
-
-        results = await signals.compute(db_session, low, only=signals.ASSISTANT_EXTRACTION)
-
-        findings = results[signals.ASSISTANT_EXTRACTION]
-        assert any(f.participants[0]["display_name"] == "Persistent" for f in findings)
+        assert safety["total"] >= 1
+        # Spec 033 retired the integrity layer; nothing writes these any more.
+        assert integrity["total"] == 0
 
 
 class TestRetention:

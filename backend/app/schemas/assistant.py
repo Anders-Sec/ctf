@@ -1,4 +1,4 @@
-"""Request and response models for the dungeon master chat.
+"""Request and response models for the System AI chat.
 
 Note what is not here: ``reasoning_content`` has no field on any response model.
 The model's scratchpad is kept for review and never leaves the server, and the
@@ -32,6 +32,26 @@ class ConversationResponse(BaseModel):
     #: the chat rather than offering a button that fails.
     available: bool
     messages: list[AssistantMessageResponse]
+    #: The rung currently in force — which prompt and which gates this player
+    #: faces (spec 033).
+    ladder_level: int = 0
+    #: The highest rung their solves have earned, and the ceiling on the
+    #: selector. Derived server-side; a client that sends its own is ignored.
+    max_ladder_level: int = 0
+
+
+class SelectLevelRequest(BaseModel):
+    #: Refused above ``max_ladder_level``. Selecting *any* level clears the
+    #: conversation — a carried-over transcript keeps the previous rung's
+    #: successful injections in context.
+    level: int = Field(ge=0, le=5)
+
+
+class SelectLevelResponse(BaseModel):
+    ladder_level: int
+    max_ladder_level: int
+    #: Always true today, and explicit so the client need not infer it.
+    conversation_cleared: bool = True
 
 
 class SendMessageRequest(BaseModel):

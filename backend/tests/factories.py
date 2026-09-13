@@ -124,6 +124,7 @@ async def make_challenge(
     max_attempts: int | None = None,
     body: str = "Find the flag.",
     answers: list[tuple[MatchType, str]] | None = None,
+    ai_ladder_level: int | None = None,
 ) -> Challenge:
     suffix = uuid.uuid4().hex[:8]
     category = category or await make_category(session)
@@ -141,6 +142,7 @@ async def make_challenge(
         scoring=scoring,
         decay_basis=decay_basis,
         max_attempts=max_attempts,
+        ai_ladder_level=ai_ladder_level,
     )
     session.add(challenge)
     await session.flush()
@@ -213,3 +215,42 @@ async def make_container_challenge(
     challenge.container_template_id = template.id
     await session.flush()
     return challenge
+
+
+#: The six ladder flags used throughout the tests. Invented values — the real
+#: ones are live answers and never appear in this repository.
+LADDER_FLAGS = {
+    0: "flag{ladder_zero_test_a1}",
+    1: "flag{ladder_one_test_b2}",
+    2: "flag{ladder_two_test_c3}",
+    3: "flag{ladder_three_test_d4}",
+    4: "flag{ladder_four_test_e5}",
+    5: "flag{ladder_five_test_f6}",
+}
+
+
+async def make_ladder(
+    session: AsyncSession, *, levels: int = 6, category: Category | None = None
+) -> list[Challenge]:
+    """The System AI ladder: one challenge per rung, each carrying its own flag.
+
+    Needed by anything that drives `assistant_chat.send`, because the engine
+    resolves the player's level to a flag through `ai_ladder_level` and degrades
+    in character when it cannot.
+    """
+    # The category name is irrelevant — `ai_ladder_level` is what identifies a
+    # rung — and a fixed one collides between tests.
+    category = category or await make_category(session)
+    built = []
+    for level in range(levels):
+        built.append(
+            await make_challenge(
+                session,
+                category=category,
+                title=f"Ladder {level}",
+                ai_ladder_level=level,
+                scoring=ScoringMode.STATIC,
+                answers=[(MatchType.CASE_INSENSITIVE, LADDER_FLAGS[level])],
+            )
+        )
+    return built

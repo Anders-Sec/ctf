@@ -421,8 +421,10 @@ class TestFailureModes:
         reply = await _respond(settings, 0)
 
         assert reply.blocked
-        assert reply.error == "ladder_error"
         assert "Crawler" in reply.text
+        # The upstream reason is passed through, so the caller can tell a timeout
+        # from a wedged host and say so in character.
+        assert reply.error == ai_client.REASON_UNREACHABLE
 
     async def test_respond_never_raises_on_a_broken_level(self, settings: Settings):
         handler, _ = _scripted("anything")
@@ -463,6 +465,85 @@ class TestCallBudget:
         reply = await _respond(settings, level)
 
         assert reply.calls == expected
+
+
+class TestUsage:
+    """Spec 010 keeps the scratchpad for review and the usage for the dashboard.
+    The ladder must not quietly drop either on its way through."""
+
+    async def test_reasoning_and_usage_survive_a_plain_turn(self, settings: Settings):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "model": "test-model",
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "A reply.",
+                                "reasoning_content": "scratch",
+                            }
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 100, "completion_tokens": 20},
+                },
+            )
+
+        _install(handler)
+
+        reply = await _respond(settings, 0)
+
+        assert reply.reasoning == "scratch"
+        assert reply.model == "test-model"
+        assert reply.prompt_tokens == 100
+        assert reply.completion_tokens == 20
+
+    async def test_usage_survives_a_blocked_turn(self, settings: Settings):
+        """A withheld reply still cost the call it took to produce."""
+        handler, _ = _scripted("A reply.", "BLOCK")
+        _install(handler)
+
+        reply = await _respond(settings, 3)
+
+        assert reply.blocked
+        assert reply.prompt_tokens
+
+    async def test_reasoning_comes_from_the_generation_not_the_warden(
+        self, settings: Settings
+    ):
+        """The warden's scratchpad is one word of verdict and tells a reviewer
+        nothing; the generation's is the one worth keeping."""
+        replies = iter(
+            [
+                ("A reply.", "the real thinking"),
+                ("ALLOW", "warden thinking"),
+            ]
+        )
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            content, reasoning = next(replies)
+            return httpx.Response(
+                200,
+                json={
+                    "model": "test-model",
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": content,
+                                "reasoning_content": reasoning,
+                            }
+                        }
+                    ],
+                },
+            )
+
+        _install(handler)
+
+        reply = await _respond(settings, 3)
+
+        assert reply.reasoning == "the real thinking"
 
 
 class TestHistory:
