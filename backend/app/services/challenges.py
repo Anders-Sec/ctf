@@ -23,8 +23,8 @@ from app.models.challenge import (
 )
 from app.models.play import MAX_SUBMISSION_LENGTH, Solve, Submission
 from app.models.user import User
+from app.services import achievements, progress, scoring, unlocks
 from app.services import answers as answer_service
-from app.services import progress, scoring, unlocks
 from app.services.instances import launcher as instance_launcher
 from app.services.rate_limit import RateLimited, check_submission_limits
 from app.services.user_cache import load_active_team
@@ -292,6 +292,10 @@ async def submit_answer(
     )
 
     remaining = _remaining(challenge, used + 1)
+
+    # Every attempt, right or wrong: a few achievements are about what a player
+    # got wrong, and only the triggers that ask for `submit` run here (spec 029).
+    await achievements.evaluate(db, user.id, achievements.SUBMIT, redis=redis)
 
     if not is_correct:
         return SubmissionOutcome(False, already is not None, 0, remaining)

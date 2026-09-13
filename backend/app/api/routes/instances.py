@@ -11,9 +11,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Request, Response
 
-from app.api.deps import AppSettings, DbSession, Player, get_orchestrator
+from app.api.deps import AppSettings, DbSession, Player, RedisClient, get_orchestrator
 from app.errors import NotFoundError
 from app.schemas.instances import InstanceResponse
+from app.services import achievements as achievement_service
 from app.services.cookies import ACCESS_COOKIE
 from app.services.instances import launcher
 from app.services.instances.orchestrator import InstanceOrchestrator
@@ -42,11 +43,15 @@ async def launch_instance(
     challenge_id: UUID,
     request: Request,
     db: DbSession,
+    redis: RedisClient,
     settings: AppSettings,
     current: Player,
 ) -> InstanceResponse:
     instance = await launcher.launch(
         db, settings, _orch(request), challenge_id, current.user, datetime.now(UTC)
+    )
+    await achievement_service.evaluate(
+        db, current.user.id, achievement_service.INSTANCE, redis=redis
     )
     return _response(instance)
 

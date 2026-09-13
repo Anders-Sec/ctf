@@ -28,6 +28,7 @@ from app.schemas.assistant import (
     SendMessageResponse,
 )
 from app.schemas.auth import MessageResponse
+from app.services import achievements as achievement_service
 from app.services import ai_client
 from app.services import assistant_chat as chat
 from app.services import assistant_review as review
@@ -90,6 +91,9 @@ async def send_message(
         payload.content,
         payload.challenge_id,
         datetime.now(UTC),
+    )
+    await achievement_service.evaluate(
+        db, current.user.id, achievement_service.ASSISTANT, redis=redis
     )
     return SendMessageResponse(message=_message(answer))
 

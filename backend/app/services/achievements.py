@@ -35,8 +35,14 @@ from app.services import narrator, notifications
 #: The events that can change a trigger's answer. A trigger declares which it
 #: cares about so a solve does not re-run every unrelated query in the roster.
 SOLVE = "solve"
+#: Every attempt, right or wrong. The highest-frequency event on the platform,
+#: so only the few triggers that genuinely need it may listen (spec 029).
+SUBMIT = "submit"
 HINT = "hint"
 CLASS = "class"
+PARTY = "party"
+ASSISTANT = "assistant"
+INSTANCE = "instance"
 
 
 @dataclass(frozen=True)

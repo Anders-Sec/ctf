@@ -28,6 +28,7 @@ from app.schemas.challenges import (
     UnlockHintResponse,
     UnlockRequirementResponse,
 )
+from app.services import achievements as achievement_service
 from app.services import artifacts as artifact_service
 from app.services import challenges as challenge_service
 from app.services import hints as hint_service
@@ -149,6 +150,7 @@ async def unlock_hint(
         raise challenge_service.ChallengeLocked
 
     result = await hint_service.unlock(db, hint_id, challenge_id, current.user.id)
+    await achievement_service.evaluate(db, current.user.id, achievement_service.HINT, redis=redis)
 
     if result.cost_charged:
         background.add_task(scoreboard_cache.mark_dirty, redis)

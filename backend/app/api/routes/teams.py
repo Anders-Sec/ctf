@@ -30,6 +30,7 @@ from app.schemas.teams import (
     TransferLeadershipRequest,
     UpdateTeamRequest,
 )
+from app.services import achievements as achievement_service
 from app.services import teams as team_service
 from app.services.scoreboard_cache import mark_dirty
 from app.services.user_cache import invalidate
@@ -97,6 +98,7 @@ async def create_team(
         join_password=payload.join_password,
         request_id=_request_id(request),
     )
+    await achievement_service.evaluate(db, current.user.id, achievement_service.PARTY, redis=redis)
     await invalidate(redis, current.user.id)
     return await _detail(db, team)
 
@@ -146,6 +148,7 @@ async def join_team(
         password=payload.password,
         request_id=_request_id(request),
     )
+    await achievement_service.evaluate(db, current.user.id, achievement_service.PARTY, redis=redis)
     await invalidate(redis, current.user.id)
     # The party board is an aggregate over current members. Queued so the
     # recompute cannot read this transaction before it commits.
