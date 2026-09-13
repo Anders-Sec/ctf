@@ -27,3 +27,6 @@ uv.lock.bak
 # Load-test seeded sessions carry real session tokens — never commit.
 loadtest/sessions.csv
 loadtest/.venv/
+
+# The authoring spreadsheet carries real flag values — never commit.
+challenge-template.csv
