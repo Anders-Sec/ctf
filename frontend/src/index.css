@@ -21,6 +21,16 @@
   --color-rarity-rare: 47 106 176;
   --color-rarity-legendary: 194 106 42;
   --color-rarity-mythic: 133 66 176;
+
+  /* Boss star colours (spec 031). Celestial has no metal to borrow from, so it
+     is a pale iridescent violet-white: reads as above legendary without turning
+     into a second gold. */
+  --color-boss-neighborhood: 140 98 57;
+  --color-boss-borough: 150 152 158;
+  --color-boss-city: 198 158 58;
+  --color-boss-province: 108 158 168;
+  --color-boss-country: 198 74 42;
+  --color-boss-floor: 208 190 235;
 }
 
 body {

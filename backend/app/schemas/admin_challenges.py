@@ -150,6 +150,8 @@ class AdminChallengeDetail(BaseModel):
     answers: list[AdminAnswerResponse]
     artifacts: list[ArtifactResponse]
     container_template_id: UUID | None = None
+    #: Null when this challenge is not a boss (spec 031).
+    boss_tier: BossTier | None = None
     prerequisites: list[PrerequisiteResponse] = []
     created_at: datetime
 

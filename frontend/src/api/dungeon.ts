@@ -1,3 +1,4 @@
+import type { BossTier } from "./bosses";
 import { api } from "./client";
 
 /** One condition on a locked room or zone (spec 017). `description` is rendered
@@ -29,6 +30,8 @@ export interface Zone {
   unlock_requirements: UnlockRequirement[];
   cleared: number;
   total: number;
+  /** The tier of this zone's boss, if it has one (spec 031). */
+  boss_tier?: BossTier | null;
 }
 
 /** A corridor: `from_zone_id` is what opens `to_zone_id`. */

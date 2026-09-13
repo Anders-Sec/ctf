@@ -1,3 +1,4 @@
+import type { BossTier } from "./bosses";
 import { api } from "./client";
 import type {
   Artifact,
@@ -33,6 +34,8 @@ export interface AdminChallengeSummary {
 
 export interface AdminChallengeDetail {
   id: string;
+  /** Null when this challenge is not a boss. */
+  boss_tier?: BossTier | null;
   title: string;
   slug: string;
   category: Category;
@@ -69,6 +72,8 @@ export interface UpdateChallengeInput {
   release_at?: string | null;
   pre_release_state?: "hidden" | "locked";
   container_template_id?: string | null;
+  /** Null clears the boss flag; a tier sets it (spec 031). */
+  boss_tier?: BossTier | null;
 }
 
 export interface AnswerTestResult {

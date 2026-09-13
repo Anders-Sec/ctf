@@ -12,6 +12,14 @@ export default {
         muted: "rgb(var(--color-muted) / <alpha-value>)",
         torch: "rgb(var(--color-torch) / <alpha-value>)",
         stone: "rgb(var(--color-stone) / <alpha-value>)",
+        boss: {
+          neighborhood: "rgb(var(--color-boss-neighborhood) / <alpha-value>)",
+          borough: "rgb(var(--color-boss-borough) / <alpha-value>)",
+          city: "rgb(var(--color-boss-city) / <alpha-value>)",
+          province: "rgb(var(--color-boss-province) / <alpha-value>)",
+          country: "rgb(var(--color-boss-country) / <alpha-value>)",
+          floor: "rgb(var(--color-boss-floor) / <alpha-value>)",
+        },
         rarity: {
           common: "rgb(var(--color-rarity-common) / <alpha-value>)",
           uncommon: "rgb(var(--color-rarity-uncommon) / <alpha-value>)",
