@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     admin,
+    admin_achievements,
     admin_challenge_csv,
     admin_challenges,
     admin_classes,
@@ -142,6 +143,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(health.router)
     api.include_router(auth.router)
     api.include_router(admin.router)
+    api.include_router(admin_achievements.router)
     # Before admin_challenges: its /admin/challenges/{challenge_id} route would
     # otherwise match "template.csv" as a UUID and reject it as unparseable.
     api.include_router(admin_challenge_csv.router)
