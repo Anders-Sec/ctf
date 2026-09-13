@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { BOSS_TIER_CLASS, BOSS_TIER_LABEL } from "../api/bosses";
 import type { DungeonMap as MapData, Zone } from "../api/dungeon";
 import { useMapViewport } from "./useMapViewport";
 import ZonePanel from "./ZonePanel";
@@ -784,6 +785,20 @@ function ZoneNode({
             className="dungeon-fog-b"
           />
         </g>
+      )}
+
+      {/* Something is waiting in this wing (spec 031). Drawn above the tile so
+          it reads before the name does, which is the whole point of marking it. */}
+      {zone.boss_tier && (
+        <text
+          x={LAYOUT.tile / 2}
+          y={-24}
+          textAnchor="middle"
+          className={`text-[20px] ${BOSS_TIER_CLASS[zone.boss_tier]}`}
+          fill="currentColor"
+        >
+          <title>{BOSS_TIER_LABEL[zone.boss_tier]}</title>★
+        </text>
       )}
 
       {/* Nobody can reach this zone. Admin-only: a player seeing it would just

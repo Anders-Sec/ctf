@@ -1,3 +1,4 @@
+import { BOSS_TIERS, BOSS_TIER_LABEL, type BossTier } from "../api/bosses";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -660,6 +661,7 @@ function ChallengeSettingsForm({
     decay_basis: challenge.decay_basis,
     decay_threshold: challenge.decay_threshold,
     max_attempts: challenge.max_attempts,
+    boss_tier: challenge.boss_tier ?? null,
   });
   const set = <K extends keyof UpdateChallengeInput>(
     key: K,
@@ -705,6 +707,25 @@ function ChallengeSettingsForm({
             {DIFFICULTIES.map((d) => (
               <option key={d} value={d}>
                 {difficultyLabel(d)} — {DIFFICULTY_XP[d]} XP
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          Boss
+          <select
+            value={form.boss_tier ?? ""}
+            onChange={(e) =>
+              set("boss_tier", (e.target.value || null) as BossTier | null)
+            }
+            className="mt-1 w-full rounded border border-stone px-3 py-2"
+          >
+            {/* One boss per zone; the server refuses a second and names the
+                challenge already holding the slot. */}
+            <option value="">Not a boss</option>
+            {BOSS_TIERS.map((tier) => (
+              <option key={tier} value={tier}>
+                {BOSS_TIER_LABEL[tier]}
               </option>
             ))}
           </select>

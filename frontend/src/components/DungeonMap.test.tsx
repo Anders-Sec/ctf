@@ -310,6 +310,28 @@ describe("DungeonMap", () => {
     }
   });
 
+  it("marks a zone that has something waiting in it", () => {
+    const withBoss = {
+      ...DATA,
+      zones: DATA.zones.map((zone) =>
+        zone.id === "z2" ? { ...zone, boss_tier: "floor" as const } : zone,
+      ),
+    };
+    renderApp(<DungeonMap data={withBoss} />);
+
+    const sealed = screen.getByLabelText(
+      "Networking — sealed, needs Clear 100% of Intro",
+    );
+    // The tier name rides along as a title, so the marker is not colour alone.
+    expect(sealed.querySelector("title")?.textContent).toBe("Floor Boss");
+  });
+
+  it("leaves a zone without a boss unmarked", () => {
+    renderApp(<DungeonMap data={DATA} />);
+
+    expect(document.querySelector("title")).toBeNull();
+  });
+
   it("says so when there is nothing to draw", () => {
     renderApp(<DungeonMap data={{ ...DATA, zones: [], edges: [] }} />);
 
