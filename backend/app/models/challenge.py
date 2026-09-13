@@ -13,6 +13,34 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
+class BossTier(enum.StrEnum):
+    """How big a fight this is (spec 031).
+
+    Deliberately its own vocabulary rather than a reuse of :class:`Difficulty`.
+    Difficulty derives a challenge's XP; a boss tier is an editorial judgement
+    about where the fight sits in the story of its wing, so a Neighborhood Boss
+    late in the dungeon may be harder than a City Boss early in it.
+    """
+
+    NEIGHBORHOOD = "neighborhood"
+    BOROUGH = "borough"
+    CITY = "city"
+    PROVINCE = "province"
+    COUNTRY = "country"
+    FLOOR = "floor"
+
+
+#: Ascending, so a display can order them without hardcoding the list.
+BOSS_TIER_LEVEL = {
+    BossTier.NEIGHBORHOOD: 1,
+    BossTier.BOROUGH: 2,
+    BossTier.CITY: 3,
+    BossTier.PROVINCE: 4,
+    BossTier.COUNTRY: 5,
+    BossTier.FLOOR: 6,
+}
+
+
 class Difficulty(enum.StrEnum):
     """The six-tier ladder (spec 018).
 
@@ -234,6 +262,10 @@ class Challenge(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     #: Null (the default) means unlimited attempts — rate limiting is the brake.
     max_attempts: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    #: Null means "not a boss" (spec 031). One nullable column rather than a
+    #: boolean alongside it: two columns for one fact eventually disagree.
+    boss_tier: Mapped[BossTier | None] = mapped_column(_enum(BossTier, "boss_tier"), nullable=True)
 
     #: Reserved for spec 009. Nothing reads it yet; it exists so the container
     #: work needs no schema change.

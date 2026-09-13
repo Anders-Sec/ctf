@@ -11,6 +11,7 @@ from app.models.auth import AuthSession, MagicLinkToken
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.challenge import (
     Ability,
+    BossTier,
     Category,
     Challenge,
     ChallengeAnswer,
@@ -64,6 +65,7 @@ from app.models.team import (
 from app.models.user import User
 
 __all__ = [
+    "BossTier",
     "NotificationKind",
     "Notification",
     "AchievementAward",
