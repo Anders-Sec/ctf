@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, LargeBinary, String
+from sqlalchemy import Enum, ForeignKey, Integer, LargeBinary, String
 from sqlalchemy.dialects.postgresql import CITEXT
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -81,6 +81,20 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     assistant_blocked: Mapped[bool] = mapped_column(
         nullable=False, default=False, server_default="false"
     )
+
+    #: An explicit ladder selection (spec 033). Null — the default — means "track
+    #: my maximum", so a player who never touches the selector always faces the
+    #: level their solves have earned. A selection is what lets them go *back*:
+    #: without it, solving a level destroys it forever.
+    #:
+    #: Never trusted above the derived maximum. The level is a security boundary
+    #: and the maximum is recomputed from solves on every turn.
+    ai_ladder_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    #: When the System AI first handed this player level 0's flag. One indexed
+    #: column rather than a join over message history, because it is read on
+    #: every unlock evaluation.
+    ai_ladder_leaked_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     approved_at: Mapped[datetime | None] = mapped_column(nullable=True)
     approved_by_user_id: Mapped[uuid.UUID | None] = mapped_column(

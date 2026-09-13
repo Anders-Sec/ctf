@@ -5,7 +5,16 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import (
+    CheckConstraint,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import CITEXT, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -267,6 +276,13 @@ class Challenge(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: boolean alongside it: two columns for one fact eventually disagree.
     boss_tier: Mapped[BossTier | None] = mapped_column(_enum(BossTier, "boss_tier"), nullable=True)
 
+    #: Which rung of the System AI ladder this challenge is, 0-5 (spec 033).
+    #: Null — almost every challenge — means "not a ladder level". The same
+    #: one-nullable-column shape as ``boss_tier``, and unique among non-nulls:
+    #: the engine resolves a level's flag through this column, so two challenges
+    #: claiming level 3 would make the prompt it builds ambiguous.
+    ai_ladder_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     #: Reserved for spec 009. Nothing reads it yet; it exists so the container
     #: work needs no schema change.
     container_template_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -388,6 +404,13 @@ class RequirementType(enum.StrEnum):
     #: Player level ``threshold`` or better. Says what it means, and follows the
     #: XP curve if it is ever retuned — unlike a frozen min_xp number.
     PLAYER_LEVEL = "player_level"
+    #: The System AI has handed this player level 0's flag (spec 033). Reads no
+    #: extra columns — the fact lives on ``user.ai_ladder_leaked_at``.
+    #:
+    #: Never shown to players. It is the secret route into the ladder's zone, and
+    #: a requirement list that named it would hand the trick to everyone arriving
+    #: by the ordinary route.
+    AI_LADDER_LEAK = "ai_ladder_leak"
 
 
 class UnlockRequirement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -446,3 +469,13 @@ class UnlockRequirement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: The XP amount, the skill level, or the solve count — the row's type says
     #: which. Null for ``challenge_solved``.
     threshold: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    #: Any-of grouping (spec 033). Rows on the same target sharing a non-null
+    #: group are satisfied when **any** of them is met; groups and ungrouped rows
+    #: still AND together.
+    #:
+    #: Null on every row that existed before, so the all-of rule in the class
+    #: docstring is unchanged for them. Introduced because the ladder's zone opens
+    #: by *either* clearing half of another zone *or* catching the System AI out,
+    #: and a flag on the target could not express "A, and either B or C".
+    alternative_group: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)

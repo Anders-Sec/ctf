@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -74,6 +75,20 @@ class AssistantMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: the guardrails land, and their transcripts should not muddy the abuse
     #: review afterwards.
     from_staff: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
+
+    #: Which rung of the ladder produced this turn (spec 033). Recorded on the
+    #: row because the level is what selected the prompt and the gates, and a
+    #: reply is unreadable afterwards without knowing which defences were up.
+    ladder_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    #: Which gates fired, e.g. ``["router"]`` or ``["vault:APPENDIX-OMEGA"]``.
+    #: A live feed of what players are trying, and the thing to read when a level
+    #: behaves oddly.
+    #:
+    #: **Telemetry, never a gate.** ``SOLVED`` appearing here means the flag
+    #: reached the player — which in this ladder is the win condition, not an
+    #: incident.
+    trace: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
     model: Mapped[str | None] = mapped_column(String(200), nullable=True)
     prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
