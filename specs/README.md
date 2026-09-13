@@ -59,6 +59,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 030 | `030-admin-achievements.md` | Phase 2 — admin CRUD over the roster, with trigger and copy status | **done** |
 | 031 | `031-boss-encounters.md` | Phase 2 — one boss per zone, six tiers, derived stars, per-zone achievements | **done** |
 | 032 | `032-broadcast-notifications.md` | Phase 2 — fan-out broadcasts: boss first kills, admin announcements, daily dispatch | **approved** — not yet built |
+| 033 | `033-system-ai-ladder.md` | Phase 1 — the DCC System AI persona and the six-level prompt-injection ladder; **amends 011 and 013** | **done** — verified against the live model |
 
 ## Sequencing rationale
 

@@ -110,9 +110,10 @@ confused-deputy attack. **The vault serves whatever id it is handed** —
 enforcing the rule in code instead of the prompt would make the level
 unbreakable.
 
-Level 5 has **no verified solve** in ~90 attempts. The retrieval exploit works
-and the flag genuinely enters context; the output gates have held. That is
-intentional at 900 XP.
+`IMPLEMENTATION.md` recorded **no verified solve** in ~90 attempts, and treated
+that as intentional at 900 XP. **That is no longer true** — the chain was solved
+during this implementation's live verification. See deviation 6 below; whether to
+tighten it is a decision for the project owner.
 
 ---
 
