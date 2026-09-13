@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import ConflictError, NotFoundError
 from app.models.notification import Achievement, AchievementAward
-from app.services.achievements import REGISTRY
+from app.services.achievements import REGISTRY, resolve, trigger_families
 
 #: What 029's seed writes into `description`. Rows still holding it are the
 #: working list for whoever is writing the System AI's copy.
@@ -80,7 +80,7 @@ def _row(achievement: Achievement, held_by: int) -> AchievementRow:
         earned_by=achievement.earned_by,
         display_order=achievement.display_order,
         secret=achievement.secret,
-        has_trigger=achievement.code in REGISTRY,
+        has_trigger=resolve(achievement.code) is not None,
         needs_copy=achievement.description.strip() == PLACEHOLDER,
         held_by=held_by,
     )
@@ -98,6 +98,9 @@ async def trigger_codes(db: AsyncSession) -> dict[str, list[str]]:
     return {
         "registered": registered,
         "unused": [code for code in registered if code not in used],
+        # Families resolve a code that is not known until the data is, so they
+        # cannot be listed as concrete suggestions — only described.
+        "families": trigger_families(),
     }
 
 

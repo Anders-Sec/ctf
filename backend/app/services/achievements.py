@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models.assistant import AssistantConversation, AssistantMessage, MessageRole
 from app.models.challenge import (
+    BOSS_TIER_LEVEL,
     Ability,
     Category,
     Challenge,
@@ -67,6 +68,43 @@ class Trigger:
 
 
 REGISTRY: dict[str, Trigger] = {}
+#: Triggers whose code is not known until the data is. A boss achievement is
+#: ``boss_<zone-slug>``, and zones are rows rather than code, so the family is
+#: registered once and the code resolved against it (spec 031).
+PREFIX_TRIGGERS: list[tuple[str, frozenset[str], Callable[[str], object]]] = []
+
+
+def prefix_trigger(prefix: str, *events: str):
+    """Register a family of triggers sharing a code prefix.
+
+    The factory receives whatever followed the prefix and returns the check.
+    """
+
+    def register(factory):
+        PREFIX_TRIGGERS.append((prefix, frozenset(events), factory))
+        return factory
+
+    return register
+
+
+def resolve(code: str) -> Trigger | None:
+    """The trigger that awards ``code``, exact match or prefix family.
+
+    Returns None for a code nothing implements, which is the inert state the
+    admin roster surfaces rather than an error.
+    """
+    exact = REGISTRY.get(code)
+    if exact is not None:
+        return exact
+    for prefix, events, factory in PREFIX_TRIGGERS:
+        if code.startswith(prefix) and len(code) > len(prefix):
+            return Trigger(events=events, check=factory(code[len(prefix) :]))
+    return None
+
+
+#: The prefix families, for the admin roster to describe.
+def trigger_families() -> list[str]:
+    return [f"{prefix}<slug>" for prefix, _events, _factory in PREFIX_TRIGGERS]
 
 
 def trigger(code: str, *events: str):
@@ -1159,6 +1197,91 @@ async def _that_is_a_penalty(db: AsyncSession, user_id: UUID) -> bool:
     )
 
 
+# --- Bosses -----------------------------------------------------------------
+
+
+async def boss_challenge_in(db: AsyncSession, zone_slug: str):
+    """The challenge flagged as the boss of a zone, or None.
+
+    Keyed on the zone rather than the challenge so that swapping which challenge
+    is the boss during preparation changes nothing about the achievement.
+    """
+    return (
+        await db.execute(
+            select(Challenge)
+            .join(Category, Category.id == Challenge.category_id)
+            .where(Category.slug == zone_slug, Challenge.boss_tier.is_not(None))
+        )
+    ).scalar_one_or_none()
+
+
+@prefix_trigger("boss_", SOLVE)
+def _boss_of_zone(zone_slug: str):
+    async def check(db: AsyncSession, user_id: UUID) -> bool:
+        boss = await boss_challenge_in(db, zone_slug)
+        if boss is None:
+            return False
+        return bool(
+            await db.scalar(
+                select(Solve.id).where(Solve.user_id == user_id, Solve.challenge_id == boss.id)
+            )
+        )
+
+    return check
+
+
+@dataclass(frozen=True)
+class Star:
+    """A boss kill, as the sheet shows it (spec 031).
+
+    Derived from the solve, never stored: flagging a boss late gives everyone
+    who already beat it their star at once, and disabling a broken boss takes
+    nobody's star away.
+    """
+
+    challenge_id: UUID
+    challenge_title: str
+    zone_name: str
+    tier: str
+    level: int
+
+
+async def stars_for(db: AsyncSession, user_id: UUID) -> list[Star]:
+    rows = (
+        await db.execute(
+            select(Challenge, Category.name)
+            .join(Solve, Solve.challenge_id == Challenge.id)
+            .join(Category, Category.id == Challenge.category_id)
+            .where(Solve.user_id == user_id, Challenge.boss_tier.is_not(None))
+        )
+    ).all()
+    stars = [
+        Star(
+            challenge_id=challenge.id,
+            challenge_title=challenge.title,
+            zone_name=zone_name,
+            tier=challenge.boss_tier.value,
+            level=BOSS_TIER_LEVEL[challenge.boss_tier],
+        )
+        for challenge, zone_name in rows
+    ]
+    # Biggest fight first — the thing worth showing off.
+    return sorted(stars, key=lambda s: (-s.level, s.zone_name))
+
+
+async def star_counts(db: AsyncSession) -> dict[UUID, int]:
+    """Stars per player, for the scoreboard. One query rather than one each."""
+    rows = (
+        await db.execute(
+            select(Solve.user_id, func.count(Solve.id))
+            .join(Challenge, Challenge.id == Solve.challenge_id)
+            .where(Challenge.boss_tier.is_not(None))
+            .group_by(Solve.user_id)
+        )
+    ).all()
+    return dict(rows)
+
+
 # --- Evaluation ------------------------------------------------------------
 
 
@@ -1180,16 +1303,16 @@ async def evaluate(
         .all()
     )
     candidates = [
-        achievement
+        (achievement, found)
         for achievement in (await db.execute(select(Achievement))).scalars().all()
         if achievement.id not in held
-        and (trigger := REGISTRY.get(achievement.code)) is not None
-        and event in trigger.events
+        and (found := resolve(achievement.code)) is not None
+        and event in found.events
     ]
 
     earned: list[Achievement] = []
-    for achievement in candidates:
-        if not await REGISTRY[achievement.code].check(db, user_id):
+    for achievement, found in candidates:
+        if not await found.check(db, user_id):
             continue
         if await _award(db, achievement, user_id):
             earned.append(achievement)

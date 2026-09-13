@@ -44,3 +44,5 @@ class TriggerCodesResponse(BaseModel):
     registered: list[str]
     #: Registered triggers with no achievement row — the suggestion list.
     unused: list[str]
+    #: Trigger families, whose codes depend on data rather than being fixed.
+    families: list[str] = []
