@@ -359,9 +359,7 @@ class TestPointsOverride:
         assert any(e.column == "points" for e in report.errors)
         assert report.created == 0
 
-    async def test_an_override_round_trips_through_export(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_an_override_round_trips_through_export(self, db_session: AsyncSession) -> None:
         """The point of the column: re-importing an export must not reset it."""
         category = await make_category(db_session)
         await make_challenge(
@@ -403,9 +401,7 @@ class TestLadderColumn:
         assert challenge.ai_ladder_level == 0
         assert f"{category.name},Very Easy" in await challenge_csv.build_export(db_session)
 
-    async def test_two_rows_claiming_one_rung_are_refused(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_two_rows_claiming_one_rung_are_refused(self, db_session: AsyncSession) -> None:
         """The partial unique index would catch it halfway through the apply;
         catching it here keeps the all-or-nothing promise."""
         category = await make_category(db_session)
@@ -421,9 +417,7 @@ class TestLadderColumn:
         assert any(e.column == "ai_ladder_level" for e in report.errors)
         assert report.created == 0
 
-    async def test_a_rung_outside_the_ladder_is_refused(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_a_rung_outside_the_ladder_is_refused(self, db_session: AsyncSession) -> None:
         category = await make_category(db_session)
         csv = (
             "category,title,difficulty,description,flag,points,state,max_attempts,"
@@ -435,9 +429,7 @@ class TestLadderColumn:
 
         assert any(e.column == "ai_ladder_level" for e in report.errors)
 
-    async def test_an_ordinary_row_stays_off_the_ladder(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_an_ordinary_row_stays_off_the_ladder(self, db_session: AsyncSession) -> None:
         category = await make_category(db_session)
         csv = (
             "category,title,difficulty,description,flag,points,state,max_attempts,"

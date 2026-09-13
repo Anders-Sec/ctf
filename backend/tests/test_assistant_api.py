@@ -27,7 +27,6 @@ async def _ladder(db_session: AsyncSession):
     return await make_ladder(db_session)
 
 
-
 @pytest.fixture(autouse=True)
 async def clear_assistant_limits(settings: Settings) -> AsyncIterator[None]:
     """Counters live in Redis and outlive a rolled-back transaction."""

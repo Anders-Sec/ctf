@@ -31,7 +31,6 @@ async def _ladder(db_session: AsyncSession):
     return await make_ladder(db_session)
 
 
-
 @pytest.fixture(autouse=True)
 async def _clear_ai_limits(settings: Settings):
     redis = get_redis(settings)

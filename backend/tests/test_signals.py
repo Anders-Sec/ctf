@@ -534,9 +534,7 @@ class TestLadderExemption:
 
         now = datetime.now(UTC)
         await record_solve(db_session, first, ladder[0], submitted_at=now)
-        await record_solve(
-            db_session, second, ladder[0], submitted_at=now + timedelta(seconds=5)
-        )
+        await record_solve(db_session, second, ladder[0], submitted_at=now + timedelta(seconds=5))
 
         results = await signals.compute(db_session, settings)
 
@@ -555,9 +553,7 @@ class TestLadderExemption:
 
         now = datetime.now(UTC)
         await record_solve(db_session, first, challenge, submitted_at=now)
-        await record_solve(
-            db_session, second, challenge, submitted_at=now + timedelta(seconds=5)
-        )
+        await record_solve(db_session, second, challenge, submitted_at=now + timedelta(seconds=5))
 
         results = await signals.compute(db_session, settings, only=signals.CLOSE_SOLVE)
 

@@ -406,9 +406,7 @@ async def _apply(
         else (challenge.state if challenge.id else ChallengeState.DRAFT)
     )
     challenge.max_attempts = int(row["max_attempts"]) if row.get("max_attempts") else None
-    challenge.ai_ladder_level = (
-        int(row["ai_ladder_level"]) if row.get("ai_ladder_level") else None
-    )
+    challenge.ai_ladder_level = int(row["ai_ladder_level"]) if row.get("ai_ladder_level") else None
     challenge.release_at = (
         datetime.fromisoformat(row["release_at"]) if row.get("release_at") else None
     )
