@@ -74,6 +74,12 @@ class _Context:
     settings: Settings
     players: dict[UUID, User] = field(default_factory=dict)
     team_names: dict[UUID, str] = field(default_factory=dict)
+    #: Challenges no signal should consider (spec 033). The System AI ladder's
+    #: six flags are **designed** to circulate: a player can reach a rung on a
+    #: flag a teammate extracted, and the ladder tolerates that deliberately.
+    #: Every sharing signal would fire on all six, constantly, and bury the
+    #: findings that mean something.
+    exempt_challenges: set[UUID] = field(default_factory=set)
 
 
 def _key(signal_type: str, *parts: object) -> str:
@@ -103,7 +109,17 @@ async def _load_context(db: AsyncSession, settings: Settings) -> _Context:
         .all()
     }
     team_names = dict((await db.execute(select(Team.id, Team.name))).all())
-    return _Context(settings=settings, players=players, team_names=team_names)
+    exempt = set(
+        (await db.execute(select(Challenge.id).where(Challenge.ai_ladder_level.is_not(None))))
+        .scalars()
+        .all()
+    )
+    return _Context(
+        settings=settings,
+        players=players,
+        team_names=team_names,
+        exempt_challenges=exempt,
+    )
 
 
 async def shared_wrong_answers(db: AsyncSession, context: _Context) -> list[Finding]:
@@ -130,7 +146,7 @@ async def shared_wrong_answers(db: AsyncSession, context: _Context) -> list[Find
 
     grouped: dict[tuple[str, UUID], dict[UUID, UUID | None]] = defaultdict(dict)
     for value, challenge_id, user_id, team_id in rows:
-        if user_id not in context.players:
+        if user_id not in context.players or challenge_id in context.exempt_challenges:
             continue
         if value.strip().lower() in _OBVIOUS:
             continue
@@ -189,7 +205,7 @@ async def close_behind_solves(db: AsyncSession, context: _Context) -> list[Findi
 
     by_challenge: dict[UUID, list] = defaultdict(list)
     for challenge_id, user_id, team_id, at in solves:
-        if user_id in context.players:
+        if user_id in context.players and challenge_id not in context.exempt_challenges:
             by_challenge[challenge_id].append((at, user_id, team_id))
 
     findings = []
@@ -240,7 +256,7 @@ async def first_try_solvers(db: AsyncSession, context: _Context) -> list[Finding
 
     totals: dict[UUID, list[int]] = defaultdict(lambda: [0, 0])
     for user_id, challenge_id in solves:
-        if user_id not in context.players:
+        if user_id not in context.players or challenge_id in context.exempt_challenges:
             continue
         totals[user_id][0] += 1
         if wrong_before.get((user_id, challenge_id), 0) == 0:

@@ -513,3 +513,52 @@ class TestTimeline:
         await sign_in(client, organizer)
 
         assert (await client.get(f"/api/admin/players/{uuid.uuid4()}/timeline")).status_code == 404
+
+
+class TestLadderExemption:
+    """The System AI ladder's six flags are designed to circulate (spec 033): a
+    player can reach a rung on a flag a teammate extracted, and the ladder
+    tolerates that on purpose. Left in, every sharing signal fires on all six
+    constantly and buries the findings that mean something."""
+
+    async def test_a_shared_ladder_flag_produces_no_signal(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        from tests.factories import make_ladder
+
+        ladder = await make_ladder(db_session)
+        first = await make_user(db_session, status=UserStatus.ACTIVE)
+        second = await make_user(db_session, status=UserStatus.ACTIVE)
+        await make_team(db_session, first)
+        await make_team(db_session, second)
+
+        now = datetime.now(UTC)
+        await record_solve(db_session, first, ladder[0], submitted_at=now)
+        await record_solve(
+            db_session, second, ladder[0], submitted_at=now + timedelta(seconds=5)
+        )
+
+        results = await signals.compute(db_session, settings)
+
+        assert results[signals.CLOSE_SOLVE] == []
+        assert results[signals.FIRST_TRY] == []
+
+    async def test_an_ordinary_challenge_still_signals(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        """The exemption must be narrow — it is the ladder, not the board."""
+        challenge = await make_challenge(db_session)
+        first = await make_user(db_session, status=UserStatus.ACTIVE)
+        second = await make_user(db_session, status=UserStatus.ACTIVE)
+        await make_team(db_session, first)
+        await make_team(db_session, second)
+
+        now = datetime.now(UTC)
+        await record_solve(db_session, first, challenge, submitted_at=now)
+        await record_solve(
+            db_session, second, challenge, submitted_at=now + timedelta(seconds=5)
+        )
+
+        results = await signals.compute(db_session, settings, only=signals.CLOSE_SOLVE)
+
+        assert results[signals.CLOSE_SOLVE]
