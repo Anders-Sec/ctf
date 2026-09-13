@@ -1,6 +1,6 @@
 # Spec 030 — Admin Achievement Management
 
-Status: **draft** (2026-09-13) — awaiting sign-off
+Status: **approved** (2026-09-13)
 Phase: 2 (D&D Mechanics)
 Depends on: 028 (the engine), 029 (the roster this page manages)
 

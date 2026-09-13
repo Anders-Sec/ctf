@@ -54,7 +54,9 @@ lore, art, a wider tone pass) is intentionally not started.
 | 025 | `025-dungeon-sample-data.md` | Phase 2/3 — sample data that fills the real 22 zones with the real skills | **done** |
 | 026 | `026-challenge-csv.md` | Phase 2/3 — challenge import/export as CSV, with a pre-filled 242-row template | **done** |
 | 027 | `027-map-layout-portability.md` | Phase 2/3 — export/import the map layout between instances, keyed on slug | **done** |
-| 028 | `028-notifications-and-achievements.md` | Phase 2 — System AI notification feed, live socket, achievements and rarity | **done** — engine built, roster pending |
+| 028 | `028-notifications-and-achievements.md` | Phase 2 — System AI notification feed, live socket, achievements and rarity | **done** |
+| 029 | `029-achievement-roster.md` | Phase 2 — 112 achievements across the event arc, plus the earned_by column | **done** — roster seeded, 105 triggers still to write |
+| 030 | `030-admin-achievements.md` | Phase 2 — admin CRUD over the roster, with trigger and copy status | **done** |
 
 ## Sequencing rationale
 

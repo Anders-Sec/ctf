@@ -185,6 +185,26 @@ evaluation off the request path rather than to widen it.
 - Points or XP for achievements. They are identity, never a scoring lever — the
   rule 016 set for classes holds here too.
 
+## Recorded for implementation: the ones only the ending can settle
+
+Some achievements make a claim that a later action can falsify — *Solo Act*
+("led a party that never gained a second member"), *Enough* ("exactly one solve,
+all event"), *Vampire* ("every solve between 22:00 and 06:00"), *Comic Relief*,
+*Low Hanging Fruit*, *Proud*, *Someone Has To Be*.
+
+The distinction is monotonicity. "Ten solves" is monotone: once true it stays
+true, so firing the instant it becomes true is safe. "Only ever solved very-easy
+challenges" is not — a medium solve an hour later makes it false, and 028 holds
+that an award is never taken back. Firing those early would eventually leave a
+player holding a badge that contradicts their own sheet.
+
+These therefore cannot award during play; they have to be settled once, after
+the event ends. That is a sweep the platform does not have yet.
+
+Noted here rather than solved: it changes when those achievements fire, not
+whether they are worth having, and the sweep is its own small piece of work.
+Every monotone achievement — the large majority — is unaffected and fires live.
+
 ## What goes in the database
 
 Three columns carry meaning for now, and a fourth is a placeholder:
