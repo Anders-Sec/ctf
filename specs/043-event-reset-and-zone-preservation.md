@@ -1,6 +1,6 @@
 # Spec 043 — Event Reset, and Zones That Stay Put
 
-Status: **approved** (2026-09-14)
+Status: **done** (2026-09-14)
 Phase: 2/3 boundary (tooling)
 Extends: 042 (bulk operations)
 Amends: **013** (category pruning), 040 (the CSV's unknown-category refusal)

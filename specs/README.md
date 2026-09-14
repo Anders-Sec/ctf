@@ -69,7 +69,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 040 | `040-challenge-csv-full-fidelity.md` | Tooling — every challenge property in the CSV (flags with match types, hints, prerequisites, boss tiers as JSON cells); XP set per challenge, difficulty demoted to a label; **supersedes 026's columns and 018's XP derivation** | **done** |
 | 041 | `041-challenge-manager.md` | Tooling — admin challenge list rebuilt for 242: table grouped by zone with a side drawer, server-side search and problem filters, inline editing; fixes the always-zero `answer_count` | **done** |
 | 042 | `042-bulk-challenge-operations.md` | Tooling — bulk selection and operations on top of 041: set state/difficulty/XP/skills, bulk delete with per-item results and the zone-pruning warning | **done** — `move_category` deferred |
-| 043 | `043-event-reset-and-zone-preservation.md` | Tooling — reset all play data so scaffolding challenges can be deleted; **stop pruning categories**, which was silently destroying seeded zones and their skill grouping | **draft** |
+| 043 | `043-event-reset-and-zone-preservation.md` | Tooling — per-group reset of play data so scaffolding challenges can be deleted; **stop pruning categories**, which was silently destroying seeded zones and their skill grouping, plus migration 0042 to repair the damage | **done** |
 
 ## Sequencing rationale
 
