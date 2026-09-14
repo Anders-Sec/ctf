@@ -28,14 +28,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.errors import AppError
 from app.models.challenge import (
     MINIMUM_POINTS_FRACTION,
-    Category,
     Challenge,
     ChallengeState,
     Difficulty,
 )
 from app.models.play import Solve
 from app.models.skill import ChallengeSkill, Skill
-from app.services import challenges as challenge_service
 
 #: A request-size and transaction-length bound, not a safety rail. The whole
 #: event is 242, so this is never reached in practice.
@@ -264,7 +262,8 @@ async def _delete(db: AsyncSession, challenges: list[Challenge], result: BulkRes
     A challenge with solves is refused — deleting it would erase what scored for
     people, and hiding is the operation actually wanted. That refusal is
     per-challenge, so a selection of eleven containing two solved ones removes
-    nine rather than none.
+    nine rather than none. Clearing the solves deliberately, with the event
+    reset (spec 043), is how a scaffolding challenge becomes deletable.
     """
     solved = dict(
         (
@@ -276,7 +275,6 @@ async def _delete(db: AsyncSession, challenges: list[Challenge], result: BulkRes
         ).all()
     )
 
-    touched_categories: set[UUID] = set()
     for challenge in challenges:
         count = solved.get(challenge.id, 0)
         if count:
@@ -289,27 +287,22 @@ async def _delete(db: AsyncSession, challenges: list[Challenge], result: BulkRes
                 )
             )
             continue
-        touched_categories.add(challenge.category_id)
         await db.delete(challenge)
         result.succeeded += 1
         result.results.append(ItemResult(challenge.id, True))
 
     await db.flush()
-
-    # A zone exists exactly as long as something is in it (spec 013). One at a
-    # time that is a tidy-up; in bulk it is invisible from the selection, so the
-    # caller is told which zones went with the challenges.
-    for category_id in touched_categories:
-        name = await db.scalar(select(Category.name).where(Category.id == category_id))
-        if await challenge_service.prune_category_if_empty(db, category_id) and name:
-            result.categories_deleted.append(name)
+    # `categories_deleted` stays empty: zones are no longer pruned when their
+    # last challenge goes (spec 043). The field is kept so a client written
+    # against 042 keeps working.
 
 
 async def preview_delete(db: AsyncSession, challenge_ids: list[UUID]) -> "DeletePreview":
     """What the confirm dialog says before anything happens.
 
-    The blast radius of a bulk delete is not visible from the selection: some
-    rows cannot be deleted, and emptying a zone takes the zone with it.
+    One thing is not visible from the selection: which rows cannot be deleted
+    because people have solved them. Zones used to be the other, until spec 043
+    stopped deleting them along with their last challenge.
     """
     unique = list(dict.fromkeys(challenge_ids))
     challenges = list(
@@ -325,41 +318,25 @@ async def preview_delete(db: AsyncSession, challenge_ids: list[UUID]) -> "Delete
         ).all()
     )
 
-    deletable = [c for c in challenges if not solved.get(c.id)]
     blocked = [c for c in challenges if solved.get(c.id)]
-
-    #: A zone empties only if every one of its challenges is both selected and
-    #: actually deletable — a blocked one keeps its zone alive.
-    emptied: list[EmptiedZone] = []
-    for category_id in {c.category_id for c in deletable}:
-        total = await db.scalar(
-            select(func.count()).select_from(Challenge).where(Challenge.category_id == category_id)
-        )
-        going = sum(1 for c in deletable if c.category_id == category_id)
-        if total == going:
-            name = await db.scalar(select(Category.name).where(Category.id == category_id))
-            skills = await db.scalar(
-                select(func.count()).select_from(Skill).where(Skill.category_id == category_id)
-            )
-            emptied.append(EmptiedZone(category_id, name or "", int(skills or 0)))
-
     return DeletePreview(
-        deletable=len(deletable),
+        deletable=len(challenges) - len(blocked),
         blocked=[
-            ItemResult(c.id, False, f"{solved[c.id]} solved — hide it instead.") for c in blocked
+            ItemResult(c.id, False, f"{solved[c.id]} solved — hide it, or reset play data.")
+            for c in blocked
         ],
-        zones_emptied=emptied,
+        zones_emptied=[],
     )
 
 
 @dataclass
 class EmptiedZone:
-    """A zone that would be deleted along with its last challenge (spec 013)."""
+    """Vestigial (spec 043): zones are no longer deleted with their last
+    challenge, so nothing populates this any more. Kept so a client written
+    against 042's response shape keeps parsing."""
 
     category_id: UUID
     name: str
-    #: Kept, but they lose their zone grouping — the FK is SET NULL — so the
-    #: skill picker and the generated reference stop being sorted by area.
     skills_orphaned: int
 
 

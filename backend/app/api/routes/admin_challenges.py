@@ -439,23 +439,20 @@ async def update_challenge(
         if await db.get(ContainerTemplate, changes["container_template_id"]) is None:
             raise NotFoundError("No such container template.")
 
-    # Category is a name, resolved to (or creating) a row. Remember the old one so
-    # a category left empty by the move is cleaned up.
+    # Category is a name, resolved to (or creating) a row. A zone the move leaves
+    # empty is left alone (spec 043) — empty is what a zone looks like before its
+    # challenges are written.
     new_category_name = changes.pop("category", None)
-    old_category_id = challenge.category_id
 
     for field, value in changes.items():
         setattr(challenge, field, value)
     if new_category_name is not None:
         category = await challenge_service.resolve_or_create_category(db, new_category_name)
-        # Assign the relationship, not just the FK, so the reloaded detail (and
-        # the prune check below) see the new category rather than the stale one.
+        # Assign the relationship, not just the FK, so the reloaded detail sees
+        # the new category rather than the stale one.
         challenge.category = category
         changes["category"] = category.name
     await db.flush()
-
-    if new_category_name is not None and challenge.category_id != old_category_id:
-        await challenge_service.prune_category_if_empty(db, old_category_id)
 
     await record_audit(
         db,
@@ -522,12 +519,12 @@ async def delete_challenge(
             code="challenge_has_solves",
         )
 
-    category_id = challenge.category_id
     slug = challenge.slug
     await db.delete(challenge)
     await db.flush()
-    # A category exists only as long as it holds a challenge (spec 013).
-    await challenge_service.prune_category_if_empty(db, category_id)
+    # The zone stays (spec 043). It used to be pruned when its last challenge
+    # went, which quietly destroyed a seeded zone's ability mapping, display
+    # order and map position, and detached its skills.
 
     await record_audit(
         db,

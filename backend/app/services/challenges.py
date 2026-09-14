@@ -430,25 +430,6 @@ async def resolve_or_create_category(db: AsyncSession, name: str) -> Category:
     return category
 
 
-async def prune_category_if_empty(db: AsyncSession, category_id: UUID) -> bool:
-    """Delete a category once its last challenge is gone (spec 013).
-
-    Categories exist exactly as long as something is in them. The challenge FK is
-    ON DELETE RESTRICT, so this can only ever remove a genuinely empty one.
-    """
-    remaining = await db.scalar(
-        select(func.count()).select_from(Challenge).where(Challenge.category_id == category_id)
-    )
-    if remaining:
-        return False
-    category = await db.get(Category, category_id)
-    if category is None:
-        return False
-    await db.delete(category)
-    await db.flush()
-    return True
-
-
 # --------------------------------------------------------------------------
 # Prerequisite management (admin, spec 014)
 # --------------------------------------------------------------------------

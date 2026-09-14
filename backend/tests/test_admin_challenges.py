@@ -553,9 +553,13 @@ class TestDerivedCategories:
         # The canonical spelling is the one first created.
         assert second["category"]["name"] == "Forensics"
 
-    async def test_deleting_the_last_challenge_removes_the_category(
+    async def test_deleting_the_last_challenge_leaves_the_area(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """Areas used to be pruned when emptied (spec 013). That quietly
+        destroyed seeded zones — their ability mapping, display order and map
+        position — and detached their skills, so spec 043 stopped it. An empty
+        area is what every area looks like before its challenges are written."""
         from app.models.challenge import Category
 
         await as_role(db_session, client, sign_in, UserRole.ADMIN)
@@ -565,7 +569,7 @@ class TestDerivedCategories:
         deleted = await client.delete(f"/api/admin/challenges/{created['id']}")
         assert deleted.status_code == 200
 
-        assert await db_session.get(Category, uuid.UUID(category_id)) is None
+        assert await db_session.get(Category, uuid.UUID(category_id)) is not None
 
     async def test_a_category_with_other_challenges_survives(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -583,7 +587,7 @@ class TestDerivedCategories:
         assert await db_session.get(Category, uuid.UUID(category_id)) is not None
         assert second["category"]["id"] == category_id
 
-    async def test_moving_a_challenge_prunes_the_emptied_category(
+    async def test_moving_a_challenge_leaves_the_emptied_area(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
         from app.models.challenge import Category
@@ -598,8 +602,8 @@ class TestDerivedCategories:
         assert moved.status_code == 200
         assert moved.json()["category"]["name"] == "Pwn"
 
-        # "Misc" is now empty and gone.
-        assert await db_session.get(Category, uuid.UUID(old_category_id)) is None
+        # "Misc" is empty, and stays (spec 043).
+        assert await db_session.get(Category, uuid.UUID(old_category_id)) is not None
 
 
 class TestContainerAssignment:

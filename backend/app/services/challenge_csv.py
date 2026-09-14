@@ -393,7 +393,16 @@ def _plan_row(
 
     category = lookups.categories.get(row.get("category", "").lower())
     if category is None:
-        fail("category", f"No category named {row.get('category')!r}.")
+        # Names the zones that do exist (spec 043). A 242-row file refused over
+        # one unknown name should not leave an admin guessing which name was
+        # right — and the import deliberately will not invent a zone, because a
+        # typo must not produce one no map draws and no ability feeds.
+        known = ", ".join(sorted(lookups.zone_names))
+        fail(
+            "category",
+            f"No area named {row.get('category')!r}. Areas are created in the "
+            f"platform, not by import. These exist: {known}.",
+        )
         return None
 
     try:
@@ -1199,6 +1208,8 @@ class _Lookups:
 
     categories: dict[str, Category]
     category_names: dict[UUID, str]
+    #: Canonical spellings, for the error an unknown one produces.
+    zone_names: list[str]
     skills: dict[str, UUID]
     by_title: dict[tuple[UUID, str], Challenge]
     by_slug: dict[str, Challenge]
@@ -1238,6 +1249,7 @@ class _Lookups:
         return cls(
             categories=keyed,
             category_names={c.id: c.name for c in categories},
+            zone_names=[c.name for c in categories],
             skills={
                 name.lower(): skill_id
                 for skill_id, name in (await db.execute(select(Skill.id, Skill.name))).all()

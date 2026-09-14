@@ -271,21 +271,21 @@ class TestDelete:
         )
         assert list(remaining) == ["Solved"]
 
-    async def test_emptying_a_zone_deletes_the_zone_and_says_so(
+    async def test_emptying_a_zone_leaves_the_zone(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        """Spec 013 prunes an empty category. One at a time that is a tidy-up;
-        in bulk it is invisible from the selection, so it is reported."""
+        """Spec 043 stopped pruning: deleting every challenge in an area no
+        longer deletes the area, so nothing is reported as gone with them."""
         await as_admin(db_session, client, sign_in)
-        category = await make_category(db_session, name="Doomed Zone")
+        category = await make_category(db_session, name="Emptied Zone")
         everything = [
             await make_challenge(db_session, category=category, title=f"Room {i}") for i in range(3)
         ]
 
         response = await bulk(client, "delete", [c.id for c in everything])
 
-        assert response.json()["categories_deleted"] == ["Doomed Zone"]
-        assert await db_session.get(Category, category.id) is None
+        assert response.json()["categories_deleted"] == []
+        assert await db_session.get(Category, category.id) is not None
 
     async def test_a_partly_deleted_zone_survives(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -324,33 +324,26 @@ class TestDelete:
         body = response.json()
         assert body["deletable"] == 1
         assert len(body["blocked"]) == 1
-        # The zone survives: its solved challenge cannot be deleted, so it is
-        # not actually emptied.
-        assert body["zones_emptied"] == []
 
-    async def test_preview_names_a_zone_that_would_go(
+    async def test_preview_warns_about_no_zone(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """The zone warning was the other half of the blast radius until 043
+        made it impossible. Only the undeletable rows remain worth naming."""
         await as_admin(db_session, client, sign_in)
         category = await make_category(db_session, name="Fully Selected Zone")
         everything = [
             await make_challenge(db_session, category=category, title=f"Room {i}") for i in range(2)
         ]
-        db_session.add(Skill(name="Would Be Orphaned", category_id=category.id))
-        await db_session.flush()
 
         response = await client.post(
             "/api/admin/challenges/bulk/preview-delete",
-            json={
-                "challenge_ids": [str(c.id) for c in everything],
-                "action": "delete",
-            },
+            json={"challenge_ids": [str(c.id) for c in everything], "action": "delete"},
         )
 
-        zones = response.json()["zones_emptied"]
-        assert len(zones) == 1
-        assert zones[0]["name"] == "Fully Selected Zone"
-        assert zones[0]["skills_orphaned"] == 1
+        body = response.json()
+        assert body["zones_emptied"] == []
+        assert body["deletable"] == 2
 
 
 class TestGuards:
