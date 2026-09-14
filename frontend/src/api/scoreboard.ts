@@ -11,6 +11,10 @@ export interface PlayerEntry {
   level: number;
   solve_count: number;
   last_gain_at: string | null;
+  /** Boss kills (spec 031) and the worn loot title (spec 038). Cosmetic — the
+   *  ordering above is unaffected by either. */
+  stars?: number;
+  title?: string | null;
 }
 
 export interface TeamEntry {

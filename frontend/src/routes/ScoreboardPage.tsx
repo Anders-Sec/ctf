@@ -185,7 +185,16 @@ function PlayerTable({
                   hasAvatar={row.has_avatar}
                   size={24}
                 />
-                {row.display_name}
+                <span className="min-w-0">
+                  <span className="block truncate">{row.display_name}</span>
+                  {row.title && (
+                    // Cosmetic, and the reason a title is worth having at all:
+                    // the board is where people actually look.
+                    <span className="block truncate text-xs italic text-muted">
+                      {row.title}
+                    </span>
+                  )}
+                </span>
               </Link>
             </td>
             <td className="py-2 text-muted">{row.team_name ?? "—"}</td>
