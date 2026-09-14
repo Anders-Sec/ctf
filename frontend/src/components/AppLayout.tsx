@@ -61,7 +61,7 @@ export default function AppLayout() {
                 to="/admin/assistant"
                 className="text-sm hover:underline"
               >
-                AI flags
+                System AI
               </NavLink>
               <NavLink
                 to="/admin/instances"

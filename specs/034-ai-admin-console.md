@@ -1,6 +1,6 @@
 # Spec 034 — The System AI admin console
 
-Status: **draft — awaiting sign-off**
+Status: **built** — 985 backend tests, 223 frontend tests
 Phase: 1
 Covers: the AI operations surface deferred by spec 033 — health, guardrail
 signals, and session drill-down
@@ -288,6 +288,28 @@ polling a model host every ten seconds from two replicas.
 6. The unreachable controls — purge, per-player block — given a UI, and the
    player-facing line on the chat panel
 
+## What changed during implementation
+
+**`upstream_calls` had to be persisted.** The spec's data model listed only the
+acknowledgement columns and the two indexes, but the "calls per turn" tile had
+nothing to read: the ladder computed the count and threw it away. A column on
+`assistant_message`, populated from `LadderReply.calls`.
+
+**The trace aggregation needs a `jsonb_typeof` guard.** SQLAlchemy writes a
+Python `None` into a JSONB column as JSON `null`, not SQL NULL — so an
+`IS NOT NULL` filter passes it through and `jsonb_array_elements_text` fails with
+"cannot extract elements from a scalar". Filtering on
+`jsonb_typeof(trace) = 'array'` is correct regardless of how the null was
+written, including for rows already in the database.
+
+**`moss` was not a real colour token.** The reachable badge used one; it would
+have rendered with no background at all. Swapped for `stone`, which exists.
+
+**The old page's tests all assumed a single view.** The console opens on Health,
+so they were rewritten to navigate — and the four Layer A rule labels now say
+"(retired rule)" rather than sitting in the list implying that filter still
+exists.
+
 ## Decisions
 
 1. **Transcripts are fully readable by admins** (Part 3). It is a troubleshooting
@@ -297,16 +319,12 @@ polling a model host every ten seconds from two replicas.
 4. **Players are told**, in one line on the chat panel, that the conversation is
    readable and may be quoted afterwards. This is what makes 1 sound.
 
-## Open questions
+## Resolved in the build
 
-1. **Acknowledgement: per finding, or per player?** Per finding is simpler; per
-   player matches how staff will actually think during an event ("I have looked
-   at everything Dave did"). Proposed: per finding, revisit if the volume bites.
-2. **Does this page want the ladder progression view at all**, or does that
-   belong on the event console beside the other solve statistics? It is arguably
-   event data rather than AI data. Proposed: here, because it is read alongside
-   the gate-fire rates it explains.
-3. **Is "worth a glance" still the right tone** now that every player is
-   *expected* to attack the AI? Proposed: keep the calm tone for the ladder
-   noise, and give the **safety** layer its own visual weight — those are the
-   findings that actually want a human.
+1. **Acknowledgement is per finding.** Simpler, and per-player can be layered on
+   later if the volume bites.
+2. **The ladder progression view lives here**, because it is read alongside the
+   gate-fire rates it explains rather than beside ordinary solve statistics.
+3. **Tone: calm for the ladder, weight for safety.** Every player is now meant to
+   attack the AI, so that noise is background; safety findings get a coloured
+   border, because those are the ones that actually want a human.
