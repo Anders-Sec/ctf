@@ -1,6 +1,6 @@
 # Spec 041 — Challenge Manager
 
-Status: **draft** (awaiting sign-off)
+Status: **done** (2026-09-14)
 Phase: 2/3 boundary (tooling)
 Depends on: 013 (admin challenge CRUD), 040 (per-challenge XP, the CSV)
 Paired with: 042 (bulk selection and operations) — **not in this spec**

@@ -1,6 +1,6 @@
 # Spec 042 — Bulk Challenge Operations
 
-Status: **draft** (awaiting sign-off)
+Status: **done** (2026-09-14)
 Phase: 2/3 boundary (tooling)
 Depends on: 041 (the challenge manager, its selection column and its filters)
 
@@ -47,7 +47,7 @@ A toolbar appears when anything is selected, pinned to the bottom of the list:
 | **Set difficulty** | One of the six. Does **not** touch XP (spec 040). |
 | **Set XP** | An absolute value, or a relative adjustment (`+25`, `-10%`). Retuning a zone is the case this exists for. |
 | **Add / remove skills** | Additive and subtractive, not "replace" — applying a shared skill across a zone is the real use, and replace would silently wipe per-challenge mappings. |
-| **Move to zone** | Reassigns the category. See §4: this can empty a zone. |
+| ~~**Move to zone**~~ | *Deferred — see §8.2.* Would reassign the category, and can empty a zone. |
 | **Set release time** | One timestamp across a timed wave, or clear it. |
 | **Delete** | See §3. |
 
@@ -183,10 +183,11 @@ delete means the set can shift between the confirm and the act.
    Relative is what a zone retune actually wants (`everything in Crypto +25`),
    but it is more surface and more to test. Recommend including it — it is the
    difference between one action and eleven.
-2. **Should "move to zone" be in the first cut?** It is the only action that
-   changes a challenge's identity in the dungeon, and it interacts with unlock
-   requirements pointing at the zone. Recommend **deferring it** to keep this
-   spec tight, unless you expect to reorganise zones during setup.
+2. ~~**Should "move to zone" be in the first cut?**~~ **Deferred** (2026-09-14).
+   It is the only action that changes a challenge's identity in the dungeon, and
+   it interacts with unlock requirements pointing at the zone. Not built: the
+   `BulkAction` enum has no `move_category` member, and §2's table describes an
+   action that does not exist yet. Say the word and it is a small addition.
 3. **Does bulk delete need to offer "hide instead" for the refused ones?** The
    error already says hiding is what is wanted. Offering it as a one-click
    follow-up in the result toast is cheap. Recommend yes.
