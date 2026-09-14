@@ -55,6 +55,7 @@ from app.models.notification import (
     NotificationKind,
 )
 from app.models.play import ScoreAdjustment, Solve, Submission
+from app.models.player_event import PlayerEvent, PlayerEventKind
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.signal import SignalDismissal
 from app.models.skill import ChallengeSkill, Skill
@@ -103,6 +104,8 @@ __all__ = [
     "PreReleaseState",
     "RequirementType",
     "ReportStatus",
+    "PlayerEvent",
+    "PlayerEventKind",
     "ScoreAdjustment",
     "ScoringMode",
     "SignalDismissal",
