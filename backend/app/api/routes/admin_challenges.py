@@ -33,9 +33,14 @@ from app.schemas.admin_challenges import (
     AdminChallengeSummary,
     AnswerTestRequest,
     AnswerTestResponse,
+    BulkItemResult,
+    BulkRequest,
+    BulkResultResponse,
     CreateAnswerRequest,
     CreateCategoryRequest,
     CreateChallengeRequest,
+    DeletePreviewResponse,
+    EmptiedZoneResponse,
     PrerequisiteResponse,
     SetStateRequest,
     SubmissionLogEntry,
@@ -46,7 +51,7 @@ from app.schemas.auth import MessageResponse
 from app.schemas.challenges import ArtifactResponse, CategoryResponse
 from app.services import answers as answer_service
 from app.services import artifacts as artifact_service
-from app.services import challenge_manager, scoring
+from app.services import challenge_bulk, challenge_manager, scoring
 from app.services import challenges as challenge_service
 from app.services.identity import record_audit
 
@@ -198,6 +203,63 @@ async def list_zones(db: DbSession, current: Staff) -> list[ZoneSummaryResponse]
     return [
         ZoneSummaryResponse(**vars(zone)) for zone in await challenge_manager.zone_summaries(db)
     ]
+
+
+@router.post("/challenges/bulk/preview-delete")
+async def preview_bulk_delete(
+    payload: BulkRequest, db: DbSession, current: Admin
+) -> DeletePreviewResponse:
+    """What a bulk delete would actually do, for the confirm dialog.
+
+    Two things the selection cannot show on its own: which rows are undeletable
+    because people have solved them, and which zones would disappear along with
+    their last challenge.
+    """
+    preview = await challenge_bulk.preview_delete(db, payload.challenge_ids)
+    return DeletePreviewResponse(
+        deletable=preview.deletable,
+        blocked=[BulkItemResult(**vars(item)) for item in preview.blocked],
+        zones_emptied=[EmptiedZoneResponse(**vars(zone)) for zone in preview.zones_emptied],
+    )
+
+
+@router.post("/challenges/bulk")
+async def bulk_edit(
+    payload: BulkRequest, request: Request, db: DbSession, current: Admin
+) -> BulkResultResponse:
+    """Apply one edit to many challenges (spec 042).
+
+    Per-item results rather than all-or-nothing: a challenge with solves cannot
+    be deleted, and refusing the other nine because of it would be obstructive.
+    """
+    challenge_bulk.validate_value(payload.action, payload.value)
+    result = await challenge_bulk.apply(db, payload.action, payload.challenge_ids, payload.value)
+
+    # One entry, not one per challenge. A bulk edit is a single decision, and 242
+    # audit rows for it would bury everything else in the log.
+    await record_audit(
+        db,
+        action=f"challenge.bulk.{payload.action.value}",
+        target_type="challenge",
+        target_id=None,
+        actor_user_id=current.user.id,
+        meta={
+            "requested": len(payload.challenge_ids),
+            "succeeded": result.succeeded,
+            "failed": result.failed,
+            "value": payload.value,
+            "categories_deleted": result.categories_deleted,
+            "challenge_ids": [str(cid) for cid in payload.challenge_ids],
+        },
+        request_id=_request_id(request),
+    )
+
+    return BulkResultResponse(
+        succeeded=result.succeeded,
+        failed=result.failed,
+        results=[BulkItemResult(**vars(item)) for item in result.results],
+        categories_deleted=result.categories_deleted,
+    )
 
 
 @router.post("/challenges", status_code=status.HTTP_201_CREATED)

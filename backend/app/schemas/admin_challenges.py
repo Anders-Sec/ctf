@@ -17,6 +17,7 @@ from app.models.challenge import (
 )
 from app.models.play import MAX_SUBMISSION_LENGTH
 from app.schemas.challenges import ArtifactResponse, CategoryResponse
+from app.services.challenge_bulk import BulkAction
 
 
 class CreateCategoryRequest(BaseModel):
@@ -213,3 +214,47 @@ class SubmissionLogEntry(BaseModel):
     ip: str | None
     request_id: str | None
     created_at: datetime
+
+
+class BulkRequest(BaseModel):
+    """One endpoint for every bulk edit (spec 042).
+
+    ``value``'s shape depends on the action — a state name, a difficulty, an XP
+    expression like ``"+25"`` or ``"-10%"``, a list of skill names, an ISO
+    timestamp, or nothing at all for a delete. Validated per action by the
+    service rather than by a union type here, so the error names the action.
+    """
+
+    challenge_ids: list[UUID] = Field(min_length=1, max_length=500)
+    action: BulkAction
+    value: Any = None
+
+
+class BulkItemResult(BaseModel):
+    challenge_id: UUID
+    ok: bool
+    #: Why not, phrased so an admin knows what to do instead.
+    reason: str | None = None
+
+
+class BulkResultResponse(BaseModel):
+    succeeded: int
+    failed: int
+    results: list[BulkItemResult]
+    #: Zones deleted because their last challenge left (spec 013). Reported
+    #: because it cannot be seen from the selection.
+    categories_deleted: list[str] = []
+
+
+class EmptiedZoneResponse(BaseModel):
+    category_id: UUID
+    name: str
+    skills_orphaned: int
+
+
+class DeletePreviewResponse(BaseModel):
+    """What the confirm dialog shows before a bulk delete runs."""
+
+    deletable: int
+    blocked: list[BulkItemResult]
+    zones_emptied: list[EmptiedZoneResponse]
