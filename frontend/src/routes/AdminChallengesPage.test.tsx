@@ -28,7 +28,10 @@ function render() {
         },
       };
     }
-    if (path.endsWith("/admin/challenges")) {
+    if (path.includes("/admin/challenges")) {
+      return { status: 200, body: [] };
+    }
+    if (path.endsWith("/admin/zones")) {
       return { status: 200, body: [] };
     }
     return { status: 200, body: {} };
@@ -89,6 +92,28 @@ const CHALLENGE = {
   artifacts: [],
   prerequisites: [],
   body: "",
+  // The summary fields the manager's table reads (spec 041).
+  effective_state: "draft",
+  boss_tier: null,
+  ai_ladder_level: null,
+  has_container: false,
+  answer_count: 0,
+  hint_count: 0,
+  skill_count: 0,
+  prerequisite_count: 0,
+};
+
+const ZONE = {
+  category_id: "cat1",
+  name: "Forensics",
+  slug: "forensics",
+  display_order: 0,
+  challenge_count: 1,
+  total_xp: 200,
+  boss_challenge_id: null,
+  boss_tier: null,
+  draft_count: 1,
+  published_count: 0,
 };
 
 function renderWithChallenge() {
@@ -110,9 +135,10 @@ function renderWithChallenge() {
     if (path.includes("/admin/challenges/ch1")) {
       return { status: 200, body: CHALLENGE };
     }
-    if (path.endsWith("/admin/challenges")) {
+    if (path.includes("/admin/challenges")) {
       return { status: 200, body: [CHALLENGE] };
     }
+    if (path.endsWith("/admin/zones")) return { status: 200, body: [ZONE] };
     if (path.endsWith("/categories")) return { status: 200, body: [] };
     if (path.endsWith("/admin/skills")) return { status: 200, body: [] };
     return { status: 200, body: [] };
@@ -126,7 +152,7 @@ describe("deleting a challenge", () => {
     renderWithChallenge();
 
     await userEvent.click(await screen.findByRole("button", { name: /Packet Puzzle/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Delete challenge" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
 
     // A generic "are you sure" gets clicked through; naming it does not.
     expect(screen.getByText("Packet Puzzle", { selector: "strong" })).toBeInTheDocument();
@@ -136,7 +162,7 @@ describe("deleting a challenge", () => {
     const fetchMock = renderWithChallenge();
 
     await userEvent.click(await screen.findByRole("button", { name: /Packet Puzzle/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Delete challenge" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(
@@ -148,8 +174,8 @@ describe("deleting a challenge", () => {
     const fetchMock = renderWithChallenge();
 
     await userEvent.click(await screen.findByRole("button", { name: /Packet Puzzle/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Delete challenge" }));
-    await userEvent.click(screen.getByRole("button", { name: "Yes, delete it" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(

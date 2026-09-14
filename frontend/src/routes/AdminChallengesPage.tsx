@@ -1,6 +1,6 @@
 import { BOSS_TIERS, BOSS_TIER_LABEL, type BossTier } from "../api/bosses";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   addAnswer,
@@ -11,12 +11,16 @@ import {
   getAdminChallenge,
   listAdminCategories,
   listAdminChallenges,
+  listZones,
   removePrerequisite,
   setChallengeState,
   testAnswer,
   updateChallenge,
   type AdminChallengeDetail,
+  type ChallengeFilters,
+  type Problem,
   type UpdateChallengeInput,
+  type ZoneSummary,
 } from "../api/adminChallenges";
 import {
   createHint,
@@ -33,7 +37,9 @@ import {
   listSkills,
   setChallengeSkills,
 } from "../api/adminSkills";
+import BulkToolbar from "../components/BulkToolbar";
 import ChallengeCsvPanel from "../components/ChallengeCsvPanel";
+import ChallengeTable from "../components/ChallengeTable";
 import ErrorMessage from "../components/ErrorMessage";
 import SkillPicker from "../components/SkillPicker";
 import Spinner from "../components/Spinner";
@@ -69,22 +75,47 @@ const MATCH_TYPES: { value: MatchType; label: string; hint: string }[] = [
 
 const STATES: ChallengeState[] = ["draft", "hidden", "locked", "published"];
 
+/**
+ * The challenge manager (spec 041).
+ *
+ * A table grouped by zone with a drawer over the right-hand side, rather than a
+ * flat list whose editor expands inline. The drawer is the load-bearing part:
+ * **the list does not move** while you edit, so you keep your place in 242 rows
+ * and the row you are working on stays visible — and a selection checkbox is
+ * safe to click, which an inline expander shoving rows around would not be.
+ */
 export default function AdminChallengesPage() {
   const { me } = useSession();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<ChallengeFilters>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsed);
 
   const challenges = useQuery({
-    queryKey: ["admin", "challenges"],
-    queryFn: listAdminChallenges,
+    queryKey: ["admin", "challenges", filters],
+    queryFn: () => listAdminChallenges(filters),
   });
+  const zones = useQuery({ queryKey: ["admin", "zones"], queryFn: listZones });
 
   const canWrite = me?.capabilities.administer ?? false;
+  const rows = challenges.data ?? [];
+
+  const toggleZone = (slug: string) => {
+    const next = new Set(collapsed);
+    if (next.has(slug)) next.delete(slug);
+    else next.add(slug);
+    setCollapsed(next);
+    writeCollapsed(next);
+  };
 
   return (
-    <main className="mx-auto max-w-5xl p-6">
-      <header className="flex items-baseline justify-between">
+    <main className="mx-auto max-w-[1600px] p-6">
+      <header className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-3xl font-semibold tracking-tight">Challenges</h1>
-        <span className="text-muted">{challenges.data?.length ?? 0} total</span>
+        <span className="text-muted">
+          {rows.length}
+          {hasFilters(filters) ? " matching" : " total"}
+        </span>
       </header>
 
       {!canWrite && (
@@ -95,50 +126,48 @@ export default function AdminChallengesPage() {
 
       {canWrite && <CreateChallengeForm />}
 
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+        zones={zones.data ?? []}
+      />
+
       {challenges.isPending ? (
         <Spinner />
       ) : (
-        <ul className="mt-6 flex flex-col gap-2">
-          {(challenges.data ?? []).map((challenge) => (
-            <li
-              key={challenge.id}
-              className="rounded-lg border border-stone bg-white/60"
-            >
-              <button
-                onClick={() =>
-                  setSelected(selected === challenge.id ? null : challenge.id)
-                }
-                className="flex w-full items-center gap-3 p-4 text-left"
-                aria-expanded={selected === challenge.id}
-              >
-                <span className="flex-1">
-                  <span className="font-medium">{challenge.title}</span>
-                  <span className="block text-sm text-muted">
-                    {challenge.category.name} · {challenge.current_value} pts ·{" "}
-                    {challenge.solve_count} solves
-                  </span>
-                </span>
-                <StateBadge
-                  state={challenge.state}
-                  effective={challenge.effective_state}
-                />
-              </button>
+        <ChallengeTable
+          challenges={rows}
+          zones={zones.data ?? []}
+          canWrite={canWrite}
+          selected={selected}
+          onSelectedChange={setSelected}
+          openId={openId}
+          onOpen={setOpenId}
+          collapsed={collapsed}
+          onToggleZone={toggleZone}
+        />
+      )}
 
-              {selected === challenge.id && (
-                <ChallengeEditor
-                  challengeId={challenge.id}
-                  canWrite={canWrite}
-                  // Collapse the panel and refresh the list: the challenge it
-                  // was showing no longer exists.
-                  onDeleted={() => {
-                    setSelected(null);
-                    void challenges.refetch();
-                  }}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
+      {canWrite && (
+        <BulkToolbar
+          selected={[...selected]}
+          onClear={() => setSelected(new Set())}
+          matchingCount={rows.length}
+          onSelectAllMatching={() => setSelected(new Set(rows.map((r) => r.id)))}
+        />
+      )}
+
+      {openId && (
+        <ChallengeDrawer
+          challengeId={openId}
+          canWrite={canWrite}
+          onClose={() => setOpenId(null)}
+          onDeleted={() => {
+            setOpenId(null);
+            void challenges.refetch();
+            void zones.refetch();
+          }}
+        />
       )}
 
       <ChallengeCsvPanel />
@@ -146,21 +175,193 @@ export default function AdminChallengesPage() {
   );
 }
 
-function StateBadge({
-  state,
-  effective,
+const COLLAPSED_KEY = "ctf.admin.collapsedZones";
+
+/** Per-viewer convenience only, so a throwing or empty read is not a problem. */
+function readCollapsed(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function writeCollapsed(value: Set<string>) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...value]));
+  } catch {
+    // A private window, or blocked site data. The page works without it.
+  }
+}
+
+function hasFilters(filters: ChallengeFilters) {
+  return Object.values(filters).some((v) => v !== undefined && v !== "");
+}
+
+/**
+ * Search, the ordinary filters, and the canned ones.
+ *
+ * The problem filters are the part that earns its keep at 242: the question in
+ * the week before an event is not "where is Airmail" but "what is still not
+ * finished".
+ */
+const PROBLEMS: { value: Problem; label: string }[] = [
+  { value: "no_flag", label: "No flag" },
+  { value: "no_skills", label: "No skills" },
+  { value: "no_description", label: "No description" },
+  { value: "no_hints", label: "No hints" },
+  { value: "draft", label: "Still draft" },
+  { value: "zone_has_no_boss", label: "Area has no boss" },
+  { value: "xp_differs_from_difficulty", label: "XP differs from difficulty" },
+];
+
+function FilterBar({
+  filters,
+  onChange,
+  zones,
 }: {
-  state: ChallengeState;
-  effective: ChallengeState;
+  filters: ChallengeFilters;
+  onChange: (next: ChallengeFilters) => void;
+  zones: ZoneSummary[];
 }) {
-  // Both are shown when they disagree: a published challenge whose release time
-  // has not arrived is a situation an admin needs to see at a glance.
-  const differs = state !== effective;
+  const set = <K extends keyof ChallengeFilters>(
+    key: K,
+    value: ChallengeFilters[K],
+  ) => onChange({ ...filters, [key]: value || undefined });
+
   return (
-    <span className="shrink-0 text-xs">
-      <span className="rounded bg-stone px-2 py-0.5">{state}</span>
-      {differs && <span className="ml-1 text-muted">→ now {effective}</span>}
-    </span>
+    <div className="mt-6 flex flex-wrap items-center gap-2 text-sm">
+      <input
+        value={filters.search ?? ""}
+        onChange={(e) => set("search", e.target.value)}
+        placeholder="Search title or description…"
+        aria-label="Search challenges"
+        className="w-64 rounded border border-stone px-3 py-2"
+      />
+      <select
+        value={filters.category_id ?? ""}
+        aria-label="Area"
+        onChange={(e) => set("category_id", e.target.value)}
+        className="rounded border border-stone px-2 py-2"
+      >
+        <option value="">All areas</option>
+        {zones.map((zone) => (
+          <option key={zone.category_id} value={zone.category_id}>
+            {zone.name}
+          </option>
+        ))}
+      </select>
+      <select
+        value={filters.state ?? ""}
+        aria-label="State"
+        onChange={(e) => set("state", e.target.value as ChallengeState)}
+        className="rounded border border-stone px-2 py-2"
+      >
+        <option value="">Any state</option>
+        {STATES.map((state) => (
+          <option key={state} value={state}>
+            {state}
+          </option>
+        ))}
+      </select>
+      <select
+        value={filters.problem ?? ""}
+        aria-label="Problems"
+        onChange={(e) => set("problem", e.target.value as Problem)}
+        className="rounded border border-stone px-2 py-2"
+      >
+        <option value="">Anything</option>
+        {PROBLEMS.map((problem) => (
+          <option key={problem.value} value={problem.value}>
+            {problem.label}
+          </option>
+        ))}
+      </select>
+      {hasFilters(filters) && (
+        <button onClick={() => onChange({})} className="text-muted underline">
+          Clear filters
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The editor, over the list rather than inside it.
+ *
+ * Essentials stay open and everything else is behind a collapsed section with a
+ * count in its heading, so the seven stacked panels of the old editor become one
+ * screen you can read.
+ */
+function ChallengeDrawer({
+  challengeId,
+  canWrite,
+  onClose,
+  onDeleted,
+}: {
+  challengeId: string;
+  canWrite: boolean;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-20 bg-ink/20"
+        onClick={onClose}
+        aria-hidden
+      />
+      <aside
+        role="dialog"
+        aria-label="Edit challenge"
+        className="fixed inset-y-0 right-0 z-30 w-full max-w-xl overflow-y-auto border-l border-stone bg-parchment shadow-2xl"
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone bg-parchment px-4 py-3">
+          <h2 className="font-semibold">Edit challenge</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close editor"
+            className="rounded border border-stone px-2 py-1 text-sm"
+          >
+            Close
+          </button>
+        </div>
+        <ChallengeEditor
+          challengeId={challengeId}
+          canWrite={canWrite}
+          onDeleted={onDeleted}
+        />
+      </aside>
+    </>
+  );
+}
+
+/** A section that starts closed, with its count in the heading. */
+function Collapsible({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count?: number;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="mt-3 rounded border border-stone bg-white/40">
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold"
+      >
+        <span aria-hidden>{open ? "▾" : "▸"}</span>
+        {title}
+        {count !== undefined && (
+          <span className="text-xs font-normal text-muted">({count})</span>
+        )}
+      </button>
+      {open && <div className="border-t border-stone/60 p-3">{children}</div>}
+    </section>
   );
 }
 
@@ -320,9 +521,20 @@ function ChallengeEditor({
   const challenge = detail.data;
 
   return (
-    <div className="border-t border-stone p-4">
+    <div className="p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold">{challenge.title}</h3>
+          <p className="text-xs text-muted">
+            {challenge.category.name} · {challenge.current_value} XP now ·{" "}
+            {challenge.solve_count} solves
+          </p>
+        </div>
+        {canWrite && <DeleteButton challenge={challenge} onDeleted={onDeleted} />}
+      </div>
+
       {canWrite && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted">State:</span>
           {STATES.map((state) => (
             <button
@@ -342,44 +554,51 @@ function ChallengeEditor({
       )}
       <ErrorMessage error={changeState.error} />
 
-      <dl className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-        <div>
-          <dt className="text-muted">Value now</dt>
-          <dd>{challenge.current_value}</dd>
-        </div>
-        <div>
-          <dt className="text-muted">Solves</dt>
-          <dd>{challenge.solve_count}</dd>
-        </div>
-      </dl>
-
+      {/* Essentials open, everything else behind a heading that says how much is
+          in it — the seven stacked panels this replaces did not fit on a screen. */}
       {canWrite && (
         <ChallengeSettingsForm challenge={challenge} onSaved={reload} />
       )}
 
-      <AnswerRules
-        challenge={challenge}
-        canWrite={canWrite}
-        onChanged={reload}
-      />
+      <Collapsible title="Flags" count={challenge.answers.length}>
+        <AnswerRules
+          challenge={challenge}
+          canWrite={canWrite}
+          onChanged={reload}
+        />
+      </Collapsible>
 
-      {canWrite && <HintList challenge={challenge} onChanged={reload} />}
       {canWrite && (
-        <ContainerAssignment challenge={challenge} onSaved={reload} />
+        <Collapsible title="Hints">
+          <HintList challenge={challenge} onChanged={reload} />
+        </Collapsible>
       )}
-      {canWrite && <Prerequisites challenge={challenge} onChanged={reload} />}
-      {canWrite && <DangerZone challenge={challenge} onDeleted={onDeleted} />}
+      {canWrite && (
+        <Collapsible
+          title="Prerequisites"
+          count={challenge.prerequisites?.length ?? 0}
+        >
+          <Prerequisites challenge={challenge} onChanged={reload} />
+        </Collapsible>
+      )}
+      {canWrite && (
+        <Collapsible title="Container">
+          <ContainerAssignment challenge={challenge} onSaved={reload} />
+        </Collapsible>
+      )}
     </div>
   );
 }
 
 /**
- * Deleting a challenge takes its solves, hints and answers with it, and prunes
- * the category if that leaves it empty — which is also how an unwanted area goes
- * away. Irreversible, so it asks first, and the confirmation names the challenge
- * rather than saying "are you sure": a generic prompt gets clicked through.
+ * Delete, in the drawer header rather than at the foot of a long scroll.
+ *
+ * The old placement cost a click into the row, a scroll past seven sections and
+ * then two more clicks. The distance was the problem, not the absence of a
+ * second confirmation — so this is one confirm, and it names the challenge and
+ * what goes with it rather than asking "are you sure".
  */
-function DangerZone({
+function DeleteButton({
   challenge,
   onDeleted,
 }: {
@@ -392,46 +611,43 @@ function DangerZone({
     onSuccess: onDeleted,
   });
 
-  return (
-    <section className="mt-8 rounded border border-torch/40 bg-white/40 p-4">
-      <h3 className="text-sm font-semibold">Delete challenge</h3>
-      <p className="mt-1 text-xs text-muted">
-        Removes it along with its answers, hints and solves. If this is the last
-        challenge in {challenge.category.name}, that area goes too. Cannot be
-        undone.
-      </p>
+  if (!confirming) {
+    return (
+      <button
+        onClick={() => setConfirming(true)}
+        className="shrink-0 rounded border border-torch px-3 py-1 text-sm text-torch hover:bg-torch/10"
+      >
+        Delete
+      </button>
+    );
+  }
 
-      {confirming ? (
-        <div className="mt-3 rounded border border-stone bg-parchment p-3">
-          <p className="text-sm">
-            Delete <strong>{challenge.title}</strong>?
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              onClick={() => remove.mutate()}
-              disabled={remove.isPending}
-              className="rounded bg-torch px-4 py-2 text-sm font-medium text-ink disabled:opacity-50"
-            >
-              {remove.isPending ? "Deleting…" : "Yes, delete it"}
-            </button>
-            <button
-              onClick={() => setConfirming(false)}
-              className="rounded border border-stone px-4 py-2 text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
+  return (
+    <div className="shrink-0 rounded border border-torch bg-parchment p-3 text-sm">
+      <p>
+        Delete <strong>{challenge.title}</strong>, with its flags and hints?
+      </p>
+      <p className="mt-1 text-xs text-muted">
+        If it is the last challenge in {challenge.category.name}, that area goes
+        too.
+      </p>
+      <div className="mt-2 flex justify-end gap-2">
         <button
-          onClick={() => setConfirming(true)}
-          className="mt-3 rounded border border-torch px-4 py-2 text-sm hover:bg-torch/10"
+          onClick={() => setConfirming(false)}
+          className="rounded border border-stone px-3 py-1"
         >
-          Delete challenge
+          Cancel
         </button>
-      )}
+        <button
+          onClick={() => remove.mutate()}
+          disabled={remove.isPending}
+          className="rounded bg-torch px-3 py-1 text-parchment disabled:opacity-50"
+        >
+          {remove.isPending ? "Deleting…" : "Delete"}
+        </button>
+      </div>
       <ErrorMessage error={remove.error} />
-    </section>
+    </div>
   );
 }
 
@@ -1064,7 +1280,7 @@ function Prerequisites({
 }) {
   const all = useQuery({
     queryKey: ["admin", "challenges"],
-    queryFn: listAdminChallenges,
+    queryFn: () => listAdminChallenges(),
   });
   const [pick, setPick] = useState("");
 

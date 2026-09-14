@@ -28,8 +28,95 @@ export interface AdminChallengeSummary {
   effective_state: ChallengeState;
   release_at: string | null;
   solve_count: number;
+  /** After decay. `initial_points` is the number an admin set. */
   current_value: number;
+  initial_points: number;
+  boss_tier: BossTier | null;
+  ai_ladder_level: number | null;
+  has_container: boolean;
+  /** A zero is the signal — see spec 041. */
   answer_count: number;
+  hint_count: number;
+  skill_count: number;
+  prerequisite_count: number;
+}
+
+/** The canned "what is not finished" queries (spec 041 §4). */
+export type Problem =
+  | "no_flag"
+  | "no_skills"
+  | "no_description"
+  | "no_hints"
+  | "draft"
+  | "zone_has_no_boss"
+  | "xp_differs_from_difficulty";
+
+export type ChallengeSort =
+  | "title"
+  | "xp"
+  | "difficulty"
+  | "solves"
+  | "state";
+
+export interface ChallengeFilters {
+  search?: string;
+  category_id?: string;
+  state?: ChallengeState;
+  difficulty?: Difficulty;
+  boss_tier?: BossTier;
+  is_boss?: boolean;
+  has_container?: boolean;
+  problem?: Problem;
+  sort?: ChallengeSort;
+}
+
+/** A zone's header row: how much exists, what it is worth, has it a boss. */
+export interface ZoneSummary {
+  category_id: string;
+  name: string;
+  slug: string;
+  display_order: number;
+  challenge_count: number;
+  total_xp: number;
+  boss_challenge_id: string | null;
+  boss_tier: BossTier | null;
+  draft_count: number;
+  published_count: number;
+}
+
+export type BulkAction =
+  | "set_state"
+  | "set_difficulty"
+  | "set_xp"
+  | "add_skills"
+  | "remove_skills"
+  | "set_release_at"
+  | "delete";
+
+export interface BulkItemResult {
+  challenge_id: string;
+  ok: boolean;
+  reason: string | null;
+}
+
+export interface BulkResult {
+  succeeded: number;
+  failed: number;
+  results: BulkItemResult[];
+  /** Zones pruned because their last challenge left (spec 013). */
+  categories_deleted: string[];
+}
+
+export interface EmptiedZone {
+  category_id: string;
+  name: string;
+  skills_orphaned: number;
+}
+
+export interface DeletePreview {
+  deletable: number;
+  blocked: BulkItemResult[];
+  zones_emptied: EmptiedZone[];
 }
 
 export interface AdminChallengeDetail {
@@ -87,8 +174,40 @@ export interface AnswerTestResult {
   errors: string[];
 }
 
-export const listAdminChallenges = () =>
-  api.get<AdminChallengeSummary[]>("/admin/challenges");
+export const listAdminChallenges = (filters: ChallengeFilters = {}) => {
+  // Filtering is server-side (spec 041): the useful questions at 242 are
+  // set-shaped, and 042's "select all matching" needs the server to decide
+  // the set rather than the rendered page.
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "" && value !== null) {
+      query.set(key, String(value));
+    }
+  }
+  const suffix = query.toString();
+  return api.get<AdminChallengeSummary[]>(
+    `/admin/challenges${suffix ? `?${suffix}` : ""}`,
+  );
+};
+
+export const listZones = () => api.get<ZoneSummary[]>("/admin/zones");
+
+export const bulkEdit = (
+  challenge_ids: string[],
+  action: BulkAction,
+  value?: unknown,
+) =>
+  api.post<BulkResult>("/admin/challenges/bulk", {
+    challenge_ids,
+    action,
+    value: value ?? null,
+  });
+
+export const previewBulkDelete = (challenge_ids: string[]) =>
+  api.post<DeletePreview>("/admin/challenges/bulk/preview-delete", {
+    challenge_ids,
+    action: "delete",
+  });
 
 export const getAdminChallenge = (id: string) =>
   api.get<AdminChallengeDetail>(`/admin/challenges/${id}`);
