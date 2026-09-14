@@ -19,12 +19,14 @@ function setup({
   matchingCount = 2,
   preview = { deletable: 2, blocked: [], zones_emptied: [] },
   result = { succeeded: 2, failed: 0, results: [], categories_deleted: [] },
+  skills = [{ id: "s1", name: "Packet Whispering" }],
   onClear = () => undefined,
   onSelectAllMatching = () => undefined,
 }: Record<string, unknown> = {}) {
   const fetchMock = vi.fn(async (path: string) => {
     if (String(path).includes("preview-delete")) return json(preview);
     if (String(path).includes("/bulk")) return json(result);
+    if (String(path).includes("/admin/skills")) return json(skills);
     return json({});
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -76,6 +78,40 @@ describe("BulkToolbar", () => {
     await waitFor(() => expect(bodyOf(fetchMock, "set_xp")).toBeTruthy());
     // The server computes per challenge; the client must not try to resolve it.
     expect(bodyOf(fetchMock, "set_xp").value).toBe("+25");
+  });
+
+  it("adds a skill across the selection without replacing what is there", async () => {
+    const fetchMock = setup();
+
+    // The skill list is fetched, so wait for the option before picking it.
+    await screen.findByRole("option", { name: "Packet Whispering" });
+    await userEvent.selectOptions(screen.getByLabelText("Skill"), "Packet Whispering");
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() => expect(bodyOf(fetchMock, "add_skills")).toBeTruthy());
+    // Additive, never "replace" — the server keeps existing mappings.
+    expect(bodyOf(fetchMock, "add_skills").value).toEqual(["Packet Whispering"]);
+  });
+
+  it("removes a skill across the selection", async () => {
+    const fetchMock = setup();
+
+    await screen.findByRole("option", { name: "Packet Whispering" });
+    await userEvent.selectOptions(screen.getByLabelText("Skill"), "Packet Whispering");
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    await waitFor(() => expect(bodyOf(fetchMock, "remove_skills")).toBeTruthy());
+    expect(bodyOf(fetchMock, "remove_skills").value).toEqual(["Packet Whispering"]);
+  });
+
+  it("clears the schedule when the release field is empty", async () => {
+    const fetchMock = setup();
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear schedule" }));
+
+    await waitFor(() => expect(bodyOf(fetchMock, "set_release_at")).toBeTruthy());
+    // The other half of setting a wave: null means no schedule.
+    expect(bodyOf(fetchMock, "set_release_at").value).toBeNull();
   });
 
   it("offers to select everything the filter found", async () => {

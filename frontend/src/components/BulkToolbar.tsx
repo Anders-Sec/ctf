@@ -1,5 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+
+import { listSkills } from "../api/adminSkills";
 
 import {
   bulkEdit,
@@ -45,6 +47,7 @@ export default function BulkToolbar({
   const [confirming, setConfirming] = useState<DeletePreview | null>(null);
   const [result, setResult] = useState<BulkResult | null>(null);
   const [xp, setXp] = useState("");
+  const [releaseAt, setReleaseAt] = useState("");
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["admin", "challenges"] });
@@ -119,6 +122,34 @@ export default function BulkToolbar({
                 Apply
               </button>
             </span>
+            <SkillPicker
+              disabled={run.isPending}
+              onApply={(action, names) => run.mutate({ action, value: names })}
+            />
+            <span className="flex items-center gap-1">
+              <input
+                type="datetime-local"
+                value={releaseAt}
+                onChange={(e) => setReleaseAt(e.target.value)}
+                aria-label="Set release time"
+                className="rounded border border-stone px-2 py-1"
+              />
+              <button
+                disabled={run.isPending}
+                onClick={() => {
+                  // An empty field clears the schedule, which is the other half
+                  // of setting one across a timed wave.
+                  run.mutate({
+                    action: "set_release_at",
+                    value: releaseAt || null,
+                  });
+                  setReleaseAt("");
+                }}
+                className="rounded border border-stone px-2 py-1 disabled:opacity-40"
+              >
+                {releaseAt ? "Schedule" : "Clear schedule"}
+              </button>
+            </span>
             <button
               disabled={preview.isPending || run.isPending}
               onClick={() => preview.mutate()}
@@ -143,6 +174,55 @@ export default function BulkToolbar({
 
       {result && <Result result={result} onDismiss={() => setResult(null)} />}
     </div>
+  );
+}
+
+/**
+ * Add or remove, never replace. Applying a shared skill across an area is the
+ * real use; replace would be the same gesture with a silent wipe of every
+ * per-challenge mapping already attached.
+ */
+function SkillPicker({
+  disabled,
+  onApply,
+}: {
+  disabled: boolean;
+  onApply: (action: BulkAction, names: string[]) => void;
+}) {
+  const skills = useQuery({ queryKey: ["admin", "skills"], queryFn: listSkills });
+  const [name, setName] = useState("");
+
+  return (
+    <span className="flex items-center gap-1">
+      <select
+        value={name}
+        disabled={disabled}
+        aria-label="Skill"
+        onChange={(e) => setName(e.target.value)}
+        className="rounded border border-stone px-2 py-1"
+      >
+        <option value="">Skill…</option>
+        {(skills.data ?? []).map((skill) => (
+          <option key={skill.id} value={skill.name}>
+            {skill.name}
+          </option>
+        ))}
+      </select>
+      <button
+        disabled={!name || disabled}
+        onClick={() => onApply("add_skills", [name])}
+        className="rounded border border-stone px-2 py-1 disabled:opacity-40"
+      >
+        Add
+      </button>
+      <button
+        disabled={!name || disabled}
+        onClick={() => onApply("remove_skills", [name])}
+        className="rounded border border-stone px-2 py-1 disabled:opacity-40"
+      >
+        Remove
+      </button>
+    </span>
   );
 }
 

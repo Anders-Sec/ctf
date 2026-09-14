@@ -265,6 +265,34 @@ function FilterBar({
         ))}
       </select>
       <select
+        value={filters.difficulty ?? ""}
+        aria-label="Difficulty"
+        onChange={(e) => set("difficulty", e.target.value as Difficulty)}
+        className="rounded border border-stone px-2 py-2"
+      >
+        <option value="">Any difficulty</option>
+        {DIFFICULTIES.map((difficulty) => (
+          <option key={difficulty} value={difficulty}>
+            {difficultyLabel(difficulty)}
+          </option>
+        ))}
+      </select>
+      <select
+        value={filters.is_boss === undefined ? "" : String(filters.is_boss)}
+        aria-label="Bosses"
+        onChange={(e) =>
+          set(
+            "is_boss",
+            e.target.value === "" ? undefined : e.target.value === "true",
+          )
+        }
+        className="rounded border border-stone px-2 py-2"
+      >
+        <option value="">Bosses and not</option>
+        <option value="true">Bosses only</option>
+        <option value="false">Not bosses</option>
+      </select>
+      <select
         value={filters.problem ?? ""}
         aria-label="Problems"
         onChange={(e) => set("problem", e.target.value as Problem)}
