@@ -15,6 +15,7 @@ from app.errors import AppError
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.user import User, UserRole
 from app.redis import get_redis
+from app.services import assistant_terms
 from app.services.capabilities import (
     REASON_DISABLED,
     REASON_PENDING_APPROVAL,
@@ -188,12 +189,35 @@ class AssistantUnavailableError(ForbiddenError):
     message = "The System AI is offline right now."
 
 
-async def require_assistant(current: Player, event: EventCfg) -> CurrentUser:
-    """The System AI chat, spec 011.
+class AssistantTermsRequiredError(ForbiddenError):
+    """They have not accepted the current terms of use (spec 035).
 
-    Builds on the play gate — approved account, event running — and adds the two
-    switches that let staff take the assistant away without a redeploy: the
-    event-wide runtime toggle, and the per-player block for one troublemaker.
+    Its own code because the panel does something specific with it — shows the
+    terms — rather than reporting the assistant as unavailable.
+    """
+
+    code = "assistant_terms_required"
+    message = "Accept the System AI's terms of use first."
+
+
+async def require_assistant(
+    current: Player,
+    event: EventCfg,
+    db: DbSession,
+    settings: AppSettings,
+) -> CurrentUser:
+    """The System AI chat, spec 011, with the terms gate from spec 035.
+
+    Builds on the play gate — approved account, event running — and adds three
+    checks, **in this order**:
+
+    1. the event-wide runtime toggle,
+    2. the per-player block for one troublemaker,
+    3. acceptance of the current terms.
+
+    The order matters: a blocked player should be told they are blocked, not
+    asked to accept terms that would not help them. Staff are not exempt from
+    the terms — they are the ones who will be reading transcripts.
     """
     if event is not None and not event.assistant_enabled:
         raise AssistantUnavailableError
@@ -201,6 +225,12 @@ async def require_assistant(current: Player, event: EventCfg) -> CurrentUser:
         raise AssistantUnavailableError(
             "The System AI is no longer speaking with you.", code="assistant_blocked"
         )
+
+    # Raises TermsUnavailable (503) when the file is missing: a terms gate that
+    # fails open is not a terms gate.
+    terms = assistant_terms.load(settings)
+    if not await assistant_terms.has_accepted(db, current.user.id, terms.version):
+        raise AssistantTermsRequiredError
     return current
 
 

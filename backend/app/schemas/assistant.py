@@ -64,6 +64,32 @@ class SendMessageResponse(BaseModel):
     message: AssistantMessageResponse
 
 
+class TermsResponse(BaseModel):
+    """The terms of use, and whether this player has accepted them (spec 035)."""
+
+    #: Markdown. The panel renders it with the same sanitising renderer the chat
+    #: uses — it is our own file, but there is no reason to have two paths.
+    text: str
+    #: The hash of the file. Sent back on acceptance so a player cannot accept
+    #: wording they were never shown.
+    version: str
+    accepted: bool
+
+
+class AcceptTermsRequest(BaseModel):
+    #: The version the player was actually looking at. A stale one is refused.
+    version: str = Field(min_length=1, max_length=64)
+
+
+class TermsSummaryResponse(BaseModel):
+    version: str
+    accepted: int
+    outstanding: int
+    #: Absent unless asked for: useful before an event, mildly
+    #: surveillance-shaped during one.
+    outstanding_names: list[str] | None = None
+
+
 class AssistantHealthResponse(BaseModel):
     enabled: bool
     configured: bool

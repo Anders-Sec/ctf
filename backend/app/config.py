@@ -5,6 +5,7 @@ process on boot rather than at the first request that happens to need it.
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -169,6 +170,13 @@ class Settings(BaseSettings):
     #: Consecutive failures before the breaker opens, and how long it stays open.
     ai_breaker_threshold: int = 5
     ai_breaker_cooldown_seconds: int = 60
+
+    # --- Terms of use (spec 035) ---------------------------------------------
+    #: The System AI's terms of use. A path rather than embedded copy so the
+    #: wording can go through management review and be revised without a
+    #: rebuild — and so a ConfigMap can be mounted over it later without a
+    #: migration. The file's hash is the version, so any edit re-gates everyone.
+    ai_terms_path: str = str(Path(__file__).resolve().parent / "content" / "system-ai-terms.md")
 
     # --- The ladder (spec 033) ----------------------------------------------
     #: What the System AI is allowed to say it knows about the event. The prompt's

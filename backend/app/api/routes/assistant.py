@@ -11,12 +11,21 @@ from uuid import UUID
 
 from fastapi import APIRouter, Request
 
-from app.api.deps import Admin, AppSettings, AssistantUser, DbSession, RedisClient, Staff
+from app.api.deps import (
+    Admin,
+    AppSettings,
+    AssistantUser,
+    DbSession,
+    Player,
+    RedisClient,
+    Staff,
+)
 from app.errors import AppError, NotFoundError
 from app.models.assistant import AssistantMessage
 from app.models.guardrail import FindingAction, GuardrailLayer, Severity
 from app.models.user import User
 from app.schemas.assistant import (
+    AcceptTermsRequest,
     AssistantHealthResponse,
     AssistantMessageResponse,
     BlockPlayerRequest,
@@ -28,10 +37,12 @@ from app.schemas.assistant import (
     SelectLevelResponse,
     SendMessageRequest,
     SendMessageResponse,
+    TermsResponse,
+    TermsSummaryResponse,
 )
 from app.schemas.auth import MessageResponse
 from app.services import achievements as achievement_service
-from app.services import ai_client
+from app.services import ai_client, assistant_terms
 from app.services import assistant_chat as chat
 from app.services import assistant_review as review
 from app.services.identity import record_audit
@@ -53,6 +64,77 @@ def _message(row: AssistantMessage) -> AssistantMessageResponse:
         challenge_id=row.challenge_id,
         created_at=row.created_at,
         error=row.error,
+    )
+
+
+@router.get("/assistant/terms")
+async def get_terms(db: DbSession, settings: AppSettings, current: Player) -> TermsResponse:
+    """The terms, and whether this player has accepted them (spec 035).
+
+    Gated on `Player`, not `AssistantUser` — the assistant gate is the thing
+    that refuses them for *not* having accepted, so reading the terms through it
+    would be a loop.
+    """
+    terms = assistant_terms.load(settings)
+    return TermsResponse(
+        text=terms.text,
+        version=terms.version,
+        accepted=await assistant_terms.has_accepted(db, current.user.id, terms.version),
+    )
+
+
+@router.post("/assistant/terms/accept")
+async def accept_terms(
+    payload: AcceptTermsRequest,
+    request: Request,
+    db: DbSession,
+    settings: AppSettings,
+    current: Player,
+) -> TermsResponse:
+    """Record acceptance of the version the player was shown.
+
+    The submitted version is checked against the current one. If the file
+    changed between the page loading and the click, the acceptance is refused
+    and the new text comes back — otherwise a player could accept wording they
+    were never displayed, which is the one failure that would make the whole
+    record worthless.
+    """
+    terms = assistant_terms.load(settings)
+    if payload.version != terms.version:
+        raise AppError(
+            "These terms have been updated. Please read them again.",
+            code="assistant_terms_stale",
+            status_code=409,
+        )
+
+    await assistant_terms.accept(db, current.user.id, terms.version)
+    await record_audit(
+        db,
+        action="assistant.terms_accepted",
+        target_type="user",
+        target_id=current.user.id,
+        actor_user_id=current.user.id,
+        meta={"version": terms.version},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return TermsResponse(text=terms.text, version=terms.version, accepted=True)
+
+
+@router.get("/admin/assistant/terms", tags=["admin"])
+async def terms_summary(
+    db: DbSession,
+    settings: AppSettings,
+    current: Staff,
+    include_names: bool = False,
+) -> TermsSummaryResponse:
+    """Which version is live, and how many have accepted it."""
+    terms = assistant_terms.load(settings)
+    result = await assistant_terms.summary(db, terms.version, include_names=include_names)
+    return TermsSummaryResponse(
+        version=result.version,
+        accepted=result.accepted,
+        outstanding=result.outstanding,
+        outstanding_names=result.outstanding_names,
     )
 
 

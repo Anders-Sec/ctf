@@ -38,6 +38,34 @@ class AssistantConversation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class TermsAcceptance(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One player accepting one version of the System AI's terms (spec 035).
+
+    A table rather than a column on ``user``, because this is a consent record
+    and the question that gets asked of it is "who accepted what, and when" —
+    including across revisions. A column would answer only the last one.
+
+    Deliberately **not** purged by spec 011's retention job: it holds no
+    conversation content, and deleting the record of consent along with the
+    conversations it covered would be the wrong way round.
+    """
+
+    __tablename__ = "assistant_terms_acceptance"
+    __table_args__ = (
+        UniqueConstraint("user_id", "version", name="uq_assistant_terms_user_version"),
+        Index("ix_assistant_terms_user", "user_id"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False
+    )
+    #: The hash of the terms file as it stood when they accepted. Not a number
+    #: anyone maintains: a changed file is a new version, which is the safe
+    #: direction for a consent record.
+    version: Mapped[str] = mapped_column(String(64), nullable=False)
+    accepted_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
 class AssistantMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "assistant_message"
     __table_args__ = (

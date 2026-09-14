@@ -27,8 +27,8 @@ from app.schemas.auth import (
     UpdateProfileRequest,
     UserResponse,
 )
+from app.services import assistant_terms, identity, magic_link
 from app.services import entra as entra_service
-from app.services import identity, magic_link
 from app.services.cookies import (
     ACCESS_COOKIE,
     REFRESH_COOKIE,
@@ -317,6 +317,16 @@ async def me(
 ) -> MeResponse:
     team = await get_cached_membership(redis, db, settings, current.user.id)
 
+    # A missing terms file leaves this False rather than raising: /auth/me is the
+    # call the whole SPA boots on, and it must not fail because one feature is
+    # misconfigured. The gate itself still refuses the chat.
+    terms_accepted = False
+    try:
+        terms = assistant_terms.load(settings)
+        terms_accepted = await assistant_terms.has_accepted(db, current.user.id, terms.version)
+    except assistant_terms.TermsUnavailable:
+        pass
+
     return MeResponse(
         user=_user_response(current.user),
         assistant_available=(
@@ -325,6 +335,7 @@ async def me(
             and not current.user.assistant_blocked
             and (event is None or event.assistant_enabled)
         ),
+        assistant_terms_accepted=terms_accepted,
         team=TeamSummary(**team) if team else None,
         capabilities=CapabilitiesResponse(**current.capabilities.to_dict()),
         event=(

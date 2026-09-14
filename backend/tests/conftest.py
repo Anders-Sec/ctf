@@ -21,7 +21,7 @@ from app.db import get_db_session
 from app.main import create_app
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.user import User
-from app.services import ai_client
+from app.services import ai_client, assistant_terms
 from app.services.cookies import (
     ACCESS_COOKIE,
     CSRF_COOKIE,
@@ -188,9 +188,25 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
 @pytest.fixture
 async def sign_in(db_session: AsyncSession, settings: Settings):
-    """Put a real session's cookies on a client, as a browser would carry them."""
+    """Put a real session's cookies on a client, as a browser would carry them.
 
-    async def _sign_in(http_client: AsyncClient, user: User) -> IssuedSession:
+    Also records acceptance of the System AI's terms (spec 035), because that is
+    the state a player is in for all but their first visit, and every chat
+    endpoint is gated on it. Pass ``accept_terms=False`` to exercise the gate
+    itself.
+    """
+
+    async def _sign_in(
+        http_client: AsyncClient, user: User, *, accept_terms: bool = True
+    ) -> IssuedSession:
+        if accept_terms:
+            try:
+                terms = assistant_terms.load(settings)
+                await assistant_terms.accept(db_session, user.id, terms.version)
+            except assistant_terms.TermsUnavailable:
+                # Nothing to accept; the test is not about the assistant.
+                pass
+
         session = await issue_session(db_session, settings, user.id)
         http_client.cookies.set(ACCESS_COOKIE, session.access_token)
         # Same path the app scopes it to, or httpx ends up holding two cookies

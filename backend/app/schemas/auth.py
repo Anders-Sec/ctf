@@ -57,10 +57,13 @@ class MeResponse(BaseModel):
     team: TeamSummary | None
     capabilities: CapabilitiesResponse
     event: "EventSummary | None"
-    #: Whether to offer the dungeon master chat at all: the feature has to be
-    #: configured *and* this user has to be allowed to use it. Staff-only until
-    #: spec 011 lands the guardrails.
+    #: Whether to offer the System AI chat at all: the feature has to be
+    #: configured *and* this user has to be allowed to use it.
     assistant_available: bool = False
+    #: Whether they have accepted the current terms of use (spec 035). False
+    #: means the panel opens on the terms rather than the transcript — known on
+    #: load, so the first thing a player sees is not a failed send.
+    assistant_terms_accepted: bool = False
 
 
 class EventSummary(BaseModel):
