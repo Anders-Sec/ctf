@@ -1,6 +1,6 @@
 # Spec 038 — Loot Boxes
 
-Status: **draft** (2026-09-14) — awaiting sign-off
+Status: **done** (2026-09-14) — logic and content shipped; the visual treatment of an opening is Phase 3
 Phase: 2 (D&D Mechanics), with the visual treatment deferred to Phase 3
 Depends on: 029 (the achievement roster), 031 (boss tiers), 028 (notifications)
 

@@ -64,6 +64,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 035 | `035-system-ai-terms.md` | Phase 1 — terms-of-use gate for the System AI, held in a file | **done** — wording approved |
 | 036 | `036-ai-session-retention-and-gate-log.md` | Phase 1 — sessions survive a reset, per-call gate log, conduct rules, chat auto-reset; **amends 011/034** | **done** |
 | 037 | `037-ladder-difficulty-tune.md` | Phase 1 — retune the six rungs, new `semi-guarded` posture, measured at N=8 | **done** — curve monotonic, 0 fabricated flags |
+| 038 | `038-loot-boxes.md` | Phase 2 — loot boxes from achievements: 10 types, six rarities, authored pools, generated one-of-a-kind titles at platinum and above | **done** — visual treatment deferred to Phase 3 |
 
 ## Sequencing rationale
 
