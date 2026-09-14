@@ -47,7 +47,7 @@ describe("HintList", () => {
     render([hint({ cost: 75 })]);
 
     expect(
-      await screen.findByRole("button", { name: /unlock — 75 points/i }),
+      await screen.findByRole("button", { name: /unlock — 75 XP/i }),
     ).toBeInTheDocument();
   });
 
@@ -60,12 +60,12 @@ describe("HintList", () => {
 
   it("requires a second click that names the price", async () => {
     // A one-click purchase next to the submit button is a misclick waiting to
-    // happen, and the points are gone for good.
+    // happen, and the XP is gone for good.
     const mock = render([hint({ cost: 75 })]);
 
-    await userEvent.click(await screen.findByRole("button", { name: /unlock — 75 points/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /unlock — 75 XP/i }));
 
-    expect(screen.getByRole("button", { name: /spend 75 points/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /spend 75 XP/i })).toBeInTheDocument();
     // Nothing has been spent yet.
     expect(mock.mock.calls.filter(([, init]) => (init as RequestInit)?.method === "POST")).toHaveLength(0);
   });
@@ -74,7 +74,7 @@ describe("HintList", () => {
     render([hint()]);
 
     await userEvent.click(await screen.findByRole("button", { name: /unlock/i }));
-    await userEvent.click(screen.getByRole("button", { name: /spend 50 points/i }));
+    await userEvent.click(screen.getByRole("button", { name: /spend 50 XP/i }));
 
     expect(await screen.findByText("Check frame 42.")).toBeInTheDocument();
   });
@@ -85,7 +85,7 @@ describe("HintList", () => {
     await userEvent.click(await screen.findByRole("button", { name: /unlock/i }));
     await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
 
-    expect(screen.getByRole("button", { name: /unlock — 50 points/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /unlock — 50 XP/i })).toBeInTheDocument();
     expect(mock.mock.calls.filter(([, init]) => (init as RequestInit)?.method === "POST")).toHaveLength(0);
   });
 

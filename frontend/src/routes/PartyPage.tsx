@@ -345,7 +345,7 @@ function MyParty({ teamId }: { teamId: string }) {
       </header>
 
       <p className="rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
-        Your solves are your own — if you leave, your score goes with you.
+        Your solves are your own — if you leave, your XP goes with you.
       </p>
 
       <ErrorMessage error={leave.error ?? kick.error ?? promote.error} />

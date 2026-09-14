@@ -7,7 +7,7 @@ import ErrorMessage from "./ErrorMessage";
 /**
  * Hints, with the cost stated before anything is spent.
  *
- * Buying one is irreversible and costs points, so it takes two clicks: the
+ * Buying one is irreversible and costs XP, so it takes two clicks: the
  * second one names the price. A one-click purchase next to a "submit answer"
  * button is a misclick waiting to happen.
  */
@@ -68,7 +68,7 @@ function HintRow({ challengeId, hint }: { challengeId: string; hint: Hint }) {
                 ? "Unlocking…"
                 : hint.cost === 0
                   ? "Reveal (free)"
-                  : `Spend ${hint.cost} points`}
+                  : `Spend ${hint.cost} XP`}
             </button>
             <button onClick={() => setConfirming(false)} className="text-sm underline">
               Cancel
@@ -79,7 +79,7 @@ function HintRow({ challengeId, hint }: { challengeId: string; hint: Hint }) {
             onClick={() => setConfirming(true)}
             className="rounded border border-ink px-3 py-1.5 text-sm"
           >
-            {hint.cost === 0 ? "Reveal — free" : `Unlock — ${hint.cost} points`}
+            {hint.cost === 0 ? "Reveal — free" : `Unlock — ${hint.cost} XP`}
           </button>
         )}
       </div>

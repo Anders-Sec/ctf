@@ -192,7 +192,7 @@ async def submit_answer(
     if outcome.already_solved and outcome.correct:
         message = "You have already solved this one."
     elif outcome.correct:
-        message = f"Correct. {outcome.points_awarded} points."
+        message = f"Correct. {outcome.points_awarded} XP."
     else:
         message = "Not quite. Try again."
 

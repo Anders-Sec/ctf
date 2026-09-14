@@ -98,7 +98,7 @@ export default function ChallengesPage() {
               </button>
             ))}
           </div>
-          <p className="text-2xl font-semibold" aria-label="Your score">
+          <p className="text-2xl font-semibold" aria-label="Your XP">
             {score.data?.total ?? 0}
             <span className="ml-1 text-sm font-normal text-muted">points</span>
           </p>

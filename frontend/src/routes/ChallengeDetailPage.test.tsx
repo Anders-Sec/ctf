@@ -73,7 +73,7 @@ describe("ChallengeDetailPage", () => {
     render(detail());
 
     expect(await screen.findByText("Find the flag in the capture.")).toBeInTheDocument();
-    expect(screen.getByText(/420 points/)).toBeInTheDocument();
+    expect(screen.getByText(/420 XP/)).toBeInTheDocument();
   });
 
   it("submits an answer and reports the verdict", async () => {
@@ -82,7 +82,7 @@ describe("ChallengeDetailPage", () => {
       already_solved: false,
       points_awarded: 420,
       attempts_remaining: null,
-      message: "Correct. 420 points.",
+      message: "Correct. 420 XP.",
     });
 
     // paste, not type: userEvent reads {...} as key descriptors and would eat
@@ -91,7 +91,7 @@ describe("ChallengeDetailPage", () => {
     await userEvent.paste("flag{abc}");
     await userEvent.click(screen.getByRole("button", { name: /submit/i }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Correct. 420 points.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Correct. 420 XP.");
 
     const submitCall = mock.mock.calls.find(
       ([url]) => String(url) === "/api/challenges/c1/submit",

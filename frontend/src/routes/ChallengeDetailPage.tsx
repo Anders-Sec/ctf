@@ -79,7 +79,7 @@ export default function ChallengeDetailPage() {
           {detail.title}
         </h1>
         <p className="mt-2 text-muted">
-          {detail.value} points · {detail.difficulty} · {detail.solve_count}{" "}
+          {detail.value} XP · {detail.difficulty} · {detail.solve_count}{" "}
           {detail.solve_count === 1 ? "solve" : "solves"}
         </p>
       </header>

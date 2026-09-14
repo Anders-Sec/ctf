@@ -66,7 +66,7 @@ describe("ChallengesPage", () => {
   it("shows the player's running total", async () => {
     withBoard([challenge()], 1250);
 
-    expect(await screen.findByLabelText("Your score")).toHaveTextContent("1250");
+    expect(await screen.findByLabelText("Your XP")).toHaveTextContent("1250");
   });
 
   it("marks solved challenges", async () => {
