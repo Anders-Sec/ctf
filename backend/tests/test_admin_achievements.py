@@ -72,12 +72,15 @@ class TestReading:
     ) -> None:
         await as_role(db_session, client, sign_in, UserRole.ADMIN)
         await a_row(db_session, code="written_up", description="Real copy, written by hand.")
+        await a_row(db_session, code="still_todo")
 
         rows = (await client.get("/api/admin/achievements")).json()
         by_code = {r["code"]: r for r in rows}
 
         assert by_code["written_up"]["needs_copy"] is False
-        assert by_code["first_blood"]["needs_copy"] is True
+        assert by_code["still_todo"]["needs_copy"] is True
+        # The seeded roster has had its copy written (migration 0038).
+        assert by_code["first_blood"]["needs_copy"] is False
 
     async def test_the_triggers_endpoint_offers_unused_codes(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -248,14 +251,15 @@ class TestTheSeededRoster:
 
         assert set(engine.REGISTRY) <= codes
 
-    async def test_descriptions_are_placeholders_awaiting_copy(
-        self, db_session: AsyncSession
-    ) -> None:
-        """Seeding draft prose would risk placeholder copy reaching a player."""
+    async def test_every_seeded_row_has_its_copy_written(self, db_session: AsyncSession) -> None:
+        """029 seeded an unmistakable placeholder so draft prose could never
+        reach a player; 0038 replaced every one of them with the System's own
+        line. A row still holding the placeholder would show a player a TODO."""
         rows = list((await db_session.execute(select(Achievement))).scalars().all())
 
         assert rows
-        assert all(r.description.strip() == service.PLACEHOLDER for r in rows)
+        assert all(r.description.strip() != service.PLACEHOLDER for r in rows)
+        assert all(r.description.strip() for r in rows)
 
     async def test_every_row_explains_what_earns_it(self, db_session: AsyncSession) -> None:
         rows = list((await db_session.execute(select(Achievement))).scalars().all())
