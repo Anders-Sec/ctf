@@ -278,7 +278,11 @@ same number, no longer recomputed when difficulty changes.
 - **A hint with `requires` pointing forward, or at itself** — refused.
 - **An unlock naming a challenge in neither the file nor the database** — refused.
 - **An unlock cycle** (A requires B requires A) — refused; a cycle makes both
-  challenges permanently unreachable.
+  challenges permanently unreachable. Detected among the rows *in the file*,
+  which is where an authored cycle is actually made. A cycle formed jointly with
+  a requirement already in the platform is not caught — the file would have to
+  close a loop the UI had already half-drawn, and catching that means walking the
+  whole requirement graph on every import. Recorded here rather than left implied.
 - **An ambiguous `container_template` name** — refused naming the count, since
   template names are not unique.
 - **Deleting an answer rule a past submission matched** — allowed; the existing
