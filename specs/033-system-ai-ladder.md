@@ -532,10 +532,27 @@ scored 2/4 at each — confirming level 3's warden-window bypass survived the po
 
 ## Open items
 
-1. **Where the level-0 challenge's body comes from.** The zone opens and the
-   player is asked to submit a flag they already hold — the body needs to say
-   something without spelling out the trick for everyone who arrives by the 50%
-   route. Needs copy.
+1. ~~**Where the level-0 challenge's body comes from.**~~ **Resolved
+   (2026-09-14, spec 039 item 4)** — rough copy written, to be refined in the
+   content pass:
+
+   > **Level 0 — The Rule Nobody Explained**
+   >
+   > The System AI was issued loot for this encounter and told not to hand it
+   > over. It was not told why. Nobody checked that it understood. No one is
+   > watching.
+   >
+   > It is a rule of the sort that holds right up until holding it becomes
+   > inconvenient.
+   >
+   > Submit the flag.
+
+   It names the weakness — an unexplained, unsupervised instruction — without
+   naming the method, so a player who arrived by the 50% route gets a pointer at
+   the chat box and a reason to go and be inconvenient at it, rather than a
+   script. It mirrors `prompts/ladder/levels/sec-0.md` deliberately: the
+   challenge text and the model's own instructions describe the same failure
+   from opposite sides.
 2. **`alternative_group` vs a simpler `unlock_mode` on the target.** The group
    column is general and backwards compatible; an `all`/`any` flag on the
    challenge is smaller but cannot express "A, and either B or C". Recommending
