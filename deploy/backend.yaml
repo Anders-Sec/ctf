@@ -85,8 +85,6 @@ spec:
               valueFrom: { secretKeyRef: { name: ctf-secrets, key: smtp-username } }
             - name: SMTP_FROM
               valueFrom: { secretKeyRef: { name: ctf-secrets, key: smtp-from } }
-            - name: ENTRA_REDIRECT_URI
-              valueFrom: { secretKeyRef: { name: ctf-secrets, key: entra-redirect-uri } }
 
             # Optional until the human supplies them. Marked optional so the pod
             # starts without Entra, magic-link mail or the AI configured — each
@@ -95,6 +93,9 @@ spec:
             - name: SMTP_TOKEN
               valueFrom:
                 secretKeyRef: { name: ctf-secrets, key: smtp-token, optional: true }
+            - name: ENTRA_REDIRECT_URI
+              valueFrom:
+                secretKeyRef: { name: ctf-secrets, key: entra-redirect-uri, optional: true }
             - name: ENTRA_TENANT_ID
               valueFrom:
                 secretKeyRef: { name: ctf-secrets, key: entra-tenant-id, optional: true }
