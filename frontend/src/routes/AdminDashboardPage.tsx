@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { getChallengeHealth, getDashboard, type ChallengeHealth } from "../api/adminOps";
+import { useSession } from "../auth/session";
+import AnnouncementComposer from "../components/AnnouncementComposer";
 import ErrorMessage from "../components/ErrorMessage";
 import SampleDataPanel from "../components/SampleDataPanel";
 import Spinner from "../components/Spinner";
@@ -25,6 +27,7 @@ export default function AdminDashboardPage() {
   if (dashboard.isError) return <ErrorMessage error={dashboard.error} />;
 
   const data = dashboard.data;
+  const { me } = useSession();
   const attention = data.attention;
   const needsAttention =
     attention.open_reports +
@@ -32,6 +35,8 @@ export default function AdminDashboardPage() {
     attention.drafts_after_start +
     attention.published_without_answers.length +
     attention.suspected_broken.length;
+
+  const canAnnounce = me?.capabilities.administer ?? false;
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -117,6 +122,7 @@ export default function AdminDashboardPage() {
       </section>
 
       <SampleDataPanel />
+      {canAnnounce && <AnnouncementComposer />}
     </main>
   );
 }

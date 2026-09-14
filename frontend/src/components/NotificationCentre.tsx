@@ -19,6 +19,9 @@ const ICON: Record<string, string> = {
   zone_unlocked: "⌸",
   level_up: "▲",
   ability_milestone: "◆",
+  boss_kill: "☠",
+  announcement: "❖",
+  dispatch: "▤",
   system: "▸",
 };
 
