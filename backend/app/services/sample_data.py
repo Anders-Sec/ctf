@@ -142,7 +142,9 @@ async def _build_challenges(
             body=f"Sample challenge: {title}. The flag is `{flag}`.",
             difficulty=difficulty,
             state=ChallengeState.PUBLISHED,
-            # Derived from difficulty, exactly as the admin editor does.
+            # Seeded from the difficulty ladder. Real challenges set their own XP
+            # (spec 040); sample data has nobody to type one, and the ladder is
+            # still what a plausible spread looks like.
             initial_points=points_for(difficulty, xp_base),
             minimum_points=minimum_points_for(difficulty, xp_base),
             scoring=default_scoring_for(difficulty),

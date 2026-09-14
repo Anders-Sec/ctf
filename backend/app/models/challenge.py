@@ -26,7 +26,7 @@ class BossTier(enum.StrEnum):
     """How big a fight this is (spec 031).
 
     Deliberately its own vocabulary rather than a reuse of :class:`Difficulty`.
-    Difficulty derives a challenge's XP; a boss tier is an editorial judgement
+    Difficulty says how hard a challenge is; a boss tier is an editorial judgement
     about where the fight sits in the story of its wing, so a Neighborhood Boss
     late in the dungeon may be harder than a City Boss early in it.
     """
@@ -51,11 +51,16 @@ BOSS_TIER_LEVEL = {
 
 
 class Difficulty(enum.StrEnum):
-    """The six-tier ladder (spec 018).
+    """The six-tier ladder (specs 018, 040).
 
-    Difficulty *derives* a challenge's XP rather than merely hinting at it, so the
-    economy is knowable before the event runs: roughly 2,000 XP per category and
-    42,000 across the board. See :data:`DIFFICULTY_MODIFIER`.
+    A **label**: how hard a challenge is, shown on its card and used to read an
+    area at a glance. It no longer derives the XP — spec 040 moved that onto the
+    challenge, so relabelling something cannot silently change what it pays.
+
+    :data:`DIFFICULTY_MODIFIER` survives as the *suggestion* behind that number:
+    it fills the CSV template's ``xp`` column and a blank field in the editor, so
+    an event nobody retunes still lands on 018's economy of roughly 2,000 XP per
+    category and 42,000 across the board.
     """
 
     VERY_EASY = "very_easy"
@@ -66,7 +71,8 @@ class Difficulty(enum.StrEnum):
     NEARLY_IMPOSSIBLE = "nearly_impossible"
 
 
-#: Multiplied by ``XP_BASE`` to give a challenge's XP ceiling.
+#: Multiplied by ``XP_BASE`` to give the XP a challenge of this tier is *suggested*
+#: to be worth. Not what it is worth — see :class:`Difficulty`.
 DIFFICULTY_MODIFIER: dict[Difficulty, int] = {
     Difficulty.VERY_EASY: 5,
     Difficulty.EASY: 10,
@@ -76,9 +82,10 @@ DIFFICULTY_MODIFIER: dict[Difficulty, int] = {
     Difficulty.NEARLY_IMPOSSIBLE: 50,
 }
 
-#: Decay is the tie-breaker, and only the top two tiers are tie-breakers — so
-#: those default to dynamic scoring and everything else to static. Still a
-#: per-challenge setting an admin can override on the day.
+#: Decay is the tie-breaker, and only the top two tiers are tie-breakers. This no
+#: longer defaults anything (spec 040: scoring is static unless asked for) — it is
+#: the guidance behind which challenges are worth making dynamic, and what the
+#: sample-data seeder follows.
 DECAYING_DIFFICULTIES = frozenset({Difficulty.VERY_HARD, Difficulty.NEARLY_IMPOSSIBLE})
 
 #: The decay floor, as a fraction of the ceiling.
@@ -86,7 +93,7 @@ MINIMUM_POINTS_FRACTION = 0.4
 
 
 def points_for(difficulty: Difficulty, xp_base: int) -> int:
-    """A challenge's XP ceiling."""
+    """The XP this tier suggests, for a template cell or a blank editor field."""
     return DIFFICULTY_MODIFIER[difficulty] * xp_base
 
 
@@ -250,8 +257,11 @@ class Challenge(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         server_default=PreReleaseState.HIDDEN.value,
     )
 
+    #: The XP a solve awards, before any decay. Set per challenge (spec 040) —
+    #: difficulty suggests it on a blank field and never rewrites it after.
+    #: The column keeps its old name; only the vocabulary a player reads changed.
     initial_points: Mapped[int] = mapped_column(Integer, nullable=False, default=500)
-    #: The floor, before the modifier model that lands later.
+    #: The floor decay stops at. Only read while ``scoring`` is dynamic.
     minimum_points: Mapped[int] = mapped_column(
         Integer, nullable=False, default=100, server_default="100"
     )
