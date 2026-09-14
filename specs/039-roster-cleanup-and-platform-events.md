@@ -125,13 +125,10 @@ changes (setting the same class twice is not a change, and a player will find
 that out). It already runs inside the request's transaction with a session to
 hand, and it already fires the `CLASS` achievement event afterwards.
 
-**`forbidden_admin`** — in `require_admin`, on the rejection path only. An
-authenticated non-admin who asks for an admin route gets a row; an anonymous
-request gets nothing, because there is no player to credit. `require_staff` is
-deliberately *not* instrumented: an organizer hitting an admin-only route is
-staff doing their job, not a player poking at a door.
-
-This one **also needs its own session** — see *Deviations*.
+**`forbidden_admin`** — on the rejection path of **both** admin gates, for a
+caller who is not staff. An anonymous request gets nothing, because there is no
+player to credit. See *Deviations*: the original "`require_admin` only" rule was
+wrong, and this one also needs its own session.
 
 **`server_error`** — in the unhandled-exception handler in `errors.py`. This is
 the delicate one, and it gets three rules:
@@ -271,7 +268,20 @@ nobody — even a signed-in one. Every route a player can reach authenticates, s
 this costs nothing real, but it is a property of the design rather than an
 accident and there is a test that says so.
 
-**4. The no-fail guarantee is made twice.** `record_detached` swallows its own
+**4. `forbidden_admin` belongs on both gates, not just `require_admin`.** The
+spec excluded `require_staff` on the grounds that an organizer hitting an
+admin-only route is staff doing their job. That conflated two different things.
+The admin pages a *player* would actually click — the user list, the challenge
+editor — are read through `require_staff`, so keying the record on
+`require_admin` alone meant `above_your_pay_grade` almost never fired. The rule
+is now about the caller, not the gate: a **non-staff** caller turned away by
+either gate is recorded; staff are excluded by both.
+
+Found by running it against the dev database rather than by a test — the tests
+all mocked the detached writer, so none of them touched a real route. Worth
+noting as a gap in how item 3 was tested.
+
+**5. The no-fail guarantee is made twice.** `record_detached` swallows its own
 failures, and `_record_server_error` wraps the call as well. The guarantee is
 promised at the handler boundary, so it is enforced there rather than trusted to
 the callee staying well-behaved.
@@ -280,6 +290,8 @@ the callee staying well-behaved.
 
 - Roster: 117 → **110**, with **zero** inert codes. A test asserts that every
   code in the roster resolves to a trigger, so it stays that way.
-- Backend suite: 1052 → **1071** passing.
-- `above_your_pay_grade` records for organizers as well as players, as specced.
-  A one-line exclusion if that turns out to annoy the staff.
+- Backend suite: 1052 → **1073** passing.
+- Verified live against the dev database, not only under test: a player hitting
+  `/api/admin/users` writes a `forbidden_admin` row through the real detached
+  session, and `above_your_pay_grade` is awarded on the next evaluated action.
+- Organizers are **not** recorded at either gate.

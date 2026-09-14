@@ -178,7 +178,7 @@ def recorded(monkeypatch) -> list[tuple]:
 
 
 class TestForbiddenAdmin:
-    async def test_a_player_turned_away_is_recorded(
+    async def test_a_player_turned_away_by_the_admin_gate_is_recorded(
         self, client: AsyncClient, db_session: AsyncSession, sign_in, recorded: list[tuple]
     ) -> None:
         user = await make_user(db_session, role=UserRole.PLAYER, status=UserStatus.ACTIVE)
@@ -188,6 +188,34 @@ class TestForbiddenAdmin:
 
         assert response.status_code == 403
         assert recorded == [(user.id, PlayerEventKind.FORBIDDEN_ADMIN)]
+
+    async def test_a_player_turned_away_by_the_staff_gate_is_recorded(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, recorded: list[tuple]
+    ) -> None:
+        """The admin page a player would actually click is read through require_staff.
+
+        Keying this on require_admin alone meant the achievement almost never
+        fired — found live, not in a test.
+        """
+        user = await make_user(db_session, role=UserRole.PLAYER, status=UserStatus.ACTIVE)
+        await sign_in(client, user)
+
+        response = await client.get("/api/admin/users")
+
+        assert response.status_code == 403
+        assert recorded == [(user.id, PlayerEventKind.FORBIDDEN_ADMIN)]
+
+    async def test_an_organizer_refused_a_destructive_action_is_not_recorded(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, recorded: list[tuple]
+    ) -> None:
+        """Staff doing their job, not a player rattling a handle."""
+        organizer = await make_user(db_session, role=UserRole.ORGANIZER, status=UserStatus.ACTIVE)
+        await sign_in(client, organizer)
+
+        response = await client.post("/api/admin/users/approve", json={"user_ids": []})
+
+        assert response.status_code == 403
+        assert recorded == []
 
     async def test_an_admin_getting_through_records_nothing(
         self, client: AsyncClient, db_session: AsyncSession, sign_in, recorded: list[tuple]

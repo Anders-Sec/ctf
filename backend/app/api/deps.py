@@ -257,9 +257,29 @@ async def require_scoreboard(current: Authenticated) -> CurrentUser:
 ScoreboardViewer = Annotated[CurrentUser, Depends(require_scoreboard)]
 
 
+async def _record_closed_door(current: CurrentUser) -> None:
+    """Note a player turned away from an admin door, for `above_your_pay_grade`.
+
+    Both gates, because the admin pages a player would actually click — the user
+    list, the challenge editor — are read through `require_staff`; keying this on
+    `require_admin` alone meant the achievement almost never fired.
+
+    Staff are excluded whichever gate turned them away: an organizer refused a
+    destructive admin action is staff doing their job, not a player rattling a
+    handle.
+
+    Detached, because raising rolls the request session back and would take the
+    row with it (spec 039).
+    """
+    if current.is_staff:
+        return
+    await player_events.record_detached(current.user.id, PlayerEventKind.FORBIDDEN_ADMIN)
+
+
 async def require_staff(current: Authenticated) -> CurrentUser:
     """Read-only staff visibility: organizers and admins."""
     if not current.is_staff:
+        await _record_closed_door(current)
         raise ForbiddenError
     return current
 
@@ -270,9 +290,7 @@ Staff = Annotated[CurrentUser, Depends(require_staff)]
 async def require_admin(current: Authenticated) -> CurrentUser:
     """Destructive admin actions. Organizers are deliberately excluded."""
     if not current.is_admin:
-        # Detached: raising rolls the request session back, so a row added here
-        # would go with it. The rattled door outlives the 403 (spec 039).
-        await player_events.record_detached(current.user.id, PlayerEventKind.FORBIDDEN_ADMIN)
+        await _record_closed_door(current)
         raise ForbiddenError
     return current
 
