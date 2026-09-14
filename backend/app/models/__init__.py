@@ -50,6 +50,7 @@ from app.models.instance import (
 from app.models.notification import (
     Achievement,
     AchievementAward,
+    BroadcastLog,
     Notification,
     NotificationKind,
 )
@@ -65,6 +66,7 @@ from app.models.team import (
 from app.models.user import User
 
 __all__ = [
+    "BroadcastLog",
     "BossTier",
     "NotificationKind",
     "Notification",

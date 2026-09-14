@@ -33,6 +33,12 @@ class NotificationKind(enum.StrEnum):
     ZONE_UNLOCKED = "zone_unlocked"
     LEVEL_UP = "level_up"
     ABILITY_MILESTONE = "ability_milestone"
+    #: Somebody was first to put a boss down. Broadcast (spec 032).
+    BOSS_KILL = "boss_kill"
+    #: An admin speaking to the whole event.
+    ANNOUNCEMENT = "announcement"
+    #: The daily state-of-the-dungeon message.
+    DISPATCH = "dispatch"
     SYSTEM = "system"
 
 
@@ -82,6 +88,30 @@ class Achievement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     secret: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+
+
+class BroadcastLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One row per broadcast that has gone out (spec 032).
+
+    The unique constraint is the whole point. Two replicas run the same daily
+    timer, and a restart near the send window would otherwise send again — so
+    whichever pod inserts first sends, and the loser's insert fails. The same
+    arbiter as ``uq_achievement_award_once``, for the same reason: a constraint
+    survives concurrency and restarts without anything having to coordinate.
+    """
+
+    __tablename__ = "broadcast_log"
+    __table_args__ = (UniqueConstraint("kind", "key", name="uq_broadcast_once"),)
+
+    kind: Mapped[NotificationKind] = mapped_column(
+        _enum(NotificationKind, "notification_kind"), nullable=False
+    )
+    #: What makes this broadcast unique within its kind — a date for the daily
+    #: dispatch, a challenge id for a first kill, a fresh value for an
+    #: announcement, since sending two different ones is legitimate.
+    key: Mapped[str] = mapped_column(String(200), nullable=False)
+    #: How many players it reached, for the admin console.
+    recipients: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class AchievementAward(UUIDPrimaryKeyMixin, TimestampMixin, Base):
