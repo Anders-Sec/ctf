@@ -15,12 +15,12 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import Admin, AppSettings, DbSession, Staff
 from app.errors import ConflictError, NotFoundError
 from app.models.challenge import (
+    MINIMUM_POINTS_FRACTION,
     Category,
     Challenge,
     ChallengeAnswer,
     ChallengeState,
-    default_scoring_for,
-    minimum_points_for,
+    ScoringMode,
     points_for,
 )
 from app.models.play import Solve, Submission
@@ -169,14 +169,19 @@ async def create_challenge(
     data = payload.model_dump()
     category = await challenge_service.resolve_or_create_category(db, data.pop("category"))
 
-    # Difficulty derives the value; scoring falls back to the difficulty's
-    # default when the admin did not pick one (spec 018).
-    difficulty = data["difficulty"]
+    # XP is the admin's number, not a derivation (spec 040). Difficulty only
+    # *suggests* it, for an admin who did not type one — and never touches it
+    # again afterwards, so relabelling a challenge cannot silently change what
+    # it pays.
     xp_base = settings.xp_base
-    data["initial_points"] = points_for(difficulty, xp_base)
-    data["minimum_points"] = minimum_points_for(difficulty, xp_base)
+    difficulty = data["difficulty"]
+    if data.get("initial_points") is None:
+        data["initial_points"] = points_for(difficulty, xp_base)
+    if data.get("minimum_points") is None:
+        data["minimum_points"] = _default_minimum(data["initial_points"])
     if data.get("scoring") is None:
-        data["scoring"] = default_scoring_for(difficulty)
+        data["scoring"] = ScoringMode.STATIC
+    _validate_xp_range(data["initial_points"], data["minimum_points"])
 
     challenge = Challenge(
         **data,
@@ -200,12 +205,26 @@ async def create_challenge(
     )
 
 
+def _default_minimum(xp: int) -> int:
+    """The floor decay stops at, when the admin did not name one."""
+    return max(1, int(xp * MINIMUM_POINTS_FRACTION))
+
+
 def _validate_threshold(threshold: int) -> None:
-    # The curve divides by the threshold. The point range can no longer be
-    # inverted — difficulty derives both ends (spec 018).
+    # The curve divides by the threshold.
     if threshold < 2:
         raise ConflictError(
             "The decay threshold must be at least 2.", code="invalid_decay_threshold"
+        )
+
+
+def _validate_xp_range(xp: int, minimum: int) -> None:
+    """Both ends are typed now (spec 040), so the range can be inverted — and a
+    floor above the ceiling makes the decay curve run backwards."""
+    if minimum > xp:
+        raise ConflictError(
+            f"Minimum XP ({minimum}) cannot be above the challenge's XP ({xp}).",
+            code="invalid_xp_range",
         )
 
 
@@ -278,17 +297,21 @@ async def update_challenge(
 
     _validate_threshold(changes.get("decay_threshold", challenge.decay_threshold))
 
-    # A difficulty change re-derives the ceiling and floor, and re-defaults the
-    # scoring mode unless this same request set one (spec 018).
-    if "difficulty" in changes:
-        xp_base = settings.xp_base
-        changes["initial_points"] = points_for(changes["difficulty"], xp_base)
-        changes["minimum_points"] = minimum_points_for(changes["difficulty"], xp_base)
-        if changes.get("scoring") is None:
-            changes["scoring"] = default_scoring_for(changes["difficulty"])
-    # An explicit null for scoring means "use the default", not "store null".
-    if "scoring" in changes and changes["scoring"] is None:
-        changes.pop("scoring")
+    # A difficulty change no longer moves the value (spec 040): difficulty is a
+    # label, and an admin relabelling something mid-event must not silently
+    # change what it pays. XP moves only when this request says so.
+    if "minimum_points" in changes and changes["minimum_points"] is None:
+        changes["minimum_points"] = _default_minimum(
+            changes.get("initial_points", challenge.initial_points)
+        )
+    # An explicit null means "use the default", not "store null".
+    for field in ("scoring", "initial_points"):
+        if field in changes and changes[field] is None:
+            changes.pop(field)
+    _validate_xp_range(
+        changes.get("initial_points", challenge.initial_points),
+        changes.get("minimum_points", challenge.minimum_points),
+    )
 
     if changes.get("boss_tier") is not None:
         await _check_zone_has_no_other_boss(db, challenge, changes)

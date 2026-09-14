@@ -65,6 +65,10 @@ export interface UpdateChallengeInput {
   category?: string;
   body?: string;
   difficulty?: Difficulty;
+  /** The XP a solve awards. Difficulty no longer derives it (spec 040). */
+  initial_points?: number;
+  /** The floor decay stops at. Null resets it to 40% of the XP. */
+  minimum_points?: number | null;
   decay_threshold?: number;
   scoring?: "dynamic" | "static";
   decay_basis?: "players" | "teams";
@@ -96,7 +100,9 @@ export const createChallenge = (input: {
   category: string;
   body?: string;
   difficulty?: Difficulty;
+  /** Omit to take the difficulty's suggestion (spec 040). */
   initial_points?: number;
+  minimum_points?: number;
 }) => api.post<AdminChallengeDetail>("/admin/challenges", input);
 
 export const setChallengeState = (

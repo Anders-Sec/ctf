@@ -118,15 +118,15 @@ class TestChallengeCrud:
 
         assert response.status_code == 422
 
-    async def test_difficulty_derives_the_value_and_the_scoring_mode(
+    async def test_difficulty_only_suggests_the_value(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        """Points are no longer typed, so an inverted range is unreachable by
-        construction (spec 018). Decay is on for the tie-breaker tiers only."""
+        """XP is the admin's number (spec 040). Difficulty fills a blank field
+        and nothing more, and decay is off unless it is asked for."""
         await as_role(db_session, client, sign_in, UserRole.ADMIN)
         category = await make_category(db_session)
 
-        easy = await client.post(
+        suggested = await client.post(
             "/api/admin/challenges",
             json={
                 "title": "Gentle",
@@ -135,24 +135,29 @@ class TestChallengeCrud:
                 "difficulty": "very_easy",
             },
         )
-        brutal = await client.post(
+        typed = await client.post(
             "/api/admin/challenges",
             json={
                 "title": "Brutal",
                 "slug": "brutal",
                 "category": category.name,
                 "difficulty": "nearly_impossible",
+                "initial_points": 750,
             },
         )
 
-        assert easy.json()["current_value"] == 50
-        assert easy.json()["scoring"] == "static"
-        assert brutal.json()["current_value"] == 500
-        assert brutal.json()["scoring"] == "dynamic"
+        assert suggested.json()["current_value"] == 50
+        assert suggested.json()["minimum_points"] == 20
+        # Static now regardless of tier — difficulty no longer implies decay.
+        assert suggested.json()["scoring"] == "static"
+        assert typed.json()["current_value"] == 750
+        assert typed.json()["minimum_points"] == 300
 
-    async def test_changing_difficulty_rederives_the_value(
+    async def test_changing_difficulty_leaves_the_value_alone(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """Relabelling a challenge mid-event must not silently change what it
+        pays (spec 040)."""
         await as_role(db_session, client, sign_in, UserRole.ADMIN)
         category = await make_category(db_session)
         created = await client.post(
@@ -162,17 +167,46 @@ class TestChallengeCrud:
                 "slug": "shifting",
                 "category": category.name,
                 "difficulty": "easy",
+                "initial_points": 120,
             },
         )
-        assert created.json()["current_value"] == 100
+        assert created.json()["current_value"] == 120
 
-        updated = await client.patch(
+        relabelled = await client.patch(
             f"/api/admin/challenges/{created.json()['id']}",
             json={"difficulty": "very_hard"},
         )
+        assert relabelled.json()["difficulty"] == "very_hard"
+        assert relabelled.json()["current_value"] == 120
 
-        assert updated.json()["current_value"] == 250
-        assert updated.json()["scoring"] == "dynamic"
+        retuned = await client.patch(
+            f"/api/admin/challenges/{created.json()['id']}",
+            json={"initial_points": 300, "scoring": "dynamic"},
+        )
+        assert retuned.json()["current_value"] == 300
+        assert retuned.json()["scoring"] == "dynamic"
+
+    async def test_a_floor_above_the_ceiling_is_refused(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Both ends are typed now, so the range can be inverted — and an
+        inverted one runs the decay curve backwards."""
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        category = await make_category(db_session)
+
+        refused = await client.post(
+            "/api/admin/challenges",
+            json={
+                "title": "Upside Down",
+                "slug": "upside-down",
+                "category": category.name,
+                "difficulty": "medium",
+                "initial_points": 100,
+                "minimum_points": 400,
+            },
+        )
+        assert refused.status_code == 409
+        assert refused.json()["error"]["code"] == "invalid_xp_range"
 
     async def test_publishing_is_instant(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

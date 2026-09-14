@@ -33,15 +33,21 @@ class CreateChallengeRequest(BaseModel):
     #: (case-insensitively) or created (spec 013).
     category: str = Field(min_length=2, max_length=60)
     body: str = ""
-    #: Difficulty *derives* the XP ceiling and floor, and defaults the scoring
-    #: mode (spec 018). initial_points/minimum_points are no longer typed.
+    #: A label describing how hard this is (spec 040). It no longer derives the
+    #: XP — it only suggests a starting number for a blank field.
     difficulty: Difficulty = Difficulty.MEDIUM
+    #: The XP a solve awards. Omit to take the difficulty's suggestion; once set
+    #: it is never recomputed, so relabelling difficulty cannot move it.
+    initial_points: int | None = Field(default=None, ge=1, le=1_000_000)
+    #: The floor decay stops at. Omit for 40% of the XP. Ignored while scoring
+    #: is static.
+    minimum_points: int | None = Field(default=None, ge=1, le=1_000_000)
     state: ChallengeState = ChallengeState.DRAFT
     release_at: datetime | None = None
     pre_release_state: PreReleaseState = PreReleaseState.HIDDEN
     decay_threshold: int = Field(default=40, ge=2, le=100_000)
-    #: Omit to take the difficulty's default (dynamic only for the top two
-    #: tiers). Set explicitly to override on the day.
+    #: Omit for static (spec 040 — difficulty no longer implies decay). Set
+    #: dynamic for a challenge that should lose value as it is solved.
     scoring: ScoringMode | None = None
     decay_basis: DecayBasis = DecayBasis.PLAYERS
     #: Off by default. Rate limiting is the brute-force defence.
@@ -53,8 +59,11 @@ class UpdateChallengeRequest(BaseModel):
     slug: str | None = Field(default=None, min_length=3, max_length=200, pattern=r"^[a-z0-9-]+$")
     category: str | None = Field(default=None, min_length=2, max_length=60)
     body: str | None = None
-    #: Changing difficulty re-derives the XP ceiling and floor (spec 018).
+    #: A label only. Changing it no longer moves the XP (spec 040).
     difficulty: Difficulty | None = None
+    initial_points: int | None = Field(default=None, ge=1, le=1_000_000)
+    #: An explicit null resets the floor to 40% of the XP.
+    minimum_points: int | None = Field(default=None, ge=1, le=1_000_000)
     release_at: datetime | None = None
     pre_release_state: PreReleaseState | None = None
     decay_threshold: int | None = Field(default=None, ge=2, le=100_000)

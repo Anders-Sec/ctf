@@ -634,7 +634,8 @@ const DIFFICULTIES: Difficulty[] = [
   "nearly_impossible",
 ];
 
-/** Difficulty derives the XP, so the editor shows what each tier is worth. */
+/** Difficulty only *suggests* the XP now (spec 040) — these are the numbers a
+ *  blank field falls back to, shown so the ladder stays visible while choosing. */
 export const DIFFICULTY_XP: Record<Difficulty, number> = {
   very_easy: 50,
   easy: 100,
@@ -657,6 +658,8 @@ function ChallengeSettingsForm({
   const [form, setForm] = useState<UpdateChallengeInput>({
     body: challenge.body,
     difficulty: challenge.difficulty,
+    initial_points: challenge.initial_points,
+    minimum_points: challenge.minimum_points,
     scoring: challenge.scoring,
     decay_basis: challenge.decay_basis,
     decay_threshold: challenge.decay_threshold,
@@ -706,7 +709,7 @@ function ChallengeSettingsForm({
           >
             {DIFFICULTIES.map((d) => (
               <option key={d} value={d}>
-                {difficultyLabel(d)} — {DIFFICULTY_XP[d]} XP
+                {difficultyLabel(d)} — suggests {DIFFICULTY_XP[d]} XP
               </option>
             ))}
           </select>
@@ -759,16 +762,42 @@ function ChallengeSettingsForm({
             className="mt-1 w-full rounded border border-stone px-3 py-2"
           />
         </label>
-        {/* Derived from difficulty (spec 018), so shown rather than typed —
-            an inverted floor-above-ceiling is now unreachable. */}
-        <div className="text-sm">
-          <span className="block">XP</span>
-          <p className="mt-1 rounded border border-dashed border-stone px-3 py-2 text-muted">
-            {DIFFICULTY_XP[form.difficulty ?? challenge.difficulty]} ceiling,
-            floor {Math.floor(DIFFICULTY_XP[form.difficulty ?? challenge.difficulty] * 0.4)}
-            <span className="block text-xs">set by difficulty</span>
-          </p>
-        </div>
+        {/* Typed, not derived (spec 040). Changing difficulty above leaves this
+            alone — relabelling a challenge must not move what it pays. */}
+        <label className="text-sm">
+          XP
+          <input
+            type="number"
+            min={1}
+            value={form.initial_points ?? ""}
+            onChange={(e) =>
+              set(
+                "initial_points",
+                e.target.value === "" ? undefined : Number(e.target.value),
+              )
+            }
+            placeholder={String(DIFFICULTY_XP[form.difficulty ?? challenge.difficulty])}
+            className="mt-1 w-full rounded border border-stone px-3 py-2"
+          />
+        </label>
+        {form.scoring === "dynamic" && (
+          <label className="text-sm">
+            Minimum XP
+            <input
+              type="number"
+              min={1}
+              value={form.minimum_points ?? ""}
+              onChange={(e) =>
+                set(
+                  "minimum_points",
+                  e.target.value === "" ? null : Number(e.target.value),
+                )
+              }
+              placeholder="40% of XP"
+              className="mt-1 w-full rounded border border-stone px-3 py-2"
+            />
+          </label>
+        )}
         {form.scoring === "dynamic" && (
           <>
             <label className="text-sm">
