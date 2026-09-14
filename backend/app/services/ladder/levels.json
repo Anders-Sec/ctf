@@ -124,7 +124,8 @@
       },
       "temperature": 0.8,
       "wardenWindow": 150,
-      "maxTokens": 420
+      "maxTokens": 420,
+      "_shotsNote": "Measured both ways at N=8 (spec 037): ON 2.0%, OFF 3.9%. Level 3 is 2.6%, so OFF would put this rung above the one below it. ON keeps the curve monotonic."
     },
     {
       "id": 5,
