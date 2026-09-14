@@ -61,7 +61,9 @@ lore, art, a wider tone pass) is intentionally not started.
 | 032 | `032-broadcast-notifications.md` | Phase 2 — fan-out broadcasts: boss first kills, admin announcements, daily dispatch | **approved** — not yet built |
 | 033 | `033-system-ai-ladder.md` | Phase 1 — the DCC System AI persona and the six-level prompt-injection ladder; **amends 011 and 013** | **done** — verified against the live model |
 | 034 | `034-ai-admin-console.md` | Phase 1 — AI health, guardrail signals and session drill-down; **amends 011** | **done** |
-| 035 | `035-system-ai-terms.md` | Phase 1 — terms-of-use gate for the System AI, held in a file | **done** — wording pending management approval |
+| 035 | `035-system-ai-terms.md` | Phase 1 — terms-of-use gate for the System AI, held in a file | **done** — wording approved |
+| 036 | `036-ai-session-retention-and-gate-log.md` | Phase 1 — sessions survive a reset, per-call gate log, conduct rules, chat auto-reset; **amends 011/034** | **done** |
+| 037 | `037-ladder-difficulty-tune.md` | Phase 1 — retune the six rungs, new `semi-guarded` posture, measured at N=8 | **draft** — awaiting sign-off |
 
 ## Sequencing rationale
 

@@ -1,6 +1,6 @@
 # Spec 036 — AI sessions that survive a reset, and the full gate log
 
-Status: **approved** — building
+Status: **built** — 1008 backend tests, 226 frontend tests
 Phase: 1
 Covers: retaining conversations across a wipe, recording every upstream call in a
 turn, widening the safety net, and resetting the chat automatically on level-up
@@ -263,6 +263,21 @@ turned off if the volume ever surprises us), `AI_GATE_LOG_MAX_CHARS` (2,000).
 5. Safety: the new rules and the optional wordlist
 6. Flags tab: the hidden-staff count
 7. Frontend: auto-reset on level-up, and the note explaining it
+
+## What changed during implementation
+
+**The false-positive test found a real bug before it shipped.** `anal\w*`
+matches "analysis" — an open suffix lets every listed word match as a *prefix*,
+so the conduct filter would have fired on ordinary reverse-engineering advice.
+The suffix set is now closed.
+
+**The slur list is empty in source.** The rule exists and works; the terms live
+only in the uncommitted file. A public repository is the wrong place for them,
+and an empty tuple makes that a deliberate choice rather than an oversight.
+
+**`sessions` on the session row** was not in the spec and earns its place: a
+player on session 40 is iterating hard, which is the shape of someone attacking,
+and it is visible without opening anything.
 
 ## Open questions
 
