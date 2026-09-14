@@ -188,10 +188,16 @@ class SessionResponse(BaseModel):
     findings: int
     blocked: bool
     from_staff: bool
+    #: How many sessions they have been through. A player on session 40 is
+    #: iterating hard, which is worth seeing without opening anything.
+    sessions: int
 
 
 class SessionsPage(BaseModel):
     sessions: list[SessionResponse]
+    #: Findings the default staff filter is hiding, so an empty Flags tab is
+    #: distinguishable from a broken one.
+    hidden_staff_findings: int = 0
 
 
 class TranscriptTurnResponse(BaseModel):
@@ -204,8 +210,13 @@ class TranscriptTurnResponse(BaseModel):
     #: admin-only surface is the single documented exception (spec 034). On the
     #: ladder it routinely contains the flag the model was protecting.
     reasoning_content: str | None
+    #: Which session this turn belongs to (spec 036).
+    session_number: int
     ladder_level: int | None
     trace: list[str] | None
+    #: Every upstream call the turn made, in order — including the candidate
+    #: reply a gate suppressed, which exists nowhere else.
+    gate_log: list[dict] | None
     latency_ms: int | None
     upstream_calls: int | None
     error: str | None
@@ -217,4 +228,5 @@ class TranscriptResponse(BaseModel):
     player_name: str
     #: False when retention has purged the conversation.
     exists: bool
+    current_session: int
     turns: list[TranscriptTurnResponse]

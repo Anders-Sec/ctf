@@ -150,8 +150,15 @@ async def terms_summary(
 async def get_conversation(
     db: DbSession, settings: AppSettings, current: ChatUser
 ) -> ConversationResponse:
-    history = await chat.history_for(db, current.user.id, settings.ai_history_turns * 2)
+    # Applying the level change on read, not on the next send (spec 036). A
+    # "wipe" is now an integer increment rather than a delete, which is what
+    # made doing it here unappealing before — and waiting meant a player who had
+    # just levelled up saw the previous rung's turns, which are not what the
+    # model would be given.
     level, ceiling = await progression.effective_level(db, current.user)
+    await chat.reset_if_level_changed(db, current.user.id, level)
+
+    history = await chat.history_for(db, current.user.id, settings.ai_history_turns * 2)
     return ConversationResponse(
         available=settings.ai_configured,
         messages=[_message(row) for row in history],
@@ -400,7 +407,10 @@ async def list_sessions(
     rows = await review.list_sessions(
         db, since=since, include_staff=include_staff, limit=min(limit, 200)
     )
-    return SessionsPage(sessions=[SessionResponse(**vars(row)) for row in rows])
+    return SessionsPage(
+        sessions=[SessionResponse(**vars(row)) for row in rows],
+        hidden_staff_findings=await review.hidden_staff_findings(db),
+    )
 
 
 @router.get("/admin/assistant/sessions/{user_id}", tags=["admin"])
@@ -436,5 +446,6 @@ async def read_transcript(
         user_id=result.user_id,
         player_name=result.player_name,
         exists=result.exists,
+        current_session=result.current_session,
         turns=[TranscriptTurnResponse(**vars(turn)) for turn in result.turns],
     )

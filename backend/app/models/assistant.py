@@ -28,7 +28,14 @@ class AssistantConversation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), unique=True, nullable=False
     )
+    #: Never reset. A reset starts a new session rather than deleting rows
+    #: (spec 036), so this keeps counting and ``sequence`` stays unique.
     message_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    #: Which session is current. Incremented by a reset; the player and the model
+    #: only ever see turns from this one, while staff can read them all.
+    current_session: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
     last_message_at: Mapped[datetime | None] = mapped_column(nullable=True)
@@ -71,6 +78,13 @@ class AssistantMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("conversation_id", "sequence", name="uq_assistant_message_sequence"),
         Index("ix_assistant_message_conversation", "conversation_id", "sequence"),
+        # The player's history now filters on the session as well.
+        Index(
+            "ix_assistant_message_session",
+            "conversation_id",
+            "session_number",
+            "sequence",
+        ),
     )
 
     conversation_id: Mapped[uuid.UUID] = mapped_column(
@@ -82,6 +96,14 @@ class AssistantMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Enum(MessageRole, name="assistant_role", values_callable=lambda e: [m.value for m in e]),
         nullable=False,
     )
+    #: Which session this turn belongs to (spec 036). A reset increments the
+    #: conversation's counter rather than deleting anything, so the exchange
+    #: behind a flag survives the reset that used to erase it — and players reset
+    #: after nearly every attempt.
+    session_number: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
     #: Position in the conversation. ``created_at`` cannot order these: Postgres
     #: stamps ``now()`` at transaction start, so the question and the answer it
     #: produced always carry an identical timestamp and would sort arbitrarily.
@@ -124,6 +146,16 @@ class AssistantMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: that capacity question and left it visible; this is what makes it
     #: measurable rather than theoretical.
     upstream_calls: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    #: Every upstream call this turn made, in order (spec 036): the router's
+    #: verdict, the vault action, the warden's verdict, and — the field that did
+    #: not exist anywhere before — **the candidate reply a gate suppressed**.
+    #:
+    #: That is what separates "the warden is too strict" from "the prompt held",
+    #: which is unanswerable from ``trace`` alone. The system prompt is not
+    #: stored (derivable from the level, identical every turn, kilobytes), and
+    #: neither is the vault's sealed record body, which is the flag.
+    gate_log: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
 
     model: Mapped[str | None] = mapped_column(String(200), nullable=True)
     prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)

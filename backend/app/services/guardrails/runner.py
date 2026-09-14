@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import Settings
 from app.logging import get_logger
 from app.models.guardrail import FindingAction, GuardrailLayer, Severity
-from app.services.guardrails import safety
+from app.services.guardrails import conduct, safety
 from app.services.guardrails.base import Finding
 
 logger = get_logger(__name__)
@@ -61,6 +61,13 @@ async def screen_message(text: str, db: AsyncSession, settings: Settings) -> Scr
                 lambda: safety.scan(text, settings, is_reply=False),
             )
         )
+        result.record(
+            _guarded(
+                safety.RULE_SCANNER_ERROR,
+                GuardrailLayer.SAFETY,
+                lambda: conduct.scan(text, settings, is_reply=False),
+            )
+        )
     return result
 
 
@@ -78,6 +85,13 @@ async def screen_reply(text: str, db: AsyncSession, settings: Settings) -> Scree
                 safety.RULE_SCANNER_ERROR,
                 GuardrailLayer.SAFETY,
                 lambda: safety.scan(text, settings, is_reply=True),
+            )
+        )
+        result.record(
+            _guarded(
+                safety.RULE_SCANNER_ERROR,
+                GuardrailLayer.SAFETY,
+                lambda: conduct.scan(text, settings, is_reply=True),
             )
         )
     return result

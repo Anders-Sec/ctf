@@ -200,6 +200,11 @@ class Settings(BaseSettings):
     #: Layer B — real-world safety — is untouched and runs on every reply at
     #: every level. Protection level governs flag secrecy only.
     ai_safety_filter_enabled: bool = True
+    #: Optional extra wordlist for the conduct rules (spec 036), as
+    #: ``category: word`` lines. Not committed: this repository is public, and
+    #: the terms that matter most are the ones nobody wants to read in a diff.
+    #: Absent is fine — the built-in list still applies.
+    ai_wordlist_path: str | None = None
     #: The judge is a second model call on an already-flagged reply. Off until
     #: the log shows how the deterministic layer behaves: the same uncensored 8B
     #: judging its own output is a weak control to trust with suppression.

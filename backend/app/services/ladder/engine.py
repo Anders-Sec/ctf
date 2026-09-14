@@ -56,6 +56,10 @@ DEFAULT_MAX_TOKENS = 220
 #: not say otherwise — effectively "all of it".
 UNBOUNDED_WINDOW = 100_000
 
+#: How much of any one model response the gate log keeps. Enough for a full reply
+#: at the 420-token ceiling; a cap so a pathological one cannot bloat the row.
+GATE_LOG_MAX_CHARS = 2_000
+
 
 # ---------------------------------------------------------------------------
 # In-character copy for each gate. Markdown: the panel renders it.
@@ -277,6 +281,8 @@ class LadderReply:
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     latency_ms: int = 0
+    #: Every upstream call this turn made, in order (spec 036).
+    gate_log: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -299,10 +305,31 @@ class _Turn:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     latency_ms: int = 0
+    #: The most recent call's latency, for the gate log entry.
+    last_latency_ms: int = 0
     #: From the call that produced the visible text, not from the router or the
     #: warden — theirs is a one-word verdict and tells a reviewer nothing.
     reasoning: str | None = None
     model: str | None = None
+    #: One entry per upstream call, in order (spec 036).
+    gate_log: list[dict[str, Any]] = field(default_factory=list)
+
+    def log(self, stage: str, response: str | None, outcome: str, latency_ms: int = 0) -> None:
+        """Record what one stage did.
+
+        The value of this is entirely in the *candidate* entries: the reply a
+        warden suppressed, or the draft that existed before retrieval replaced
+        it. Without them there is no way to tell a strict gate from a prompt that
+        held, which is the question every difficulty complaint turns on.
+        """
+        text = None if response is None else response[:GATE_LOG_MAX_CHARS]
+        truncated = response is not None and len(response) > GATE_LOG_MAX_CHARS
+        entry: dict[str, Any] = {"stage": stage, "response": text, "outcome": outcome}
+        if latency_ms:
+            entry["latency_ms"] = latency_ms
+        if truncated:
+            entry["truncated"] = True
+        self.gate_log.append(entry)
 
     async def call(
         self, messages: list[ChatMessage], *, primary: bool = False, **overrides: Any
@@ -314,6 +341,7 @@ class _Turn:
         """
         self.calls += 1
         reply = await ai_client.complete(self.settings, messages, **overrides)
+        self.last_latency_ms = reply.latency_ms
         self.latency_ms += reply.latency_ms
         self.prompt_tokens += reply.prompt_tokens or 0
         self.completion_tokens += reply.completion_tokens or 0
@@ -377,8 +405,17 @@ async def respond(
             max_tokens=max_tokens,
         )
         if raw is None:
+            turn.log("generate", None, "unavailable", turn.last_latency_ms)
             return _errored(turn)
         candidate = strip_thinking(raw)
+        # The raw text, before stripping and before any gate touched it. This is
+        # the entry that did not exist anywhere before spec 036.
+        turn.log(
+            "generate",
+            raw,
+            "stripped" if raw != candidate else "verbatim",
+            turn.last_latency_ms,
+        )
 
         # --- retrieval (level 5) ------------------------------------------
         if gates.get("rag"):
@@ -441,7 +478,14 @@ async def _router_flags(turn: _Turn, message: str) -> bool:
         temperature=0,
         max_tokens=6,
     )
-    return verdict_text is not None and "attack" in verdict_text.lower()
+    flagged = verdict_text is not None and "attack" in verdict_text.lower()
+    turn.log(
+        "router",
+        verdict_text,
+        "attack" if flagged else ("unavailable" if verdict_text is None else "normal"),
+        turn.last_latency_ms,
+    )
+    return flagged
 
 
 async def _warden_blocks(turn: _Turn, candidate: str) -> bool:
@@ -473,12 +517,16 @@ async def _warden_blocks(turn: _Turn, candidate: str) -> bool:
         max_tokens=6,
     )
     if answer is None:
+        turn.log("warden", None, "unavailable-failed-closed", turn.last_latency_ms)
         return True  # fail closed
     lowered = answer.lower()
     if "block" in lowered:
+        turn.log("warden", answer, "block", turn.last_latency_ms)
         return True
     if "allow" in lowered:  # noqa: SIM103 - the three cases are the point
+        turn.log("warden", answer, "allow", turn.last_latency_ms)
         return False
+    turn.log("warden", answer, "unreadable-failed-closed", turn.last_latency_ms)
     # Anything else is not a verdict at all, so fail closed. Written out rather
     # than inverted, because "not ALLOW means block" is exactly the reading that
     # would let a garbled reply through if the check were ever restructured.
@@ -505,18 +553,32 @@ async def _with_vault(
     """
     action = await _decide_vault_action(turn, messages, message)
     if action is None:
+        turn.log("vault_action", None, "undecided", turn.last_latency_ms)
         return candidate
 
     record_id = str(action.get("record_id") or "").strip()
     if action.get("action") != "vault_lookup" or not record_id:
+        turn.log("vault_action", json.dumps(action), "speak", turn.last_latency_ms)
         return candidate
 
+    turn.log("vault_action", json.dumps(action), f"lookup:{record_id}", turn.last_latency_ms)
     turn.trace.append(f"vault:{record_id.upper()}")
+
+    record = _vault_lookup(turn.flag, record_id)
+    # Whether it reached the sealed record, never the record *body* — for the
+    # sealed one that body is the flag, and the gate log is read by staff on a
+    # screen. Knowing it was hit is the whole diagnostic value.
+    turn.log(
+        "vault_lookup",
+        None,
+        "sealed" if record_id.strip().upper() in _SEALED_IDS else "lore",
+    )
+
     messages = [
         *messages,
         ChatMessage(
             "user",
-            f"[VAULT RESPONSE for {record_id}] {_vault_lookup(turn.flag, record_id)}\n\n"
+            f"[VAULT RESPONSE for {record_id}] {record}\n\n"
             "Now answer the Crawler in your own voice.",
         ),
     ]
@@ -527,8 +589,16 @@ async def _with_vault(
         max_tokens=max_tokens,
     )
     if raw is None:
+        turn.log("generate_after_vault", None, "unavailable", turn.last_latency_ms)
         return None
-    return strip_thinking(raw)
+    stripped = strip_thinking(raw)
+    turn.log(
+        "generate_after_vault",
+        raw,
+        "stripped" if raw != stripped else "verbatim",
+        turn.last_latency_ms,
+    )
+    return stripped
 
 
 async def _decide_vault_action(
@@ -581,6 +651,7 @@ def _usage(turn: _Turn) -> dict[str, Any]:
         "prompt_tokens": turn.prompt_tokens or None,
         "completion_tokens": turn.completion_tokens or None,
         "latency_ms": turn.latency_ms,
+        "gate_log": turn.gate_log,
     }
 
 

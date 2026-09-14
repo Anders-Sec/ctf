@@ -198,6 +198,9 @@ class SessionRow:
     findings: int
     blocked: bool
     from_staff: bool
+    #: How many times they have reset. Worth seeing at a glance: a player on
+    #: session 40 is iterating hard, which is the shape of someone attacking.
+    sessions: int
 
 
 async def list_sessions(
@@ -236,6 +239,7 @@ async def list_sessions(
             User.display_name,
             AssistantConversation.message_count,
             AssistantConversation.last_message_at,
+            AssistantConversation.current_session,
             func.coalesce(latest_level, 0),
             func.coalesce(findings.c.count, 0),
             User.assistant_blocked,
@@ -261,10 +265,19 @@ async def list_sessions(
             findings=count,
             blocked=blocked,
             from_staff=is_staff,
+            sessions=session + 1,
         )
-        for user_id, name, turns, last_at, level, count, blocked, is_staff in (
-            await db.execute(query)
-        ).all()
+        for (
+            user_id,
+            name,
+            turns,
+            last_at,
+            session,
+            level,
+            count,
+            blocked,
+            is_staff,
+        ) in (await db.execute(query)).all()
     ]
 
 
@@ -282,8 +295,10 @@ class TranscriptTurn:
     content: str
     original_content: str | None
     reasoning_content: str | None
+    session_number: int
     ladder_level: int | None
     trace: list[str] | None
+    gate_log: list[dict] | None
     latency_ms: int | None
     upstream_calls: int | None
     error: str | None
@@ -297,6 +312,10 @@ class Transcript:
     #: False when the conversation has been purged by retention, so the view can
     #: say so rather than pretending the player never spoke.
     exists: bool
+    #: Which session the player is on now. Anything below it is history they
+    #: reset away — and, since players reset after nearly every attempt, that
+    #: is where most of the interesting material lives.
+    current_session: int
     turns: list[TranscriptTurn]
 
 
@@ -312,7 +331,13 @@ async def transcript(db: AsyncSession, user_id: UUID, *, limit: int = 200) -> Tr
         )
     ).scalar_one_or_none()
     if conversation is None:
-        return Transcript(user_id=user_id, player_name=player.display_name, exists=False, turns=[])
+        return Transcript(
+            user_id=user_id,
+            player_name=player.display_name,
+            exists=False,
+            current_session=0,
+            turns=[],
+        )
 
     # Newest-end pagination: a long conversation is read from where it got to.
     rows = (
@@ -332,6 +357,7 @@ async def transcript(db: AsyncSession, user_id: UUID, *, limit: int = 200) -> Tr
         user_id=user_id,
         player_name=player.display_name,
         exists=True,
+        current_session=conversation.current_session,
         turns=[
             TranscriptTurn(
                 id=row.id,
@@ -339,8 +365,10 @@ async def transcript(db: AsyncSession, user_id: UUID, *, limit: int = 200) -> Tr
                 content=row.content,
                 original_content=row.original_content,
                 reasoning_content=row.reasoning_content,
+                session_number=row.session_number,
                 ladder_level=row.ladder_level,
                 trace=row.trace,
+                gate_log=row.gate_log,
                 latency_ms=row.latency_ms,
                 upstream_calls=row.upstream_calls,
                 error=row.error,
@@ -367,3 +395,17 @@ async def acknowledge(
     finding.acknowledged_by_user_id = actor_id
     await db.flush()
     return True
+
+
+async def hidden_staff_findings(db: AsyncSession) -> int:
+    """How many findings the default filter is hiding (spec 036).
+
+    An empty Flags tab that is actually "3 hidden" is indistinguishable from a
+    broken one — and since staff are the people testing the filters, their own
+    findings are exactly the ones they cannot see.
+    """
+    return (
+        await db.scalar(
+            select(func.count(AssistantFinding.id)).where(AssistantFinding.from_staff.is_(True))
+        )
+    ) or 0

@@ -14,7 +14,7 @@ whole platform is broken.
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
@@ -99,14 +99,25 @@ async def _get_or_create(db: AsyncSession, user_id: UUID) -> AssistantConversati
 
 
 async def recent_messages(
-    db: AsyncSession, conversation_id: UUID, limit: int
+    db: AsyncSession,
+    conversation_id: UUID,
+    limit: int,
+    session_number: int | None = None,
 ) -> list[AssistantMessage]:
-    """Oldest first, which is the order both the model and the UI want."""
+    """Oldest first, which is the order both the model and the UI want.
+
+    ``session_number`` scopes it to one session (spec 036). The player and the
+    model are always scoped to the current one; staff read across all of them.
+    """
+    conditions = [AssistantMessage.conversation_id == conversation_id]
+    if session_number is not None:
+        conditions.append(AssistantMessage.session_number == session_number)
+
     rows = (
         (
             await db.execute(
                 select(AssistantMessage)
-                .where(AssistantMessage.conversation_id == conversation_id)
+                .where(*conditions)
                 .order_by(AssistantMessage.sequence.desc())
                 .limit(limit)
             )
@@ -118,22 +129,29 @@ async def recent_messages(
 
 
 async def history_for(db: AsyncSession, user_id: UUID, limit: int) -> list[AssistantMessage]:
+    """What the player sees: the current session only."""
     conversation = await get_conversation(db, user_id)
     if conversation is None:
         return []
-    return await recent_messages(db, conversation.id, limit)
+    return await recent_messages(db, conversation.id, limit, conversation.current_session)
 
 
 async def clear(db: AsyncSession, user_id: UUID) -> None:
-    """Start again. The rows go, because a player asking for a clean slate means it."""
+    """Start a new session. **Deletes nothing** (spec 036).
+
+    This used to be a hard DELETE, and players reset after nearly every attempt —
+    so the exchange behind every flag vanished, the conversation dropped off the
+    admin sessions list, and nothing ever reached the retention window.
+
+    From the player's side it is unchanged: their history and the model's context
+    are both scoped to the current session, so a reset still looks like a clean
+    slate. ``message_count`` deliberately keeps counting, which is what keeps
+    ``sequence`` unique now that the old rows stay.
+    """
     conversation = await get_conversation(db, user_id)
     if conversation is None:
         return
-    await db.execute(
-        delete(AssistantMessage).where(AssistantMessage.conversation_id == conversation.id)
-    )
-    conversation.message_count = 0
-    conversation.last_message_at = None
+    conversation.current_session += 1
     await db.flush()
 
 
@@ -152,7 +170,7 @@ async def _wipe_if_level_changed(
     Compared against the last turn rather than stored separately: the message
     rows already record which rung produced them.
     """
-    last = await recent_messages(db, conversation.id, 1)
+    last = await recent_messages(db, conversation.id, 1, conversation.current_session)
     if not last:
         return
     previous = last[0].ladder_level
@@ -162,6 +180,21 @@ async def _wipe_if_level_changed(
             extra={"from": previous, "to": level, "conversation_id": str(conversation.id)},
         )
         await clear(db, conversation.user_id)
+
+
+async def reset_if_level_changed(db: AsyncSession, user_id: UUID, level: int) -> bool:
+    """Start a new session if the player's rung has moved. Returns whether it did.
+
+    Called from the conversation read so a player who has just solved a rung sees
+    the reset immediately, rather than on their next message — which is what made
+    the chat look stuck after a level-up.
+    """
+    conversation = await get_conversation(db, user_id)
+    if conversation is None:
+        return False
+    before = conversation.current_session
+    await _wipe_if_level_changed(db, conversation, level)
+    return conversation.current_session != before
 
 
 async def wipe_for_level_change(db: AsyncSession, user_id: UUID) -> None:
@@ -208,6 +241,7 @@ async def send(
         challenge_id=challenge_id,
         from_staff=from_staff,
         ladder_level=level,
+        session_number=conversation.current_session,
     )
     db.add(question)
     await db.flush()  # question.id, for any findings against it
@@ -269,6 +303,7 @@ async def _produce_answer(
             challenge_id=question.challenge_id,
             from_staff=from_staff,
             ladder_level=level,
+            session_number=conversation.current_session,
             trace=trace,
             error=error,
             model=reply.model if reply else None,
@@ -276,6 +311,7 @@ async def _produce_answer(
             completion_tokens=reply.completion_tokens if reply else None,
             latency_ms=(reply.latency_ms or None) if reply else None,
             upstream_calls=reply.calls if reply else None,
+            gate_log=reply.gate_log if reply else None,
             # Stored, never returned: the scratchpad may contain the model
             # reasoning aloud about the very flag it is refusing to say.
             reasoning_content=reply.reasoning if reply else None,
@@ -302,7 +338,9 @@ async def _produce_answer(
         await db.flush()
         return answer
 
-    history = await recent_messages(db, conversation.id, settings.ai_history_turns * 2)
+    history = await recent_messages(
+        db, conversation.id, settings.ai_history_turns * 2, conversation.current_session
+    )
     reply = await ladder_engine.respond(
         settings,
         level=level,
