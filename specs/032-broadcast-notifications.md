@@ -1,6 +1,6 @@
 # Spec 032 — Broadcast Notifications
 
-Status: **draft** (2026-09-13) — awaiting sign-off
+Status: **done** (2026-09-14) — 1030 backend tests, 231 frontend tests
 Phase: 2 (D&D Mechanics)
 Depends on: 028 (the notification system), 031 (bosses — the motivating case)
 
