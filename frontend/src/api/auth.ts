@@ -55,10 +55,15 @@ export interface Me {
   event: EventSummary | null;
   /**
    * Whether to offer the System AI chat at all. Resolved server-side: the
-   * feature has to be configured *and* this user allowed to use it, which is
-   * staff-only until spec 011 lands the guardrails.
+   * feature has to be configured *and* this user allowed to use it.
    */
   assistant_available: boolean;
+  /**
+   * Whether they have accepted the current terms of use (spec 035). False means
+   * the panel opens on the terms instead of the transcript — known on load, so
+   * the first thing a player meets is not a refused request.
+   */
+  assistant_terms_accepted: boolean;
 }
 
 export const getMe = () => api.get<Me>("/auth/me");

@@ -57,6 +57,9 @@ export function me(overrides: Partial<Me> = {}): Me {
       server_time: "2026-09-02T12:00:00Z",
     },
     assistant_available: false,
+    // Accepted by default: that is the state for all but a player's first
+    // visit, and the terms gate has its own tests (spec 035).
+    assistant_terms_accepted: true,
     ...overrides,
   };
 }

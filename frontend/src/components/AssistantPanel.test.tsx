@@ -10,6 +10,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const TERMS_TEXT = ["# Terms", "", "This conversation is **not private**."].join("\n");
+
 function message(overrides: Partial<AssistantMessage> = {}): AssistantMessage {
   return {
     id: "m1",
@@ -29,6 +31,8 @@ interface Options {
   sendStatus?: number;
   sendBody?: unknown;
   route?: string;
+  termsAccepted?: boolean;
+  termsStatus?: number;
   ladderLevel?: number;
   maxLadderLevel?: number;
 }
@@ -41,13 +45,36 @@ function render(options: Options = {}) {
     sendStatus = 200,
     sendBody = { message: message() },
     route = "/",
+    termsAccepted = true,
+    termsStatus = 200,
     ladderLevel = 0,
     maxLadderLevel = 0,
   } = options;
 
   const mock = stubFetch((path, init) => {
     if (path.endsWith("/auth/me")) {
-      return { status: 200, body: me({ assistant_available: assistantAvailable }) };
+      return {
+        status: 200,
+        body: me({
+          assistant_available: assistantAvailable,
+          assistant_terms_accepted: termsAccepted,
+        }),
+      };
+    }
+    if (path.endsWith("/assistant/terms/accept")) {
+      return {
+        status: termsStatus,
+        body:
+          termsStatus === 200
+            ? { text: TERMS_TEXT, version: "v1", accepted: true }
+            : { error: { code: "assistant_terms_stale", message: "Updated." } },
+      };
+    }
+    if (path.endsWith("/assistant/terms")) {
+      return {
+        status: 200,
+        body: { text: TERMS_TEXT, version: "v1", accepted: termsAccepted },
+      };
     }
     if (path.endsWith("/assistant/messages")) {
       return { status: sendStatus, body: sendBody };
@@ -279,5 +306,61 @@ describe("AssistantPanel ladder selector", () => {
       expect(call).toBeDefined();
       expect(JSON.parse(String(call?.[1]?.body))).toEqual({ level: 0 });
     });
+  });
+});
+
+describe("AssistantPanel terms gate", () => {
+  it("shows the terms instead of the chat until they are accepted", async () => {
+    render({ termsAccepted: false });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+
+    expect(await screen.findByText(/not private/i)).toBeInTheDocument();
+    // No way to type until they have accepted.
+    expect(screen.queryByLabelText(/message the system ai/i)).not.toBeInTheDocument();
+  });
+
+  it("accepts the version it was shown", async () => {
+    const mock = render({ termsAccepted: false });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /accept these terms/i }));
+
+    await waitFor(() => {
+      const call = mock.mock.calls.find(([path]) =>
+        String(path).endsWith("/assistant/terms/accept"),
+      );
+      expect(call).toBeDefined();
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ version: "v1" });
+    });
+  });
+
+  it("explains a version that changed while they were reading", async () => {
+    render({ termsAccepted: false, termsStatus: 409 });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /accept these terms/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/updated while you were reading/i);
+  });
+
+  it("does not fetch the conversation while the gate is shut", async () => {
+    const mock = render({ termsAccepted: false });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+    await screen.findByText(/not private/i);
+
+    expect(
+      mock.mock.calls.filter(([path]) => String(path).endsWith("/assistant/conversation")),
+    ).toHaveLength(0);
+  });
+
+  it("keeps a standing reminder once accepted", async () => {
+    // The acceptance is a moment; this is what someone sees on day three.
+    render({ termsAccepted: true });
+
+    await userEvent.click(await screen.findByRole("button", { name: /ask the system ai/i }));
+
+    expect(await screen.findByText(/visible to event staff/i)).toBeInTheDocument();
   });
 });

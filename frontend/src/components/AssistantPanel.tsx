@@ -10,6 +10,7 @@ import {
 } from "../api/assistant";
 import { ApiError } from "../api/client";
 import { useSession } from "../auth/session";
+import AssistantTerms from "./AssistantTerms";
 import Markdown from "./Markdown";
 
 /**
@@ -37,10 +38,14 @@ export default function AssistantPanel() {
   const onChallenge = useMatch("/challenges/:challengeId");
   const challengeId = onChallenge?.params.challengeId ?? null;
 
+  // Spec 035: until they accept, the chat endpoints refuse. Known from the
+  // session rather than discovered through a failed request.
+  const termsAccepted = me?.assistant_terms_accepted ?? false;
+
   const conversation = useQuery({
     queryKey: ["assistant", "conversation"],
     queryFn: getConversation,
-    enabled: open,
+    enabled: open && termsAccepted,
   });
 
   const send = useMutation({
@@ -124,6 +129,10 @@ export default function AssistantPanel() {
             </button>
           </header>
 
+          {!termsAccepted ? (
+            <AssistantTerms />
+          ) : (
+          <>
           <div ref={transcriptRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
             {conversation.isPending && <p className="text-sm text-muted">Booting…</p>}
             {!conversation.isPending && messages.length === 0 && (
@@ -194,6 +203,17 @@ export default function AssistantPanel() {
               Ask
             </button>
           </form>
+
+          {/*
+            The acceptance is a moment; this is what someone sees on day three.
+            Spec 035 — the transcript is readable by staff, and saying so once at
+            the start is not the same as saying so where they are typing.
+          */}
+          <p className="border-t border-stone px-3 py-1.5 text-[0.7rem] text-muted">
+            Visible to event staff. Not a private chat.
+          </p>
+          </>
+          )}
         </section>
       )}
 

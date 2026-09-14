@@ -50,3 +50,20 @@ export const sendMessage = (content: string, challengeId: string | null) =>
   });
 
 export const clearConversation = () => api.delete<void>("/assistant/conversation");
+
+export interface Terms {
+  /** Markdown, rendered with the same sanitising renderer the chat uses. */
+  text: string;
+  /**
+   * The hash of the terms file. Sent back on acceptance so a player cannot
+   * accept wording they were never shown — if the file changed between load and
+   * click, the server refuses and returns the new text.
+   */
+  version: string;
+  accepted: boolean;
+}
+
+export const getTerms = () => api.get<Terms>("/assistant/terms");
+
+export const acceptTerms = (version: string) =>
+  api.post<Terms>("/assistant/terms/accept", { version });
