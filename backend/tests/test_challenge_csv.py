@@ -28,7 +28,7 @@ from app.models.hint import Hint, HintUnlock
 from app.models.user import UserRole, UserStatus
 from app.services import answers as answer_service
 from app.services import challenge_csv
-from tests.factories import make_category, make_challenge, make_user
+from tests.factories import make_category, make_challenge, make_template, make_user
 
 pytestmark = pytest.mark.usefixtures("running_event")
 
@@ -1162,6 +1162,75 @@ class TestWideColumns:
 
         assert report.ok, report.errors
         assert report.created == 1
+
+
+
+class TestContainerTemplateColumn:
+    async def test_a_template_attaches_by_name(self, db_session: AsyncSession) -> None:
+        category = await make_category(db_session)
+        template = await make_template(db_session, name="Vulnerable Shop")
+
+        report = await challenge_csv.import_csv(
+            db_session,
+            csv_of(
+                [
+                    {
+                        "category": category.name,
+                        "title": "Live Target",
+                        "difficulty": "hard",
+                        "container_template": "vulnerable shop",
+                    }
+                ]
+            ),
+        )
+
+        assert report.ok, report.errors
+        challenge = await _challenge(db_session, "Live Target")
+        assert challenge.container_template_id == template.id
+
+    async def test_an_unknown_template_is_refused(self, db_session: AsyncSession) -> None:
+        category = await make_category(db_session)
+
+        report = await challenge_csv.import_csv(
+            db_session,
+            csv_of(
+                [
+                    {
+                        "category": category.name,
+                        "title": "Missing",
+                        "difficulty": "hard",
+                        "container_template": "Nothing Like This",
+                    }
+                ]
+            ),
+        )
+
+        assert any(e.column == "container_template" for e in report.errors)
+
+    async def test_an_ambiguous_name_is_refused(self, db_session: AsyncSession) -> None:
+        """Template names are not unique, so an ambiguous one has to be resolved
+        in the UI rather than guessed at here."""
+        category = await make_category(db_session)
+        await make_template(db_session, name="Twin")
+        await make_template(db_session, name="Twin")
+
+        report = await challenge_csv.import_csv(
+            db_session,
+            csv_of(
+                [
+                    {
+                        "category": category.name,
+                        "title": "Which One",
+                        "difficulty": "hard",
+                        "container_template": "Twin",
+                    }
+                ]
+            ),
+        )
+
+        assert any(
+            e.column == "container_template" and "2" in e.problem for e in report.errors
+        )
 
 
 async def _challenge(db: AsyncSession, title: str) -> Challenge:
