@@ -62,9 +62,10 @@ The page goes full-width. `max-w-5xl` is right for a form and wrong for a table.
 | Solves | Read-only. |
 
 **Inline editing of difficulty, XP and state** is deliberate and is expected to
-remove most reasons to open the drawer at all. The common admin action mid-event
-is "publish this" or "that is worth more than I thought", and neither should cost
-a drawer, a scroll and a save.
+remove most reasons to open the drawer at all. Setting up an event is mostly
+passes over the whole set — retuning XP across a zone, moving a wing from draft
+to published, relabelling difficulty after reading the area back. None of those
+should cost a drawer, a scroll and a save, once per challenge.
 
 Everything else — body, flags, hints, skills, prerequisites, container, boss
 tier, the decay group — lives in the drawer.
@@ -128,8 +129,9 @@ collapsed**:
   container template, boss tier, AI ladder rung.
 
 Delete moves out of a "danger zone" at the bottom of a long scroll and into the
-drawer header, behind the same two-step confirm. It stays deliberate; it stops
-being *far away*.
+drawer header, behind a single confirm. Today it costs a click into the row, a
+scroll past seven sections and then two more clicks; the distance was the
+problem, not the absence of a second confirmation.
 
 Closing the drawer with unsaved changes warns rather than discarding.
 
@@ -205,11 +207,6 @@ harder for no benefit at this size. If the event ever triples, revisit.
    per-challenge XP deliberate, so this filter flags intent as though it were a
    mistake. It is genuinely useful while *reviewing* a generated file. Recommend
    keeping it, worded as "XP differs from difficulty" rather than as a problem.
-2. **Should the inline state editor allow `published` directly?** Publishing from
-   a table row is one click away from publishing the wrong row. The alternative is
-   that inline editing offers draft/hidden/locked and publishing needs the drawer.
-   Recommend allowing it — 042 is going to offer bulk publish regardless, and
-   the audit log records who did it.
-3. **Is `has_body` worth a field, or should "no description" filter server-side
+2. **Is `has_body` worth a field, or should "no description" filter server-side
    only?** Recommend server-side only; a boolean that exists to power one filter
    is a field that will drift.
