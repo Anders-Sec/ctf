@@ -4,7 +4,7 @@ Status: **draft** (2026-09-14) — awaiting sign-off
 Phase: 2 (D&D Mechanics), with the visual treatment deferred to Phase 3
 Depends on: 029 (the achievement roster), 031 (boss tiers), 028 (notifications)
 
-Every achievement drops a box. The box has a **type** and a **rarity**, and that
+Most achievements drop a box. The box has a **type** and a **rarity**, and that
 pair chooses from an authored set list of **titles** — one of which a player can
 wear next to their name on the scoreboard.
 
@@ -22,6 +22,32 @@ joke that keeps working, visible to everyone, every time the board is opened.
 
 It stays cosmetic. No XP, no ranking, no gating — the line 015 and 016 both drew
 holds: identity never touches the scoreboard's ordering, only its presentation.
+
+## Not everything pays out
+
+**81 of the 117 achievements drop a box. The other 36 get a line instead**,
+explaining why the System is not rewarding this one — because the act is its own
+reward, because it was a cheat attempt, or because it was simply too small.
+
+That split is most of what keeps loot from feeling like a queue. It also lets
+the negative achievements land harder: *Reading Comprehension* is funnier when
+it comes with nothing in it.
+
+Which get nothing: wrong answers that are merely wrong rather than impressive
+(`bad_start`, `literally`, `warming_up`), attempts to talk the System out of a
+flag (`nice_try`, `undeterred`), small talk (`manners`, `existential`), party
+churn (`second_thoughts`, `asked_to_leave`), machinery noise that was not the
+player's doing (`it_was_like_that`), and aimless progress (`wide_not_deep`,
+`identity_crisis`).
+
+Which still pay out despite being unflattering: the spectacular ones.
+`brute_force_strategy` — one hundred wrong flags — earns a Gold Brute Force Box,
+because at that volume it has stopped being a mistake and become a method.
+`obsession`, `no_variation` and `you_broke_it` likewise.
+
+A no-box achievement carries a `no_loot_line`: one sentence from the System, in
+the same voice as everything else, delivered with the achievement notification
+rather than as a second message.
 
 ## The ten box types
 
@@ -59,6 +85,28 @@ The six tiers already in the platform, reusing the names from 031's boss ladder:
   drops a Celestial Boss Box, exactly as your tier notes already say. One fact,
   configured once.
 
+### Rarity is quality, not just colour
+
+A bronze title is deliberately dull. The tier is a statement about how good the
+title *sounds* — the only axis available, since nothing here has a mechanical
+effect. Bronze is administrative; celestial is something a player will want on
+the board for the rest of the event.
+
+That means effort is not spread evenly. The high tiers are where the writing
+matters and where the player's attention is, and the content budget should
+follow.
+
+### Pools are shared at the bottom
+
+A bronze Adventurer's Box and a bronze Brute Force Box are both boring, and
+there is no reason to invent two sets of boring titles.
+
+- **Bronze is one shared pool** across every box type.
+- **Silver shares across a couple of families** — progress-shaped types draw
+  from one, mischief-shaped types from another.
+- **Gold and above are per box type**, because that is where the box's identity
+  should actually come through.
+
 ### Not every type spans every tier
 
 Sixty set lists is more content than this feature is worth. Most types only make
@@ -78,15 +126,21 @@ does not start at bronze:
 | Party Box | bronze → silver | 2 |
 | Purist's Box | gold → platinum | 2 |
 
-**30 lists.** At roughly five titles each that is ~150 items — the same order as
-the achievement copy, and authored the same way.
+Against the 81 box-dropping achievements that is **35 live (type, tier)
+combinations, 12 of them platinum or above**.
+
+Sharing collapses the bottom further: one bronze pool and two silver families
+replace what would otherwise be a dozen near-identical lists. The remaining
+effort concentrates where the recommendation below puts it — the twelve
+high-tier combinations, which is also where the players are looking.
 
 ## The model
 
-- `achievement.loot_box_type` — which box it drops. Not nullable in practice;
-  every achievement drops one.
+- `achievement.loot_box_type` — which box it drops. **Null means it drops
+  nothing**, and `no_loot_line` carries what the System says instead.
 - `achievement.loot_rarity` — nullable. Null on the boss achievements, where the
-  tier supplies it.
+  tier supplies it, and on the 36 that drop nothing.
+- `achievement.no_loot_line` — the System's sentence for a no-box achievement.
 - `loot_item` — the authored catalogue: box type, rarity, the title text, and
   whether it was generated rather than written.
 - `loot_box` — one awarded box: owner, type, rarity, the achievement that
@@ -105,11 +159,16 @@ That is deliberate: the opening is the only ceremony loot has, and resolving it
 silently on award throws the whole moment away. It also gives Phase 3 something
 to animate.
 
-- Opening picks uniformly from the authored list for that (type, rarity),
-  **preferring a title the player does not already hold**.
-- **If they hold all of them**, the box still opens and says so plainly. A
-  duplicate title is worth nothing, and pretending otherwise is worse than an
-  honest empty.
+- Opening picks uniformly from the pool for that (type, rarity), **preferring a
+  title the player does not already hold**.
+- **Platinum and above are one of a kind.** Once a title at those tiers is
+  awarded to anybody, it is never offered again. Two identical legendary titles
+  side by side on the scoreboard would undo the whole point of them.
+- Bronze, silver and gold may repeat across players. They are common by design,
+  and the shared pools guarantee it.
+- **If a player holds every title in a low-tier pool**, the box still opens and
+  says so plainly. A duplicate is worth nothing and pretending otherwise is
+  worse than an honest empty.
 - Opening is idempotent per box: the item is written to the box row, so a
   double-click cannot reroll it. Players would absolutely try.
 
@@ -122,6 +181,14 @@ before falling back to the list.
   refused, malformed — falls through to the authored list for that combination,
   which therefore has to be good enough to stand alone. It is not a safety net
   that can be thin.
+- Generation is also what **absorbs exhaustion**. High tiers are unique, so a
+  popular platinum achievement earned by fifty players needs fifty distinct
+  titles, and a fixed list will run out. A generated title is unique by
+  construction.
+- **If generation fails *and* the authored pool is exhausted**, the box refuses
+  to open and says to come back. It does not hand out a duplicate to save face,
+  and the player loses nothing. This is the one place the feature is allowed to
+  say "not now".
 - Routed through the **existing guardrail layers** (spec 011). This is
   unreviewed model text shown to a player at a work event, which is precisely
   what those layers exist for.
@@ -186,8 +253,15 @@ where a bespoke line is actually a reward.
 
 ## Open question
 
-**Do boxes need to be rarer than achievements?** As specced, 117 achievements
-means up to 117 boxes, and a median player might open forty. That may be exactly
-right — or it may make opening feel like clearing a queue. The alternative is
-that only some achievements drop boxes. Recommending one-for-one to start, since
-thinning it later is a data change.
+**How deep should the platinum-and-above pools be?** This is the dial between
+the model being a bonus and the model being load-bearing.
+
+Shallow pools (say ten per combination) mean a popular platinum achievement
+exhausts quickly and most high-tier titles come from the model — fresher, but
+high-tier boxes stop opening whenever it is down. Deep pools (twenty-five or
+more) keep uniqueness working on authored content alone for realistic player
+counts, and the model becomes flavour on top.
+
+Recommending **deep**: roughly twenty-five per platinum+ combination, which is
+where the writing effort should go anyway. It puts the content total near 250
+titles, most of them at the tiers players care about.
