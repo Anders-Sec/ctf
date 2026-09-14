@@ -190,16 +190,6 @@ async def _three_in_five_minutes(db: AsyncSession, user_id: UUID) -> bool:
     return any(times[index + 2] - times[index] <= window for index in range(len(times) - 2))
 
 
-@trigger("no_help_needed", SOLVE)
-async def _ten_solves_no_hints(db: AsyncSession, user_id: UUID) -> bool:
-    """Ten solves without ever taking a hint."""
-    used = await db.scalar(select(HintUnlock.id).where(HintUnlock.user_id == user_id).limit(1))
-    if used:
-        return False
-    count = await db.scalar(select(func.count(Solve.id)).where(Solve.user_id == user_id))
-    return (count or 0) >= 10
-
-
 @trigger("well_rounded", SOLVE)
 async def _five_categories(db: AsyncSession, user_id: UUID) -> bool:
     """Solved something in five different zones."""
@@ -312,17 +302,6 @@ async def _backwards(db: AsyncSession, user_id: UUID) -> bool:
     return False
 
 
-@trigger("low_hanging_fruit", SOLVE)
-async def _low_hanging_fruit(db: AsyncSession, user_id: UUID) -> bool:
-    """Twenty solves, every one very-easy.
-
-    Non-monotone: one medium solve makes it false again. Awards are never taken
-    back, so this commemorates a moment rather than a permanent fact (spec 029).
-    """
-    solved = await _difficulties_solved(db, user_id)
-    return solved == {Difficulty.VERY_EASY} and await _solve_count(db, user_id) >= 20
-
-
 @trigger("clean_hands", SOLVE)
 async def _clean_hands(db: AsyncSession, user_id: UUID) -> bool:
     """Ten challenges solved without a single wrong answer on them."""
@@ -413,16 +392,6 @@ def _local_hour(moment: datetime) -> int:
 async def _night_shift(db: AsyncSession, user_id: UUID) -> bool:
     times = await _solve_times(db, user_id)
     return any(1 <= _local_hour(t) < 5 for t in times)
-
-
-@trigger("vampire", SOLVE)
-async def _vampire(db: AsyncSession, user_id: UUID) -> bool:
-    """Every solve between 22:00 and 06:00. Non-monotone, like the others that
-    say *every*."""
-    times = await _solve_times(db, user_id)
-    if len(times) < 5:
-        return False
-    return all(_local_hour(t) >= 22 or _local_hour(t) < 6 for t in times)
 
 
 async def _solve_times(db: AsyncSession, user_id: UUID) -> list:
@@ -623,13 +592,6 @@ async def _master(db: AsyncSession, user_id: UUID) -> bool:
     return await _best_skill_level(db, user_id) >= get_settings().skill_level_cap
 
 
-@trigger("wide_not_deep", SOLVE)
-async def _wide_not_deep(db: AsyncSession, user_id: UUID) -> bool:
-    """Level 10 with no zone cleared. Non-monotone: clearing one later makes it
-    false, and the award still stands (spec 029)."""
-    return await _level(db, user_id) >= 10 and not await _zones_cleared(db, user_id)
-
-
 @trigger("doorway", SOLVE)
 async def _doorway(db: AsyncSession, user_id: UUID) -> bool:
     """A second zone open. Ungated zones count — they are open from the start."""
@@ -644,14 +606,6 @@ async def _doorway(db: AsyncSession, user_id: UUID) -> bool:
 @trigger("know_thyself", CLASS)
 async def _know_thyself(db: AsyncSession, user_id: UUID) -> bool:
     return bool(await db.scalar(select(User.character_class_id).where(User.id == user_id)))
-
-
-@trigger("undefined", SOLVE)
-async def _undefined(db: AsyncSession, user_id: UUID) -> bool:
-    """Level 15 and still classless."""
-    if await _level(db, user_id) < 15:
-        return False
-    return not await db.scalar(select(User.character_class_id).where(User.id == user_id))
 
 
 async def _unlocked_rarities(db: AsyncSession, user_id: UUID) -> set:
@@ -707,14 +661,6 @@ async def _asking_directions(db: AsyncSession, user_id: UUID) -> bool:
     )
 
 
-@trigger("unassisted", SOLVE)
-async def _unassisted(db: AsyncSession, user_id: UUID) -> bool:
-    used = await db.scalar(select(HintUnlock.id).where(HintUnlock.user_id == user_id).limit(1))
-    if used:
-        return False
-    return await _solve_count(db, user_id) >= 50
-
-
 @trigger("net_negative", HINT)
 async def _net_negative(db: AsyncSession, user_id: UUID) -> bool:
     """Spent more on hints for one challenge than the challenge was worth."""
@@ -732,19 +678,6 @@ async def _net_negative(db: AsyncSession, user_id: UUID) -> bool:
         )
     ).all()
     return any(spent > worth for _, spent, worth in rows)
-
-
-@trigger("proud", SUBMIT)
-async def _proud(db: AsyncSession, user_id: UUID) -> bool:
-    """Twenty attempts, no hints, nothing solved."""
-    if await _solve_count(db, user_id):
-        return False
-    if await db.scalar(select(HintUnlock.id).where(HintUnlock.user_id == user_id).limit(1)):
-        return False
-    attempts = await db.scalar(
-        select(func.count(Submission.id)).where(Submission.user_id == user_id)
-    )
-    return (attempts or 0) >= 20
 
 
 @trigger("out_of_road", SUBMIT)
