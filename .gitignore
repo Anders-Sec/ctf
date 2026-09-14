@@ -33,3 +33,6 @@ challenge-template.csv
 
 # Solve guide for the System AI ladder. Spoilers — never commit.
 SOLVES.md
+
+# Challenge authoring workspace — carries real flags and spoilers. Never commit.
+Challenge/
