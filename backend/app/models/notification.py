@@ -42,6 +42,47 @@ class NotificationKind(enum.StrEnum):
     SYSTEM = "system"
 
 
+class LootBoxType(enum.StrEnum):
+    """What kind of box an achievement drops (spec 038)."""
+
+    ADVENTURER = "adventurer"
+    BOSS = "boss"
+    BRUTE_FORCE = "brute_force"
+    CARTOGRAPHER = "cartographer"
+    INTERROGATOR = "interrogator"
+    PARTY = "party"
+    PATHFINDER = "pathfinder"
+    PURIST = "purist"
+    SABOTEUR = "saboteur"
+    SPECIALIST = "specialist"
+
+
+class LootRarity(enum.StrEnum):
+    """How good the title inside sounds. Cosmetic, permanently."""
+
+    BRONZE = "bronze"
+    SILVER = "silver"
+    GOLD = "gold"
+    PLATINUM = "platinum"
+    LEGENDARY = "legendary"
+    CELESTIAL = "celestial"
+
+
+#: Ascending, so a display orders without hardcoding the names.
+LOOT_RARITY_LEVEL = {
+    LootRarity.BRONZE: 1,
+    LootRarity.SILVER: 2,
+    LootRarity.GOLD: 3,
+    LootRarity.PLATINUM: 4,
+    LootRarity.LEGENDARY: 5,
+    LootRarity.CELESTIAL: 6,
+}
+
+#: Platinum and above are one of a kind: once awarded to anybody, never offered
+#: again. Two identical legendary titles on the scoreboard would undo the point.
+UNIQUE_RARITIES = frozenset({LootRarity.PLATINUM, LootRarity.LEGENDARY, LootRarity.CELESTIAL})
+
+
 class Notification(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "notification"
     __table_args__ = (
@@ -82,6 +123,17 @@ class Achievement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    #: Which box this drops, or null when it drops nothing and `no_loot_line`
+    #: carries what the System says instead (spec 038).
+    loot_box_type: Mapped["LootBoxType | None"] = mapped_column(
+        _enum(LootBoxType, "loot_box_type"), nullable=True
+    )
+    #: Null on the boss achievements, where the boss tier supplies it.
+    loot_rarity: Mapped["LootRarity | None"] = mapped_column(
+        _enum(LootRarity, "loot_rarity"), nullable=True
+    )
+    #: The System's sentence when this achievement pays out nothing.
+    no_loot_line: Mapped[str | None] = mapped_column(Text, nullable=True)
     #: Hidden from the roster entirely rather than blurred. Reserved: the roster
     #: is all-blurred today, and this exists so a joke or spoiler achievement
     #: needs no migration later.
@@ -130,4 +182,64 @@ class AchievementAward(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False
+    )
+
+
+class LootItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One title a box can yield (spec 038).
+
+    Addressed by ``pool_key`` rather than box type, because the low tiers share:
+    a bronze Adventurer's Box and a bronze Brute Force Box are both boring and
+    there is no reason to invent two sets of boring titles. At gold and above
+    the pool key *is* the box type, where identity should come through.
+    """
+
+    __tablename__ = "loot_item"
+    __table_args__ = (
+        UniqueConstraint("pool_key", "rarity", "title", name="uq_loot_item_title"),
+        Index("ix_loot_item_pool", "pool_key", "rarity"),
+    )
+
+    pool_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    rarity: Mapped[LootRarity] = mapped_column(_enum(LootRarity, "loot_rarity"), nullable=False)
+    #: What a player wears next to their name.
+    title: Mapped[str] = mapped_column(String(80), nullable=False)
+    #: Written by the model rather than by hand. Kept so it can be audited
+    #: afterwards, and promoted into the authored list if it turned out well.
+    generated: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+
+
+class LootBox(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """An awarded box, opened or not.
+
+    Carries its own type and rarity rather than reading them through the
+    achievement, so re-tiering an achievement later never rewrites what somebody
+    already holds.
+    """
+
+    __tablename__ = "loot_box"
+    __table_args__ = (
+        # One box per achievement per player: the award is the drop.
+        UniqueConstraint("user_id", "achievement_id", name="uq_loot_box_once"),
+        Index("ix_loot_box_user", "user_id"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False
+    )
+    achievement_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("achievement.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    box_type: Mapped[LootBoxType] = mapped_column(
+        _enum(LootBoxType, "loot_box_type"), nullable=False
+    )
+    rarity: Mapped[LootRarity] = mapped_column(_enum(LootRarity, "loot_rarity"), nullable=False)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Written once, on opening. A double-click cannot reroll it.
+    item_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("loot_item.id", ondelete="SET NULL"), nullable=True
     )
