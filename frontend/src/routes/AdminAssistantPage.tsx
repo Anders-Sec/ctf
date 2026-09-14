@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import {
   getFindings,
+  getTermsSummary,
   RULE_LABELS,
   type AssistantFinding,
   type FindingFilters,
@@ -27,6 +28,11 @@ export default function AdminAssistantPage() {
     queryFn: () => getFindings(filters),
   });
 
+  const terms = useQuery({
+    queryKey: ["admin", "assistant", "terms"],
+    queryFn: () => getTermsSummary(),
+  });
+
   return (
     <main className="mx-auto max-w-4xl p-6">
       <header>
@@ -38,6 +44,22 @@ export default function AdminAssistantPage() {
           a <em>logged</em> one reached them and is here only for a second look.
         </p>
       </header>
+
+      {terms.data && (
+        <section className="mt-6 rounded-lg border border-stone bg-white/40 p-4 text-sm">
+          <h2 className="font-semibold">Terms of use</h2>
+          <p className="mt-1 text-muted">
+            <strong>{terms.data.accepted}</strong> accepted,{" "}
+            <strong>{terms.data.outstanding}</strong> outstanding · version{" "}
+            <code className="rounded bg-stone/30 px-1">{terms.data.version}</code>
+          </p>
+          <p className="mt-2 text-xs text-muted">
+            The version is the hash of the terms file. Editing it is a new version, and
+            everyone accepts again — which is the point, since their last acceptance was
+            to different words.
+          </p>
+        </section>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-2 text-sm">
         <Toggle

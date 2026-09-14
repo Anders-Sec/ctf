@@ -60,6 +60,8 @@ lore, art, a wider tone pass) is intentionally not started.
 | 031 | `031-boss-encounters.md` | Phase 2 — one boss per zone, six tiers, derived stars, per-zone achievements | **done** |
 | 032 | `032-broadcast-notifications.md` | Phase 2 — fan-out broadcasts: boss first kills, admin announcements, daily dispatch | **approved** — not yet built |
 | 033 | `033-system-ai-ladder.md` | Phase 1 — the DCC System AI persona and the six-level prompt-injection ladder; **amends 011 and 013** | **done** — verified against the live model |
+| 034 | `034-ai-admin-console.md` | Phase 1 — AI health, guardrail signals and session drill-down; **amends 011** | **approved** — not yet built; waits on 035 |
+| 035 | `035-system-ai-terms.md` | Phase 1 — terms-of-use gate for the System AI, held in a file | **done** — wording pending management approval |
 
 ## Sequencing rationale
 

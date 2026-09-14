@@ -79,3 +79,26 @@ describe("AdminAssistantPage", () => {
     expect(await screen.findByText(/nothing flagged/i)).toBeInTheDocument();
   });
 });
+
+describe("AdminAssistantPage terms panel", () => {
+  it("shows the live version and how many have accepted it", async () => {
+    stubFetch((path) => {
+      if (path.includes("/admin/assistant/terms")) {
+        return {
+          status: 200,
+          body: { version: "abc123", accepted: 12, outstanding: 3, outstanding_names: null },
+        };
+      }
+      if (path.includes("/admin/assistant/findings")) {
+        return { status: 200, body: { findings: [], total: 0 } };
+      }
+      return { status: 200, body: {} };
+    });
+
+    renderApp(<AdminAssistantPage />);
+
+    expect(await screen.findByText("abc123")).toBeInTheDocument();
+    expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+  });
+});

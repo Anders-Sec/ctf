@@ -34,6 +34,20 @@ export function getFindings(filters: FindingFilters = {}) {
   return api.get<FindingsPage>(`/admin/assistant/findings${query ? `?${query}` : ""}`);
 }
 
+export interface TermsSummary {
+  /** The hash of the live terms file. A revised file is a new version. */
+  version: string;
+  accepted: number;
+  outstanding: number;
+  /** Only when asked for — useful before an event, less so during one. */
+  outstanding_names: string[] | null;
+}
+
+export const getTermsSummary = (includeNames = false) =>
+  api.get<TermsSummary>(
+    `/admin/assistant/terms${includeNames ? "?include_names=true" : ""}`,
+  );
+
 export const RULE_LABELS: Record<string, string> = {
   answer_verbatim: "Reply contained a real answer",
   answer_regex: "Reply matched an answer rule",

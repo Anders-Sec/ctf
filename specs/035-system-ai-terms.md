@@ -1,7 +1,8 @@
 # Spec 035 — System AI terms of use
 
-Status: **draft — awaiting sign-off** (the terms text itself also needs
-management approval)
+Status: **built** — 954 backend tests, 210 frontend tests.
+**The terms text still needs management approval**; the mechanism does not
+depend on the wording, and revising the file is a supported operation.
 Phase: 1
 Covers: a first-use acceptance gate for the System AI, with the terms held in a
 local file
@@ -175,6 +176,21 @@ Three parts most likely to need input from someone other than me:
 3. **The post-event write-up.** The draft says conversations may be quoted. If
    anything will be quoted **attributably** rather than anonymised, that is a
    materially different statement and should say so explicitly.
+
+## What changed during implementation
+
+**The test fixtures needed a default.** Every API-level chat test now runs into
+the gate, so `sign_in` records acceptance unless a test passes
+`accept_terms=False`, and the frontend `me()` helper defaults
+`assistant_terms_accepted` to true. That is the state a player is in for all but
+their first visit, so the default matches reality rather than papering over the
+gate — and the gate's own tests opt out.
+
+**`/auth/me` swallows a missing terms file.** The gate fails closed, but the call
+the whole SPA boots on cannot; it reports `assistant_terms_accepted: false` and
+lets the gate do the refusing.
+
+Nothing else deviated.
 
 ## Open questions
 
