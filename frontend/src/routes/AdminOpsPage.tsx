@@ -11,6 +11,7 @@ import {
   type Report,
 } from "../api/adminOps";
 import { useSession } from "../auth/session";
+import ResetPlayDataPanel from "../components/ResetPlayDataPanel";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 
@@ -31,6 +32,7 @@ export default function AdminOpsPage() {
 
       <ReportsSection canWrite={canWrite} />
       <AdjustmentsSection canWrite={canWrite} />
+      <ResetPlayDataPanel canWrite={canWrite} />
     </main>
   );
 }

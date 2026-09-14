@@ -105,3 +105,23 @@ export const listAudit = (action?: string) =>
 
 export const reportChallenge = (challengeId: string, message: string) =>
   api.post<Report>(`/challenges/${challengeId}/report`, { message });
+
+/** One clearable group of play data, and how much it currently holds (spec 043). */
+export interface PlayDataGroup {
+  group: string;
+  label: string;
+  rows: number;
+}
+
+export interface ResetResult {
+  /** Table name to rows removed. */
+  deleted: Record<string, number>;
+  total: number;
+}
+
+export const listPlayData = () => api.get<PlayDataGroup[]>("/admin/event/play-data");
+
+/** Groups are always named. An empty list is refused rather than read as
+ *  "everything" — see spec 043. */
+export const resetPlayData = (groups: string[]) =>
+  api.post<ResetResult>("/admin/event/reset-play-data", { groups });
