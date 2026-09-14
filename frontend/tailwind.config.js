@@ -12,6 +12,14 @@ export default {
         muted: "rgb(var(--color-muted) / <alpha-value>)",
         torch: "rgb(var(--color-torch) / <alpha-value>)",
         stone: "rgb(var(--color-stone) / <alpha-value>)",
+        loot: {
+          bronze: "rgb(var(--color-loot-bronze) / <alpha-value>)",
+          silver: "rgb(var(--color-loot-silver) / <alpha-value>)",
+          gold: "rgb(var(--color-loot-gold) / <alpha-value>)",
+          platinum: "rgb(var(--color-loot-platinum) / <alpha-value>)",
+          legendary: "rgb(var(--color-loot-legendary) / <alpha-value>)",
+          celestial: "rgb(var(--color-loot-celestial) / <alpha-value>)",
+        },
         boss: {
           neighborhood: "rgb(var(--color-boss-neighborhood) / <alpha-value>)",
           borough: "rgb(var(--color-boss-borough) / <alpha-value>)",

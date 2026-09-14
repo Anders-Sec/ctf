@@ -25,12 +25,21 @@
   /* Boss star colours (spec 031). Celestial has no metal to borrow from, so it
      is a pale iridescent violet-white: reads as above legendary without turning
      into a second gold. */
-  --color-boss-neighborhood: 140 98 57;
-  --color-boss-borough: 150 152 158;
-  --color-boss-city: 198 158 58;
-  --color-boss-province: 108 158 168;
-  --color-boss-country: 198 74 42;
-  --color-boss-floor: 208 190 235;
+  /* The six-tier ladder, defined once. Boss stars (spec 031) and loot rarity
+     (spec 038) are the same six colours, so they share these. */
+  --color-loot-bronze: 140 98 57;
+  --color-loot-silver: 150 152 158;
+  --color-loot-gold: 198 158 58;
+  --color-loot-platinum: 108 158 168;
+  --color-loot-legendary: 198 74 42;
+  --color-loot-celestial: 208 190 235;
+
+  --color-boss-neighborhood: var(--color-loot-bronze);
+  --color-boss-borough: var(--color-loot-silver);
+  --color-boss-city: var(--color-loot-gold);
+  --color-boss-province: var(--color-loot-platinum);
+  --color-boss-country: var(--color-loot-legendary);
+  --color-boss-floor: var(--color-loot-celestial);
 }
 
 body {
