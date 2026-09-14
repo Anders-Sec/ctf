@@ -360,9 +360,7 @@ class TestXpColumn:
         ).scalar_one()
         assert challenge.initial_points == points_for(Difficulty.VERY_EASY, settings.xp_base)
 
-    async def test_a_negative_or_junk_xp_cell_is_refused(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_a_negative_or_junk_xp_cell_is_refused(self, db_session: AsyncSession) -> None:
         category = await make_category(db_session)
         csv = (
             "category,title,difficulty,description,flag,xp,state,max_attempts,release_at,skills\n"
@@ -875,9 +873,7 @@ class TestUnlocksColumn:
 
         assert any(e.column == "unlocks" for e in report.errors)
 
-    async def test_a_field_the_type_never_reads_is_refused(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_a_field_the_type_never_reads_is_refused(self, db_session: AsyncSession) -> None:
         category = await make_category(db_session)
         report = await challenge_csv.import_csv(
             db_session,
@@ -991,9 +987,7 @@ class TestBossColumn:
             ),
         )
 
-        assert any(
-            e.column == "boss_tier" and "Old Boss" in e.problem for e in report.errors
-        )
+        assert any(e.column == "boss_tier" and "Old Boss" in e.problem for e in report.errors)
         assert report.created == 0
 
     async def test_one_file_may_move_the_boss(self, db_session: AsyncSession) -> None:
@@ -1073,9 +1067,7 @@ class TestSlugColumn:
 
 
 class TestWideColumns:
-    async def test_every_column_round_trips_through_export(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_every_column_round_trips_through_export(self, db_session: AsyncSession) -> None:
         """The point of the whole spec: an import lands a challenge finished, and
         exporting it gives a file that re-imports to the same thing."""
         category = await make_category(db_session)
@@ -1138,9 +1130,7 @@ class TestWideColumns:
 
         assert any(e.column == "minimum_xp" for e in report.errors)
 
-    async def test_the_old_points_column_is_refused_by_name(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_the_old_points_column_is_refused_by_name(self, db_session: AsyncSession) -> None:
         """Silently ignoring it would import every deliberate override as a
         default, and nobody would notice in a 242-row file."""
         category = await make_category(db_session)
@@ -1162,7 +1152,6 @@ class TestWideColumns:
 
         assert report.ok, report.errors
         assert report.created == 1
-
 
 
 class TestContainerTemplateColumn:
@@ -1228,9 +1217,7 @@ class TestContainerTemplateColumn:
             ),
         )
 
-        assert any(
-            e.column == "container_template" and "2" in e.problem for e in report.errors
-        )
+        assert any(e.column == "container_template" and "2" in e.problem for e in report.errors)
 
 
 async def _challenge(db: AsyncSession, title: str) -> Challenge:
