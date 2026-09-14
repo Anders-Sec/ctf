@@ -4,19 +4,22 @@ import asyncio
 import contextlib
 import json
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 
-from app.api.deps import DbSession, Player
+from app.api.deps import Admin, DbSession, Player, RedisClient
 from app.db import get_sessionmaker
 from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.notification import NotificationKind
 from app.redis import get_redis
+from app.schemas.announcements import AnnouncementRequest, AnnouncementResult
 from app.schemas.auth import MessageResponse
 from app.schemas.notifications import NotificationFeed, NotificationResponse
 from app.services import notifications as notification_service
 from app.services.capabilities import resolve_capabilities
 from app.services.cookies import ACCESS_COOKIE
+from app.services.identity import record_audit
 from app.services.security import TokenError, access_token_subject
 from app.services.user_cache import load_user
 
@@ -110,3 +113,39 @@ async def notification_socket(websocket: WebSocket) -> None:
         with contextlib.suppress(Exception):
             await pubsub.unsubscribe(notification_service.channel_for(user.id))
             await pubsub.aclose()
+
+
+@router.post("/admin/announcements")
+async def announce(
+    payload: AnnouncementRequest,
+    request: Request,
+    db: DbSession,
+    redis: RedisClient,
+    current: Admin,
+) -> AnnouncementResult:
+    """Say something to every active player.
+
+    Not recallable: deleting a notification somebody has already read would be a
+    lie about what happened, so a correction is another announcement. The key is
+    fresh every time, because sending two different announcements is entirely
+    legitimate.
+    """
+    result = await notification_service.broadcast(
+        db,
+        kind=NotificationKind.ANNOUNCEMENT,
+        key=f"admin:{uuid4()}",
+        title=payload.title,
+        body=payload.body,
+        link=payload.link,
+        redis=redis,
+    )
+    await record_audit(
+        db,
+        action="notification.announce",
+        target_type="event",
+        target_id=None,
+        actor_user_id=current.user.id,
+        meta={"title": payload.title, "recipients": result.recipients},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return AnnouncementResult(recipients=result.recipients)
