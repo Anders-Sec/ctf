@@ -24,6 +24,7 @@ from app.models.play import ScoreAdjustment, Solve
 from app.models.team import Team, TeamMembership
 from app.models.user import User, UserRole, UserStatus
 from app.services import achievements as achievement_service
+from app.services import loot as loot_service
 from app.services.scoring import level_for_xp
 
 
@@ -143,6 +144,8 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
     # Boss kills, for the star column. One query for the whole board rather
     # than one per player.
     stars = await achievement_service.star_counts(db)
+    # Worn loot titles. Cosmetic — this never touches the ordering below.
+    titles = await loot_service.equipped_titles(db)
     player_entries = _rank_players(
         players,
         solves_by_user,
@@ -152,6 +155,7 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
         team_names,
         level_base,
         stars,
+        titles,
     )
     team_entries = _rank_teams(
         members_of_team,
@@ -176,6 +180,7 @@ def _rank_players(
     team_names: dict[UUID, str],
     level_base: int,
     stars: dict[UUID, int],
+    titles: dict[UUID, str],
 ) -> list[PlayerEntry]:
     rows = []
 
@@ -201,6 +206,7 @@ def _rank_players(
                 "solve_count": len(solved),
                 "last_gain_at": max(gains) if gains else None,
                 "stars": stars.get(player.id, 0),
+                "title": titles.get(player.id),
                 "sort_name": player.display_name.casefold(),
             }
         )
