@@ -150,7 +150,11 @@ async def make_challenge(
     session.add(challenge)
     await session.flush()
 
-    for order, (match_type, value) in enumerate(answers or [(MatchType.EXACT, "flag{correct}")]):
+    # `None` means "give it the usual flag"; an explicit `[]` means a challenge
+    # with no answer at all, which spec 041's no-flag filter needs to find.
+    if answers is None:
+        answers = [(MatchType.EXACT, "flag{correct}")]
+    for order, (match_type, value) in enumerate(answers):
         session.add(
             ChallengeAnswer(
                 challenge_id=challenge.id,

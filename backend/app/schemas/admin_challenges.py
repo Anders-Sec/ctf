@@ -129,6 +129,12 @@ class AnswerTestResponse(BaseModel):
 
 
 class AdminChallengeSummary(BaseModel):
+    """One row of the challenge manager (spec 041).
+
+    Wide enough that the table can be scanned without opening anything: the
+    counts are what tell an admin which challenges are unfinished.
+    """
+
     id: UUID
     title: str
     slug: str
@@ -139,8 +145,35 @@ class AdminChallengeSummary(BaseModel):
     effective_state: ChallengeState
     release_at: datetime | None
     solve_count: int
+    #: After decay. ``initial_points`` is what an admin set.
     current_value: int
+    initial_points: int
+    boss_tier: BossTier | None = None
+    ai_ladder_level: int | None = None
+    has_container: bool = False
+    #: A zero here is the signal — a challenge nobody can solve, XP that lands on
+    #: no character sheet. Counted in one query each, never per row.
     answer_count: int
+    hint_count: int = 0
+    skill_count: int = 0
+    prerequisite_count: int = 0
+
+
+class ZoneSummaryResponse(BaseModel):
+    """A zone's header row in the manager (spec 041 §3)."""
+
+    category_id: UUID
+    name: str
+    slug: str
+    display_order: int
+    challenge_count: int
+    #: Against the 1,900 per zone that spec 018's curve was tuned for. Worth
+    #: showing since spec 040 let a zone drift off it silently.
+    total_xp: int
+    boss_challenge_id: UUID | None
+    boss_tier: BossTier | None
+    draft_count: int
+    published_count: int
 
 
 class AdminChallengeDetail(BaseModel):

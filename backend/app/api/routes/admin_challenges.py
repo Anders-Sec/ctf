@@ -16,10 +16,12 @@ from app.api.deps import Admin, AppSettings, DbSession, Staff
 from app.errors import ConflictError, NotFoundError
 from app.models.challenge import (
     MINIMUM_POINTS_FRACTION,
+    BossTier,
     Category,
     Challenge,
     ChallengeAnswer,
     ChallengeState,
+    Difficulty,
     ScoringMode,
     points_for,
 )
@@ -38,13 +40,14 @@ from app.schemas.admin_challenges import (
     SetStateRequest,
     SubmissionLogEntry,
     UpdateChallengeRequest,
+    ZoneSummaryResponse,
 )
 from app.schemas.auth import MessageResponse
 from app.schemas.challenges import ArtifactResponse, CategoryResponse
 from app.services import answers as answer_service
 from app.services import artifacts as artifact_service
+from app.services import challenge_manager, scoring
 from app.services import challenges as challenge_service
-from app.services import scoring
 from app.services.identity import record_audit
 
 router = APIRouter(prefix="/admin", tags=["admin-challenges"])
@@ -124,18 +127,42 @@ async def _detail_response(
 async def list_challenges(
     db: DbSession,
     current: Staff,
+    search: str | None = Query(default=None, max_length=200),
+    category_id: UUID | None = Query(default=None),
     state: ChallengeState | None = Query(default=None),
+    difficulty: Difficulty | None = Query(default=None),
+    boss_tier: BossTier | None = Query(default=None),
+    is_boss: bool | None = Query(default=None),
+    has_container: bool | None = Query(default=None),
+    problem: challenge_manager.Problem | None = Query(
+        default=None, description="A canned 'what is not finished' query (spec 041)."
+    ),
+    sort: challenge_manager.Sort = Query(default=challenge_manager.Sort.TITLE),
 ) -> list[AdminChallengeSummary]:
-    """Every challenge, drafts included, in whatever state."""
-    stmt = select(Challenge).options(selectinload(Challenge.category)).order_by(Challenge.title)
-    if state is not None:
-        stmt = stmt.where(Challenge.state == state)
+    """Every challenge, drafts included, filtered server-side (spec 041).
 
-    challenges = (await db.execute(stmt)).scalars().all()
-    counts = await scoring.solve_counts_for(db, [c.id for c in challenges])
+    Server-side because at 242 the useful questions are set-shaped — "everything
+    with no flag", "every challenge in a zone with no boss" — and because spec
+    042's "select all N matching" needs the server to decide the set.
+    """
+    challenges, counts = await challenge_manager.list_challenges(
+        db,
+        challenge_manager.ChallengeFilters(
+            search=search,
+            category_id=category_id,
+            state=state,
+            difficulty=difficulty,
+            boss_tier=boss_tier,
+            is_boss=is_boss,
+            has_container=has_container,
+            problem=problem,
+            sort=sort,
+        ),
+    )
+    solves = await scoring.solve_counts_for(db, [c.id for c in challenges])
     now = datetime.now(UTC)
 
-    return [
+    summaries = [
         AdminChallengeSummary(
             id=c.id,
             title=c.title,
@@ -145,11 +172,31 @@ async def list_challenges(
             state=c.state,
             effective_state=c.effective_state(now),
             release_at=c.release_at,
-            solve_count=counts.get(c.id, 0),
-            current_value=scoring.challenge_value(c, counts.get(c.id, 0)),
-            answer_count=len(c.answers) if "answers" in c.__dict__ else 0,
+            solve_count=solves.get(c.id, 0),
+            current_value=scoring.challenge_value(c, solves.get(c.id, 0)),
+            initial_points=c.initial_points,
+            boss_tier=c.boss_tier,
+            ai_ladder_level=c.ai_ladder_level,
+            has_container=c.container_template_id is not None,
+            answer_count=counts.answers.get(c.id, 0),
+            hint_count=counts.hints.get(c.id, 0),
+            skill_count=counts.skills.get(c.id, 0),
+            prerequisite_count=counts.prerequisites.get(c.id, 0),
         )
         for c in challenges
+    ]
+    if sort is challenge_manager.Sort.SOLVES:
+        # Counted outside the query, so ordered outside it too.
+        summaries.sort(key=lambda s: (-s.solve_count, s.title))
+    return summaries
+
+
+@router.get("/zones")
+async def list_zones(db: DbSession, current: Staff) -> list[ZoneSummaryResponse]:
+    """What each zone's header row shows: how much of it exists, what it is
+    worth against the 1,900 budget, and whether it has a boss (spec 041)."""
+    return [
+        ZoneSummaryResponse(**vars(zone)) for zone in await challenge_manager.zone_summaries(db)
     ]
 
 
