@@ -95,3 +95,26 @@ class AuditEntryResponse(BaseModel):
     metadata: dict[str, Any]
     request_id: str | None
     created_at: datetime
+
+
+class PlayDataGroup(BaseModel):
+    """What one clearable group currently holds (spec 043)."""
+
+    group: str
+    #: Written for an admin, not for a schema — this is the confirm dialog's text.
+    label: str
+    rows: int
+
+
+class ResetPlayDataRequest(BaseModel):
+    """Groups are named explicitly, never defaulted. The difference between
+    clearing one thing and clearing all fourteen must not come down to a
+    missing field."""
+
+    groups: list[str] = Field(min_length=1)
+
+
+class ResetPlayDataResponse(BaseModel):
+    #: Table name -> rows removed.
+    deleted: dict[str, int]
+    total: int

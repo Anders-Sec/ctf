@@ -22,13 +22,17 @@ from app.schemas.admin_ops import (
     BulkReleaseRequest,
     ChallengeHealthResponse,
     CreateAdjustmentRequest,
+    PlayDataGroup,
     ReportRequest,
     ReportResponse,
+    ResetPlayDataRequest,
+    ResetPlayDataResponse,
     ReverseAdjustmentRequest,
     TriageReportRequest,
 )
 from app.schemas.auth import MessageResponse
-from app.services import admin_ops
+from app.services import admin_ops, event_reset
+from app.services.identity import record_audit
 from app.services.scoreboard_cache import mark_dirty
 
 router = APIRouter(tags=["admin-ops"])
@@ -353,3 +357,54 @@ async def read_audit(
         )
         for row in rows
     ]
+
+
+@router.get("/admin/event/play-data")
+async def play_data_counts(db: DbSession, current: Admin) -> list[PlayDataGroup]:
+    """What each clearable group currently holds (spec 043).
+
+    Reads only. These are the numbers a reset is decided against, and the only
+    thing standing between the word "reset" and an irreversible wipe.
+    """
+    return [
+        PlayDataGroup(group=count.group.value, label=count.label, rows=count.rows)
+        for count in await event_reset.counts(db)
+    ]
+
+
+@router.post("/admin/event/reset-play-data")
+async def reset_play_data(
+    payload: ResetPlayDataRequest,
+    request: Request,
+    background: BackgroundTasks,
+    db: DbSession,
+    redis: RedisClient,
+    current: Admin,
+) -> ResetPlayDataResponse:
+    """Clear the chosen play data (spec 043).
+
+    Setting an event up means playing it a bit, and that test play then pins the
+    challenges it touched: a solved challenge cannot be deleted. This is how it
+    is taken back — deliberately and visibly, rather than by teaching delete to
+    destroy solves on the way past.
+
+    Authored content and every account survive. Irreversible; there is no undo.
+    """
+    groups = event_reset.parse_groups(payload.groups)
+    result = await event_reset.reset(db, groups)
+
+    await record_audit(
+        db,
+        action="event.reset_play_data",
+        target_type="event",
+        target_id=None,
+        actor_user_id=current.user.id,
+        meta={"groups": [g.value for g in groups], "deleted": result.deleted},
+        request_id=getattr(request.state, "request_id", None),
+    )
+
+    # The board is computed from tables that just emptied. Queued so the
+    # recompute cannot read this transaction before it commits.
+    background.add_task(mark_dirty, redis)
+
+    return ResetPlayDataResponse(deleted=result.deleted, total=result.total)
