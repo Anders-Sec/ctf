@@ -1316,12 +1316,23 @@ async def evaluate(
             continue
         if await _award(db, achievement, user_id):
             earned.append(achievement)
+            # Most achievements drop a box; the rest carry a line saying why
+            # not, which rides along with the achievement's own notification
+            # rather than arriving as a second message (spec 038).
+            from app.services import loot
+
+            box = await loot.award_box(db, user_id, achievement)
+            body = narrator.achievement_earned(achievement.name, achievement.description)
+            if box is None and achievement.no_loot_line:
+                body = f"{body} {achievement.no_loot_line}"
+            elif box is not None:
+                body = f"{body} A {box.rarity.value} box is waiting for you."
             await notifications.notify(
                 db,
                 user_id=user_id,
                 kind=NotificationKind.ACHIEVEMENT,
                 title=achievement.name,
-                body=narrator.achievement_earned(achievement.name, achievement.description),
+                body=body,
                 link="/character",
                 redis=redis,
             )

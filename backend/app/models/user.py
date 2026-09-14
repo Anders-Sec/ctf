@@ -111,6 +111,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         PgUUID(as_uuid=True), ForeignKey("character_class.id", ondelete="SET NULL"), nullable=True
     )
 
+    #: The one loot title being worn, shown beside the name on the scoreboard
+    #: (spec 038). Cosmetic; it never touches the board's ordering.
+    equipped_title_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("loot_item.id", ondelete="SET NULL"), nullable=True
+    )
+
     memberships: Mapped[list["TeamMembership"]] = relationship(
         back_populates="user",
         foreign_keys="TeamMembership.user_id",
