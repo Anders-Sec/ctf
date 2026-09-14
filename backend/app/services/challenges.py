@@ -295,7 +295,11 @@ async def submit_answer(
 
     # Every attempt, right or wrong: a few achievements are about what a player
     # got wrong, and only the triggers that ask for `submit` run here (spec 029).
-    await achievements.evaluate(db, user.id, achievements.SUBMIT, redis=redis)
+    # PLATFORM rides along: a 500 or a closed admin door is recorded on a path
+    # that cannot award, so it lands on the player's next attempt (spec 039).
+    await achievements.evaluate(
+        db, user.id, achievements.SUBMIT, achievements.PLATFORM, redis=redis
+    )
 
     if not is_correct:
         return SubmissionOutcome(False, already is not None, 0, remaining)

@@ -114,10 +114,11 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
+    async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
         # Never leak a traceback or exception message to a player — an unhandled
         # error may well be a stack trace containing a flag or a connection string.
         logger.exception("unhandled_exception", extra={"error_type": type(exc).__name__})
+        await _record_server_error(request)
         return error_response(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             "internal_error",
@@ -127,6 +128,30 @@ def register_exception_handlers(app: FastAPI) -> None:
     # FastAPI's HTTPException subclasses Starlette's, so the handler above covers
     # both; registering it explicitly keeps the intent obvious.
     app.add_exception_handler(HTTPException, _http_error)  # type: ignore[arg-type]
+
+
+async def _record_server_error(request: Request) -> None:
+    """Credit the 500 to whoever caused it, for `you_broke_it` (spec 039).
+
+    Records only; it does not award. Awarding needs a working request context,
+    and this is running because there isn't one — so the achievement lands on
+    the player's next ordinary action instead.
+
+    Nothing in here may change the response. An anonymous request has no player
+    to credit and writes nothing; anything that goes wrong is swallowed, because
+    a 500 raised while recording a 500 is strictly worse than a missing row.
+    """
+    try:
+        user_id = getattr(request.state, "user_id", None)
+        if user_id is None:
+            return
+        # Imported late: this module sits underneath the service layer.
+        from app.models.player_event import PlayerEventKind
+        from app.services import player_events
+
+        await player_events.record_detached(user_id, PlayerEventKind.SERVER_ERROR)
+    except Exception:  # noqa: BLE001 - the guarantee is made here, not downstream
+        logger.warning("server_error_record_failed")
 
 
 def _summarise_validation(exc: RequestValidationError) -> list[dict[str, str]]:

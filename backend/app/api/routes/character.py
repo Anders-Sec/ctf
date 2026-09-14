@@ -94,7 +94,9 @@ async def set_my_class(
 ) -> CharacterSheetResponse:
     """Set or clear the caller's own class, then hand back the refreshed sheet."""
     await character_service.set_class(db, current.user, payload.class_id)
-    await achievement_service.evaluate(db, current.user.id, achievement_service.CLASS, redis=redis)
+    await achievement_service.evaluate(
+        db, current.user.id, achievement_service.CLASS, achievement_service.PLATFORM, redis=redis
+    )
     sheet = await character_service.build_sheet(db, current.user)
     return _sheet_response(
         sheet,

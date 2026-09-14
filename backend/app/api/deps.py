@@ -13,9 +13,10 @@ from app.config import Settings
 from app.db import get_db_session
 from app.errors import AppError
 from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.player_event import PlayerEventKind
 from app.models.user import User, UserRole
 from app.redis import get_redis
-from app.services import assistant_terms
+from app.services import assistant_terms, player_events
 from app.services.capabilities import (
     REASON_DISABLED,
     REASON_PENDING_APPROVAL,
@@ -115,6 +116,9 @@ async def require_authenticated(
     _enforce_csrf(request)
 
     capabilities = resolve_capabilities(user, event, datetime.now(UTC))
+    # The unhandled-exception handler has only the Request to work with, and a
+    # 500 has to be attributable to whoever caused it (spec 039).
+    request.state.user_id = user.id
     return CurrentUser(user=user, capabilities=capabilities)
 
 
@@ -266,6 +270,9 @@ Staff = Annotated[CurrentUser, Depends(require_staff)]
 async def require_admin(current: Authenticated) -> CurrentUser:
     """Destructive admin actions. Organizers are deliberately excluded."""
     if not current.is_admin:
+        # Detached: raising rolls the request session back, so a row added here
+        # would go with it. The rattled door outlives the 403 (spec 039).
+        await player_events.record_detached(current.user.id, PlayerEventKind.FORBIDDEN_ADMIN)
         raise ForbiddenError
     return current
 

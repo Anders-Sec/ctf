@@ -20,9 +20,10 @@ from app.config import get_settings
 from app.errors import AppError, NotFoundError
 from app.models.challenge import Ability
 from app.models.character_class import CharacterClass
+from app.models.player_event import PlayerEventKind
 from app.models.skill import Skill
 from app.models.user import User
-from app.services import scoring
+from app.services import player_events, scoring
 
 
 class ClassLocked(AppError):
@@ -149,6 +150,11 @@ async def set_class(db: AsyncSession, user: User, class_id: UUID | None) -> Clas
 
     if class_id is not None and await db.get(CharacterClass, class_id) is None:
         raise NotFoundError("No such class.")
+
+    if class_id != user.character_class_id:
+        # Only an actual change counts. Ten clicks on the class already worn is
+        # not an identity crisis, and a player will absolutely try it (spec 039).
+        await player_events.record(db, user.id, PlayerEventKind.CLASS_CHANGE)
 
     user.character_class_id = class_id
     await db.flush()
