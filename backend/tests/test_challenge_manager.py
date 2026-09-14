@@ -137,6 +137,59 @@ class TestFilters:
 
         assert [c.title for c in found] == ["Blank"]
 
+    async def test_no_skills_finds_xp_that_lands_nowhere(self, db_session: AsyncSession) -> None:
+        category = await make_category(db_session)
+        mapped = await make_challenge(db_session, category=category, title="Mapped")
+        await make_challenge(db_session, category=category, title="Unmapped")
+        skill = Skill(name="A Real Skill", category_id=category.id)
+        db_session.add(skill)
+        await db_session.flush()
+        db_session.add(ChallengeSkill(challenge_id=mapped.id, skill_id=skill.id))
+        await db_session.flush()
+
+        found, _ = await challenge_manager.list_challenges(
+            db_session,
+            challenge_manager.ChallengeFilters(problem=challenge_manager.Problem.NO_SKILLS),
+        )
+
+        titles = {c.title for c in found}
+        assert "Unmapped" in titles
+        assert "Mapped" not in titles
+
+    async def test_no_hints(self, db_session: AsyncSession) -> None:
+        category = await make_category(db_session)
+        hinted = await make_challenge(db_session, category=category, title="Hinted")
+        await make_challenge(db_session, category=category, title="Hintless")
+        db_session.add(Hint(challenge_id=hinted.id, title="A", body="b", cost=0))
+        await db_session.flush()
+
+        found, _ = await challenge_manager.list_challenges(
+            db_session,
+            challenge_manager.ChallengeFilters(problem=challenge_manager.Problem.NO_HINTS),
+        )
+
+        titles = {c.title for c in found}
+        assert "Hintless" in titles
+        assert "Hinted" not in titles
+
+    async def test_draft_is_the_prelaunch_checklist(self, db_session: AsyncSession) -> None:
+        category = await make_category(db_session)
+        await make_challenge(
+            db_session, category=category, title="Ready", state=ChallengeState.PUBLISHED
+        )
+        await make_challenge(
+            db_session, category=category, title="Unfinished", state=ChallengeState.DRAFT
+        )
+
+        found, _ = await challenge_manager.list_challenges(
+            db_session,
+            challenge_manager.ChallengeFilters(problem=challenge_manager.Problem.DRAFT),
+        )
+
+        titles = {c.title for c in found}
+        assert "Unfinished" in titles
+        assert "Ready" not in titles
+
     async def test_zone_has_no_boss_names_the_candidates(self, db_session: AsyncSession) -> None:
         """It returns the challenges *in* a bossless zone, not the zone — so the
         result is something you can act on."""

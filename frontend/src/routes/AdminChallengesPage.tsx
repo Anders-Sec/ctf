@@ -304,11 +304,21 @@ function ChallengeDrawer({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const [dirty, setDirty] = useState(false);
+
+  // Closing is cheap and reopening is cheaper, so there is no ceremony here —
+  // except when there is typed-but-unsaved work, which closing would discard.
+  const close = () => {
+    if (dirty && !window.confirm("Discard your unsaved changes?")) return;
+    setDirty(false);
+    onClose();
+  };
+
   return (
     <>
       <div
         className="fixed inset-0 z-20 bg-ink/20"
-        onClick={onClose}
+        onClick={close}
         aria-hidden
       />
       <aside
@@ -317,9 +327,12 @@ function ChallengeDrawer({
         className="fixed inset-y-0 right-0 z-30 w-full max-w-xl overflow-y-auto border-l border-stone bg-parchment shadow-2xl"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone bg-parchment px-4 py-3">
-          <h2 className="font-semibold">Edit challenge</h2>
+          <h2 className="font-semibold">
+            Edit challenge
+            {dirty && <span className="ml-2 text-xs text-torch">unsaved</span>}
+          </h2>
           <button
-            onClick={onClose}
+            onClick={close}
             aria-label="Close editor"
             className="rounded border border-stone px-2 py-1 text-sm"
           >
@@ -330,6 +343,7 @@ function ChallengeDrawer({
           challengeId={challengeId}
           canWrite={canWrite}
           onDeleted={onDeleted}
+          onDirtyChange={setDirty}
         />
       </aside>
     </>
@@ -491,10 +505,12 @@ function ChallengeEditor({
   challengeId,
   canWrite,
   onDeleted,
+  onDirtyChange,
 }: {
   challengeId: string;
   canWrite: boolean;
   onDeleted: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const detail = useQuery({
@@ -557,7 +573,11 @@ function ChallengeEditor({
       {/* Essentials open, everything else behind a heading that says how much is
           in it — the seven stacked panels this replaces did not fit on a screen. */}
       {canWrite && (
-        <ChallengeSettingsForm challenge={challenge} onSaved={reload} />
+        <ChallengeSettingsForm
+          challenge={challenge}
+          onSaved={reload}
+          onDirtyChange={onDirtyChange}
+        />
       )}
 
       <Collapsible title="Flags" count={challenge.answers.length}>
@@ -867,9 +887,11 @@ export const difficultyLabel = (d: Difficulty) =>
 function ChallengeSettingsForm({
   challenge,
   onSaved,
+  onDirtyChange,
 }: {
   challenge: AdminChallengeDetail;
   onSaved: () => Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [form, setForm] = useState<UpdateChallengeInput>({
     body: challenge.body,
@@ -882,14 +904,28 @@ function ChallengeSettingsForm({
     max_attempts: challenge.max_attempts,
     boss_tier: challenge.boss_tier ?? null,
   });
+  // Typed-but-unsaved work is the one thing closing the drawer could throw
+  // away, so the drawer is told about it.
+  const [dirty, setDirty] = useState(false);
+  const markDirty = (next: boolean) => {
+    setDirty(next);
+    onDirtyChange?.(next);
+  };
+
   const set = <K extends keyof UpdateChallengeInput>(
     key: K,
     value: UpdateChallengeInput[K],
-  ) => setForm((f) => ({ ...f, [key]: value }));
+  ) => {
+    markDirty(true);
+    setForm((f) => ({ ...f, [key]: value }));
+  };
 
   const save = useMutation({
     mutationFn: () => updateChallenge(challenge.id, form),
-    onSuccess: onSaved,
+    onSuccess: async () => {
+      markDirty(false);
+      await onSaved();
+    },
   });
 
   return (
@@ -1046,12 +1082,15 @@ function ChallengeSettingsForm({
       <div className="mt-3 flex items-center gap-3">
         <button
           type="submit"
-          disabled={save.isPending}
+          disabled={save.isPending || !dirty}
           className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
         >
           Save settings
         </button>
-        {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
+        {dirty && <span className="text-sm text-torch">Unsaved changes</span>}
+        {!dirty && save.isSuccess && (
+          <span className="text-sm text-muted">Saved.</span>
+        )}
       </div>
       <ErrorMessage error={save.error} />
 

@@ -186,3 +186,49 @@ describe("deleting a challenge", () => {
     });
   });
 });
+
+describe("the drawer", () => {
+  it("opens over the list without replacing it", async () => {
+    renderWithChallenge();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Packet Puzzle/ }));
+
+    await screen.findByRole("dialog", { name: "Edit challenge" });
+    // The list is still there behind it — that is the whole point of a drawer
+    // rather than the inline expander this replaced.
+    expect(screen.getByLabelText("XP for Packet Puzzle")).toBeInTheDocument();
+  });
+
+  it("warns before discarding typed-but-unsaved work", async () => {
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirm);
+    renderWithChallenge();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Packet Puzzle/ }));
+    const body = await screen.findByLabelText(/description|body/i);
+    await userEvent.type(body, "Half a sentence");
+    await userEvent.click(screen.getByRole("button", { name: "Close editor" }));
+
+    expect(confirm).toHaveBeenCalled();
+    // Declined, so the drawer stays and the typing survives.
+    expect(screen.getByRole("dialog", { name: "Edit challenge" })).toBeInTheDocument();
+  });
+
+  it("closes without a prompt when nothing was typed", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    renderWithChallenge();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Packet Puzzle/ }));
+    await screen.findByRole("dialog", { name: "Edit challenge" });
+    await userEvent.click(screen.getByRole("button", { name: "Close editor" }));
+
+    // Closing is cheap and reopening is cheaper; only unsaved work earns a prompt.
+    expect(confirm).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Edit challenge" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+});
