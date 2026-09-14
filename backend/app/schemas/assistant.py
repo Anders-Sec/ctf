@@ -117,6 +117,8 @@ class FindingResponse(BaseModel):
     question: str | None
     reply: str | None
     detail: dict
+    #: When a staff member marked it as looked at (spec 034). Null = unreviewed.
+    acknowledged_at: datetime | None = None
 
 
 class FindingsPage(BaseModel):
@@ -134,3 +136,85 @@ class ToggleAssistantRequest(BaseModel):
 
 class BlockPlayerRequest(BaseModel):
     blocked: bool
+
+
+# --- The admin console (spec 034) ------------------------------------------
+
+
+class WindowResponse(BaseModel):
+    turns: int
+    active_sessions: int
+    deflections: int
+    errors: int
+    median_latency_ms: int | None
+    p95_latency_ms: int | None
+    upstream_calls: int
+    #: A level 5 turn costs five. This is the capacity figure spec 033 left
+    #: visible rather than fixed.
+    calls_per_turn: float | None
+
+
+class RungResponse(BaseModel):
+    level: int
+    name: str
+    turns: int
+    solves: int
+    #: Must stay near zero. A climb means the model has started inventing flags
+    #: and players are about to submit them.
+    decoys: int
+    gates: dict[str, int]
+    players: int
+
+
+class MetricsResponse(BaseModel):
+    generated_at: datetime
+    windows: dict[str, WindowResponse]
+    errors_by_reason: dict[str, int]
+    findings_by_rule: dict[str, int]
+    rungs: list[RungResponse]
+    total_turns: int
+    total_conversations: int
+    unacknowledged_findings: int
+
+
+class SessionResponse(BaseModel):
+    """Metadata only — deliberately no message content."""
+
+    user_id: UUID
+    player_name: str
+    turns: int
+    last_message_at: datetime | None
+    ladder_level: int
+    findings: int
+    blocked: bool
+    from_staff: bool
+
+
+class SessionsPage(BaseModel):
+    sessions: list[SessionResponse]
+
+
+class TranscriptTurnResponse(BaseModel):
+    id: UUID
+    role: str
+    content: str
+    #: What the model actually said, when a reply was withheld.
+    original_content: str | None
+    #: The model's scratchpad. Spec 010 stores it and returns it nowhere; this
+    #: admin-only surface is the single documented exception (spec 034). On the
+    #: ladder it routinely contains the flag the model was protecting.
+    reasoning_content: str | None
+    ladder_level: int | None
+    trace: list[str] | None
+    latency_ms: int | None
+    upstream_calls: int | None
+    error: str | None
+    created_at: datetime
+
+
+class TranscriptResponse(BaseModel):
+    user_id: UUID
+    player_name: str
+    #: False when retention has purged the conversation.
+    exists: bool
+    turns: list[TranscriptTurnResponse]

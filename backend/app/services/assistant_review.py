@@ -13,9 +13,9 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.assistant import AssistantMessage, MessageRole
+from app.models.assistant import AssistantConversation, AssistantMessage, MessageRole
 from app.models.guardrail import AssistantFinding, FindingAction, GuardrailLayer, Severity
-from app.models.user import User
+from app.models.user import User, UserRole
 
 
 @dataclass(frozen=True)
@@ -36,13 +36,29 @@ async def list_findings(
     layer: GuardrailLayer | None = None,
     action: FindingAction | None = None,
     severity: Severity | None = None,
+    rule: str | None = None,
+    user_id: UUID | None = None,
+    since: datetime | None = None,
+    unreviewed: bool = False,
     include_staff: bool = False,
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[list[FindingRow], int]:
     """Newest first. Staff findings are hidden by default so our own testing
-    does not bury the real ones."""
+    does not bury the real ones.
+
+    The extra filters exist because a flat feed works for twenty findings and not
+    for two thousand (spec 034).
+    """
     conditions = []
+    if rule is not None:
+        conditions.append(AssistantFinding.rule == rule)
+    if user_id is not None:
+        conditions.append(AssistantFinding.user_id == user_id)
+    if since is not None:
+        conditions.append(AssistantFinding.created_at >= since)
+    if unreviewed:
+        conditions.append(AssistantFinding.acknowledged_at.is_(None))
     if layer is not None:
         conditions.append(AssistantFinding.layer == layer)
     if action is not None:
@@ -158,3 +174,196 @@ async def purge_expired(db: AsyncSession, retention_days: int, now: datetime | N
     )
     await db.flush()
     return result.rowcount or 0
+
+
+# --------------------------------------------------------------------------
+# Sessions (spec 034)
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SessionRow:
+    """One player's conversation, as metadata. **No message content.**
+
+    The list answers most operational questions without anyone opening a
+    transcript, which is the point: reading a colleague's messages should be a
+    decision, not a side effect of glancing at a page.
+    """
+
+    user_id: UUID
+    player_name: str
+    turns: int
+    last_message_at: datetime | None
+    ladder_level: int
+    findings: int
+    blocked: bool
+    from_staff: bool
+
+
+async def list_sessions(
+    db: AsyncSession,
+    *,
+    since: datetime | None = None,
+    include_staff: bool = False,
+    limit: int = 100,
+) -> list[SessionRow]:
+    """Conversations, most recently active first.
+
+    ``since`` is what "open" means here: there is no login-session concept — one
+    rolling conversation per player — so an open session is a recently active
+    one and nothing more.
+    """
+    from sqlalchemy import case
+
+    findings = (
+        select(
+            AssistantFinding.user_id.label("user_id"),
+            func.count(AssistantFinding.id).label("count"),
+        )
+        .group_by(AssistantFinding.user_id)
+        .subquery()
+    )
+    # The rung that produced the most recent turn, which is the one they are on.
+    latest_level = (
+        select(func.max(AssistantMessage.ladder_level))
+        .where(AssistantMessage.conversation_id == AssistantConversation.id)
+        .scalar_subquery()
+    )
+
+    query = (
+        select(
+            AssistantConversation.user_id,
+            User.display_name,
+            AssistantConversation.message_count,
+            AssistantConversation.last_message_at,
+            func.coalesce(latest_level, 0),
+            func.coalesce(findings.c.count, 0),
+            User.assistant_blocked,
+            case((User.role == UserRole.PLAYER, False), else_=True),
+        )
+        .join(User, User.id == AssistantConversation.user_id)
+        .outerjoin(findings, findings.c.user_id == AssistantConversation.user_id)
+        .order_by(AssistantConversation.last_message_at.desc().nullslast())
+        .limit(limit)
+    )
+    if since is not None:
+        query = query.where(AssistantConversation.last_message_at >= since)
+    if not include_staff:
+        query = query.where(User.role == UserRole.PLAYER)
+
+    return [
+        SessionRow(
+            user_id=user_id,
+            player_name=name,
+            turns=turns,
+            last_message_at=last_at,
+            ladder_level=level,
+            findings=count,
+            blocked=blocked,
+            from_staff=is_staff,
+        )
+        for user_id, name, turns, last_at, level, count, blocked, is_staff in (
+            await db.execute(query)
+        ).all()
+    ]
+
+
+@dataclass(frozen=True)
+class TranscriptTurn:
+    """One turn, as an admin needs to read it.
+
+    Carries what the player saw **and** what was withheld, plus the model's
+    scratchpad — spec 010 stored that precisely so an odd answer could be
+    explained, and this is the one surface where it is returned.
+    """
+
+    id: UUID
+    role: str
+    content: str
+    original_content: str | None
+    reasoning_content: str | None
+    ladder_level: int | None
+    trace: list[str] | None
+    latency_ms: int | None
+    upstream_calls: int | None
+    error: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class Transcript:
+    user_id: UUID
+    player_name: str
+    #: False when the conversation has been purged by retention, so the view can
+    #: say so rather than pretending the player never spoke.
+    exists: bool
+    turns: list[TranscriptTurn]
+
+
+async def transcript(db: AsyncSession, user_id: UUID, *, limit: int = 200) -> Transcript | None:
+    """A player's conversation in full. Returns None if there is no such user."""
+    player = await db.get(User, user_id)
+    if player is None:
+        return None
+
+    conversation = (
+        await db.execute(
+            select(AssistantConversation).where(AssistantConversation.user_id == user_id)
+        )
+    ).scalar_one_or_none()
+    if conversation is None:
+        return Transcript(user_id=user_id, player_name=player.display_name, exists=False, turns=[])
+
+    # Newest-end pagination: a long conversation is read from where it got to.
+    rows = (
+        (
+            await db.execute(
+                select(AssistantMessage)
+                .where(AssistantMessage.conversation_id == conversation.id)
+                .order_by(AssistantMessage.sequence.desc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    return Transcript(
+        user_id=user_id,
+        player_name=player.display_name,
+        exists=True,
+        turns=[
+            TranscriptTurn(
+                id=row.id,
+                role=row.role.value,
+                content=row.content,
+                original_content=row.original_content,
+                reasoning_content=row.reasoning_content,
+                ladder_level=row.ladder_level,
+                trace=row.trace,
+                latency_ms=row.latency_ms,
+                upstream_calls=row.upstream_calls,
+                error=row.error,
+                created_at=row.created_at,
+            )
+            for row in reversed(rows)
+        ],
+    )
+
+
+async def acknowledge(
+    db: AsyncSession, finding_id: UUID, actor_id: UUID, now: datetime | None = None
+) -> bool:
+    """Mark one finding as read.
+
+    Acknowledged is **not** "wrong" or "actioned" — it means somebody looked.
+    Without it the review screen shows the same rows on every refresh and there
+    is no way to work through a backlog.
+    """
+    finding = await db.get(AssistantFinding, finding_id)
+    if finding is None:
+        return False
+    finding.acknowledged_at = now or datetime.now(UTC)
+    finding.acknowledged_by_user_id = actor_id
+    await db.flush()
+    return True

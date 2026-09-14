@@ -275,6 +275,7 @@ async def _produce_answer(
             prompt_tokens=reply.prompt_tokens if reply else None,
             completion_tokens=reply.completion_tokens if reply else None,
             latency_ms=(reply.latency_ms or None) if reply else None,
+            upstream_calls=reply.calls if reply else None,
             # Stored, never returned: the scratchpad may contain the model
             # reasoning aloud about the very flag it is refusing to say.
             reasoning_content=reply.reasoning if reply else None,

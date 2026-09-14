@@ -6,7 +6,7 @@ runtime toggle and the per-player block — that let staff take the assistant
 away without a redeploy.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Request
@@ -32,18 +32,26 @@ from app.schemas.assistant import (
     ConversationResponse,
     FindingResponse,
     FindingsPage,
+    MetricsResponse,
     PurgeResponse,
+    RungResponse,
     SelectLevelRequest,
     SelectLevelResponse,
     SendMessageRequest,
     SendMessageResponse,
+    SessionResponse,
+    SessionsPage,
     TermsResponse,
     TermsSummaryResponse,
+    TranscriptResponse,
+    TranscriptTurnResponse,
+    WindowResponse,
 )
 from app.schemas.auth import MessageResponse
 from app.services import achievements as achievement_service
 from app.services import ai_client, assistant_terms
 from app.services import assistant_chat as chat
+from app.services import assistant_metrics as metrics
 from app.services import assistant_review as review
 from app.services.identity import record_audit
 from app.services.ladder import progression
@@ -246,6 +254,10 @@ async def list_findings(
     layer: GuardrailLayer | None = None,
     action: FindingAction | None = None,
     severity: Severity | None = None,
+    rule: str | None = None,
+    user_id: UUID | None = None,
+    since: datetime | None = None,
+    unreviewed: bool = False,
     include_staff: bool = False,
     limit: int = 100,
     offset: int = 0,
@@ -255,6 +267,10 @@ async def list_findings(
         layer=layer,
         action=action,
         severity=severity,
+        rule=rule,
+        user_id=user_id,
+        since=since,
+        unreviewed=unreviewed,
         include_staff=include_staff,
         limit=min(limit, 200),
         offset=offset,
@@ -274,6 +290,7 @@ async def list_findings(
                 question=row.question,
                 reply=row.reply,
                 detail=row.finding.detail,
+                acknowledged_at=row.finding.acknowledged_at,
             )
             for row in rows
         ],
@@ -323,4 +340,101 @@ async def set_assistant_block(
         message="The System AI will ignore them."
         if payload.blocked
         else "The System AI will speak with them again."
+    )
+
+
+# --------------------------------------------------------------------------
+# The admin console (spec 034)
+# --------------------------------------------------------------------------
+
+
+@router.get("/admin/assistant/metrics", tags=["admin"])
+async def assistant_metrics_endpoint(
+    db: DbSession, current: Staff, include_staff: bool = False
+) -> MetricsResponse:
+    """Aggregates for the health panel.
+
+    Computed on read: at a few tens of thousands of message rows, a metrics
+    pipeline for a three-day event would be building the wrong thing.
+    """
+    result = await metrics.collect(db, include_staff=include_staff)
+    return MetricsResponse(
+        generated_at=result.generated_at,
+        windows={label: WindowResponse(**vars(window)) for label, window in result.windows.items()},
+        errors_by_reason=result.errors_by_reason,
+        findings_by_rule=result.findings_by_rule,
+        rungs=[RungResponse(**vars(rung)) for rung in result.rungs],
+        total_turns=result.total_turns,
+        total_conversations=result.total_conversations,
+        unacknowledged_findings=result.unacknowledged_findings,
+    )
+
+
+@router.post("/admin/assistant/findings/{finding_id}/acknowledge", tags=["admin"])
+async def acknowledge_finding(finding_id: UUID, db: DbSession, current: Staff) -> MessageResponse:
+    """Mark a finding as read.
+
+    Acknowledged is not "wrong" or "actioned" — it means somebody looked. Without
+    it, every refresh shows the same rows and a backlog cannot be worked through.
+    """
+    if not await review.acknowledge(db, finding_id, current.user.id):
+        raise NotFoundError("No such finding.")
+    return MessageResponse(message="Marked as seen.")
+
+
+@router.get("/admin/assistant/sessions", tags=["admin"])
+async def list_sessions(
+    db: DbSession,
+    current: Staff,
+    minutes: int | None = 30,
+    include_staff: bool = False,
+    limit: int = 100,
+) -> SessionsPage:
+    """Who is talking to the System AI. **Metadata only.**
+
+    ``minutes`` is what "open" means: there is no login-session concept here, so
+    an open session is a recently active one. Pass nothing to widen it to the
+    whole event.
+    """
+    since = datetime.now(UTC) - timedelta(minutes=minutes) if minutes else None
+    rows = await review.list_sessions(
+        db, since=since, include_staff=include_staff, limit=min(limit, 200)
+    )
+    return SessionsPage(sessions=[SessionResponse(**vars(row)) for row in rows])
+
+
+@router.get("/admin/assistant/sessions/{user_id}", tags=["admin"])
+async def read_transcript(
+    user_id: UUID, request: Request, db: DbSession, current: Admin
+) -> TranscriptResponse:
+    """One player's conversation, in full.
+
+    **Admin, not staff.** Spec 011 ruled a general transcript browser out; spec
+    034 reverses that on the project owner's direction, because the assistant is
+    now a challenge and debugging a broken rung needs the turns a filter did not
+    catch. Players are told their conversation is readable (spec 035), which is
+    what makes this sound.
+
+    Opening one writes an audit row naming both people. Light on purpose — it
+    exists so "who looked at this" has an answer, not to police anybody.
+    """
+    result = await review.transcript(db, user_id)
+    if result is None:
+        raise NotFoundError("No such user.")
+
+    await record_audit(
+        db,
+        action="assistant.transcript_read",
+        target_type="user",
+        target_id=user_id,
+        actor_user_id=current.user.id,
+        meta={"turns": len(result.turns)},
+        request_id=getattr(request.state, "request_id", None),
+    )
+
+    return TranscriptResponse(
+        user_id=result.user_id,
+        player_name=result.player_name,
+        exists=result.exists,
+        turns=[TranscriptTurnResponse(**vars(turn)) for turn in result.turns],
     )

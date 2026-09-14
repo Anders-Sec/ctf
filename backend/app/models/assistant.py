@@ -118,6 +118,13 @@ class AssistantMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: incident.
     trace: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
+    #: How many upstream calls this turn actually cost (spec 034). A level 5 turn
+    #: can reach five — router, generate, vault action, generate again, warden —
+    #: and each takes one of the eight in-flight slots. Spec 033 could not fix
+    #: that capacity question and left it visible; this is what makes it
+    #: measurable rather than theoretical.
+    upstream_calls: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     model: Mapped[str | None] = mapped_column(String(200), nullable=True)
     prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)

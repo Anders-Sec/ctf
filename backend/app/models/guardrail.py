@@ -8,6 +8,7 @@ reconstructed afterwards. The same review instinct, a different shape.
 
 import enum
 import uuid
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Enum, ForeignKey, Index, String
@@ -81,3 +82,14 @@ class AssistantFinding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: Kept out of the review screen by default so our own testing does not bury
     #: the real findings.
     from_staff: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
+
+    #: When a staff member marked this as looked at (spec 034). Without it the
+    #: review screen shows the same rows on every refresh and there is no way to
+    #: work through a backlog — spec 007 solved the same problem for signals with
+    #: dismissals, and this borrows the shape.
+    #:
+    #: Acknowledged is **not** "wrong" or "actioned". It means somebody read it.
+    acknowledged_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    acknowledged_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
