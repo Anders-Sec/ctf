@@ -65,6 +65,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 036 | `036-ai-session-retention-and-gate-log.md` | Phase 1 — sessions survive a reset, per-call gate log, conduct rules, chat auto-reset; **amends 011/034** | **done** |
 | 037 | `037-ladder-difficulty-tune.md` | Phase 1 — retune the six rungs, new `semi-guarded` posture, measured at N=8 | **done** — curve monotonic, 0 fabricated flags |
 | 038 | `038-loot-boxes.md` | Phase 2 — loot boxes from achievements: 10 types, six rarities, authored pools, generated one-of-a-kind titles at platinum and above | **done** — visual treatment deferred to Phase 3 |
+| 039 | `039-roster-cleanup-and-platform-events.md` | Phase 2 — drop the seven non-monotone achievements, `player_event` for the last three inert triggers, optional Entra redirect URI; **amends 029, resolves 033 open item 1** | **done** — roster 110, zero inert |
 
 ## Sequencing rationale
 

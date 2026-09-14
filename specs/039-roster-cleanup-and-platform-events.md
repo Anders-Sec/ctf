@@ -1,6 +1,6 @@
 # Spec 039 — Roster Cleanup and Platform Events
 
-Status: **draft** (2026-09-14) — awaiting sign-off
+Status: **done** (2026-09-14) — all four items shipped; see *Deviations* at the foot
 Phase: 2 (D&D Mechanics)
 Amends: 029 (the achievement roster), 033 (open item 1)
 Depends on: 028 (notifications), 038 (loot)
@@ -131,6 +131,8 @@ request gets nothing, because there is no player to credit. `require_staff` is
 deliberately *not* instrumented: an organizer hitting an admin-only route is
 staff doing their job, not a player poking at a door.
 
+This one **also needs its own session** — see *Deviations*.
+
 **`server_error`** — in the unhandled-exception handler in `errors.py`. This is
 the delicate one, and it gets three rules:
 
@@ -241,3 +243,43 @@ already reads.
 - The exception handler records a row for an authenticated request, records
   nothing for an anonymous one, and returns the normal 500 body in both cases.
 - A failure inside the recording path does not change the response.
+
+---
+
+## Deviations found while building
+
+**1. `forbidden_admin` needs a detached session too.** The spec put the
+`class_change` write in the caller's transaction and only gave `server_error` a
+session of its own. That was wrong about `require_admin`: `get_db_session`
+rolls the request session back on *any* exception, and raising `ForbiddenError`
+is an exception. A row added there would be discarded along with the 403 that
+caused it. Both failure-path writers now go through `record_detached`; only
+`class_change`, which is on the success path, joins the caller's transaction —
+and should, since a class change that rolls back must not leave a record that it
+happened.
+
+**2. `evaluate()` takes one or more events.** `PLATFORM` has to be dispatched
+alongside an ordinary event rather than from the failure path that recorded it.
+Calling `evaluate` twice would rescan the whole roster twice, so the signature
+became `evaluate(db, user_id, *events, redis=...)`. Every existing call site
+passes a single positional event and is unchanged.
+
+**3. Attribution rides on the authentication dependency.** `server_error`
+credits whoever `request.state.user_id` names, stamped by `require_authenticated`.
+A 500 raised on a route that never identifies the caller is therefore credited to
+nobody — even a signed-in one. Every route a player can reach authenticates, so
+this costs nothing real, but it is a property of the design rather than an
+accident and there is a test that says so.
+
+**4. The no-fail guarantee is made twice.** `record_detached` swallows its own
+failures, and `_record_server_error` wraps the call as well. The guarantee is
+promised at the handler boundary, so it is enforced there rather than trusted to
+the callee staying well-behaved.
+
+## Result
+
+- Roster: 117 → **110**, with **zero** inert codes. A test asserts that every
+  code in the roster resolves to a trigger, so it stays that way.
+- Backend suite: 1052 → **1071** passing.
+- `above_your_pay_grade` records for organizers as well as players, as specced.
+  A one-line exclusion if that turns out to annoy the staff.
