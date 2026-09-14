@@ -43,10 +43,11 @@ from app.models.notification import (
     NotificationKind,
 )
 from app.models.play import ScoreAdjustment, Solve, Submission
+from app.models.player_event import PlayerEventKind
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.team import Team, TeamMembership
 from app.models.user import User
-from app.services import narrator, notifications, scoring
+from app.services import narrator, notifications, player_events, scoring
 
 #: The events that can change a trigger's answer. A trigger declares which it
 #: cares about so a solve does not re-run every unrelated query in the roster.
@@ -59,6 +60,11 @@ CLASS = "class"
 PARTY = "party"
 ASSISTANT = "assistant"
 INSTANCE = "instance"
+#: Things that happened *to* the player rather than something they did on
+#: purpose — a 500, a closed admin door, a change of class (spec 039). Recorded
+#: on the failure path and counted here, so the award lands on the next ordinary
+#: action rather than mid-crash.
+PLATFORM = "platform"
 
 
 @dataclass(frozen=True)
@@ -1215,17 +1221,44 @@ async def star_counts(db: AsyncSession) -> dict[UUID, int]:
     return dict(rows)
 
 
+# --- Platform events --------------------------------------------------------
+# The three that ask about something the platform used to see and forget. Their
+# history lives in `player_event` now (spec 039); these read it the same way
+# every other trigger reads a solve or a hint.
+
+
+@trigger("you_broke_it", PLATFORM)
+async def _you_broke_it(db: AsyncSession, user_id: UUID) -> bool:
+    """Caused an unhandled error. Once is plenty."""
+    return await player_events.count(db, user_id, PlayerEventKind.SERVER_ERROR) >= 1
+
+
+@trigger("above_your_pay_grade", PLATFORM)
+async def _above_your_pay_grade(db: AsyncSession, user_id: UUID) -> bool:
+    """Turned away from an admin-only route."""
+    return await player_events.count(db, user_id, PlayerEventKind.FORBIDDEN_ADMIN) >= 1
+
+
+@trigger("identity_crisis", PLATFORM)
+async def _identity_crisis(db: AsyncSession, user_id: UUID) -> bool:
+    """Ten changes of class. Re-picking the one already worn is not a change."""
+    return await player_events.count(db, user_id, PlayerEventKind.CLASS_CHANGE) >= 10
+
+
 # --- Evaluation ------------------------------------------------------------
 
 
 async def evaluate(
-    db: AsyncSession, user_id: UUID, event: str, *, redis: Redis | None = None
+    db: AsyncSession, user_id: UUID, *events: str, redis: Redis | None = None
 ) -> list[Achievement]:
     """Award anything this player has newly earned, and tell them.
 
-    Only triggers that care about ``event`` run, so a solve does not re-ask every
-    unrelated question in the roster.
+    Only triggers that care about one of ``events`` run, so a solve does not
+    re-ask every unrelated question in the roster. More than one event may be
+    passed — PLATFORM rides along with an ordinary action rather than being
+    dispatched from the failure path that recorded it (spec 039).
     """
+    wanted = frozenset(events)
     held = set(
         (
             await db.execute(
@@ -1240,7 +1273,7 @@ async def evaluate(
         for achievement in (await db.execute(select(Achievement))).scalars().all()
         if achievement.id not in held
         and (found := resolve(achievement.code)) is not None
-        and event in found.events
+        and found.events & wanted
     ]
 
     earned: list[Achievement] = []
