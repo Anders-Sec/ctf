@@ -20,9 +20,11 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.notification import Notification, NotificationKind
+from app.models.notification import BroadcastLog, Notification, NotificationKind
+from app.models.user import User, UserRole, UserStatus
 
 
 #: One channel per recipient. The id is the whole addressing scheme.
@@ -128,3 +130,96 @@ async def mark_read(db: AsyncSession, user_id: UUID, notification_id: UUID | Non
     result = await db.execute(stmt)
     await db.flush()
     return result.rowcount or 0
+
+
+# --- Broadcast (spec 032) ---------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BroadcastResult:
+    sent: bool
+    recipients: int
+
+
+async def claim(db: AsyncSession, kind: NotificationKind, key: str) -> bool:
+    """Take the right to send this broadcast, or find somebody already has.
+
+    Two replicas run the same daily timer and a restart near the send window
+    would otherwise send again. The unique constraint arbitrates: whichever pod
+    inserts first sends, the loser's insert fails and it does nothing.
+    """
+    try:
+        # A savepoint, not the whole transaction: losing the race must not
+        # discard whatever the caller was doing.
+        async with db.begin_nested():
+            db.add(BroadcastLog(kind=kind, key=key))
+    except IntegrityError:
+        return False
+    return True
+
+
+async def recipients(db: AsyncSession) -> list[UUID]:
+    """Who a broadcast goes to.
+
+    Active players only. A pending or disabled account cannot act on the news,
+    and staff are watching the console rather than the feed.
+    """
+    return list(
+        (
+            await db.execute(
+                select(User.id).where(
+                    User.status == UserStatus.ACTIVE, User.role == UserRole.PLAYER
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+async def broadcast(
+    db: AsyncSession,
+    *,
+    kind: NotificationKind,
+    key: str,
+    title: str,
+    body: str,
+    link: str | None = None,
+    redis: Redis | None = None,
+) -> BroadcastResult:
+    """Say something to everybody, exactly once.
+
+    Fan-out: one row per recipient rather than a shared row everyone reads. That
+    keeps 028's guarantee that a notification names exactly one recipient, and
+    reuses the backlog, unread count, read state, socket and toast untouched.
+    Ten thousand rows across an event is nothing; a second read path would not
+    have been.
+    """
+    if not await claim(db, kind, key):
+        return BroadcastResult(sent=False, recipients=0)
+
+    targets = await recipients(db)
+    if not targets:
+        return BroadcastResult(sent=True, recipients=0)
+
+    rows = [
+        Notification(user_id=user_id, kind=kind, title=title, body=body, link=link)
+        for user_id in targets
+    ]
+    db.add_all(rows)
+    await db.flush()
+
+    await db.execute(
+        update(BroadcastLog)
+        .where(BroadcastLog.kind == kind, BroadcastLog.key == key)
+        .values(recipients=len(rows))
+    )
+
+    if redis is not None:
+        for row in rows:
+            # Best-effort per recipient, exactly as notify() is: the rows are
+            # the record, so a Redis hiccup costs a toast and nothing else.
+            with contextlib.suppress(Exception):
+                await redis.publish(channel_for(row.user_id), json.dumps(payload_of(_view(row))))
+
+    return BroadcastResult(sent=True, recipients=len(rows))

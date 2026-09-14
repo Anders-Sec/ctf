@@ -1428,3 +1428,47 @@ async def rarest_held(db: AsyncSession, user_id: UUID, limit: int = 5) -> list[A
 
 async def zone_name(db: AsyncSession, category_id: UUID) -> str:
     return (await db.scalar(select(Category.name).where(Category.id == category_id))) or "a zone"
+
+
+async def announce_boss_kill(
+    db: AsyncSession, user_id: UUID, *, redis: Redis | None = None
+) -> None:
+    """Tell everybody if this player was first to put a boss down (spec 032).
+
+    Only the first kill: twenty players beating the same boss would be twenty
+    broadcasts nobody wants, and the whole value is in being first. The
+    broadcast log's unique constraint settles a race, so two solves landing
+    together still produce one announcement.
+    """
+    beaten = (
+        await db.execute(
+            select(Challenge, Category.name)
+            .join(Solve, Solve.challenge_id == Challenge.id)
+            .join(Category, Category.id == Challenge.category_id)
+            .where(Solve.user_id == user_id, Challenge.boss_tier.is_not(None))
+        )
+    ).all()
+    if not beaten:
+        return
+
+    name = await db.scalar(select(User.display_name).where(User.id == user_id))
+    for boss, zone_name in beaten:
+        # First is the earliest solve of that challenge, decided exactly as
+        # first_through decides it.
+        first = await db.scalar(
+            select(Solve.user_id)
+            .where(Solve.challenge_id == boss.id)
+            .order_by(Solve.submitted_at)
+            .limit(1)
+        )
+        if first != user_id:
+            continue
+        await notifications.broadcast(
+            db,
+            kind=NotificationKind.BOSS_KILL,
+            key=f"boss:{boss.id}",
+            title=f"{boss.title} has fallen",
+            body=narrator.boss_first_kill(name or "Somebody", boss.title, zone_name),
+            link="/challenges",
+            redis=redis,
+        )

@@ -99,6 +99,9 @@ async def announce_changes(
     the wing are consequences of it.
     """
     await achievements.evaluate(db, user_id, event, redis=redis)
+    # A first boss kill is the one thing everybody hears about (spec 032).
+    if event == achievements.SOLVE:
+        await achievements.announce_boss_kill(db, user_id, redis=redis)
 
     after = await snapshot(db, user_id)
 

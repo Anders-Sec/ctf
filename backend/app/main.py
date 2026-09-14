@@ -37,6 +37,7 @@ from app.errors import register_exception_handlers
 from app.logging import configure_logging, get_logger
 from app.middleware import RequestContextMiddleware
 from app.redis import close_redis, get_redis
+from app.services import dispatch
 from app.services.ai_client import close_clients as close_ai_clients
 from app.services.instances.factory import build_orchestrator
 from app.services.instances.reconciler import reconciler
@@ -92,6 +93,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # the assistant is optional and a failed purge must not stop the app serving.
     await _purge_stale_conversations(settings)
     await _ensure_instance_isolation(app)
+    # One dispatch loop per process. Several replicas run it; the broadcast
+    # log decides which one actually sends (spec 032).
+    dispatch.loop.start(get_sessionmaker(settings), redis)
     if settings.instances_configured:
         # One reconciler per process; several replicas stay off each other's toes
         # through the advisory lock, not shared memory.
@@ -100,6 +104,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await broadcaster.stop()
+        await dispatch.loop.stop()
         await reconciler.stop()
         await close_ai_clients()
         await close_redis()

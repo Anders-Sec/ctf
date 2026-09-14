@@ -59,3 +59,23 @@ def ability_milestone(ability_name: str, score: int) -> str:
         f"{ability_name} is at {score}. That is measurably above average, "
         "which says more about the average than about you."
     )
+
+
+# --- Broadcast copy (spec 032) ---------------------------------------------
+
+
+def boss_first_kill(player_name: str, boss_title: str, zone_name: str) -> str:
+    return (
+        f"{player_name} put down {boss_title} in {zone_name}. "
+        "First one through. The rest of you are welcome to try."
+    )
+
+
+def daily_dispatch(day: int, solves: int, bosses_down: int, zones_open: int) -> str:
+    """The state of the dungeon, same text for everyone."""
+    return (
+        f"Day {day}. {solves} challenges cleared across the dungeon, "
+        f"{bosses_down} {'boss' if bosses_down == 1 else 'bosses'} down, "
+        f"{zones_open} {'wing' if zones_open == 1 else 'wings'} open. "
+        "Carry on."
+    )
