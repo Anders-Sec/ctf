@@ -32,6 +32,12 @@ export default function ChallengeDetailPage() {
           queryKey: ["challenge", challengeId],
         });
         await queryClient.invalidateQueries({ queryKey: ["my-score"] });
+        // Solving a ladder rung changes which System AI the player faces, and
+        // the server starts them a new session for it (spec 036). Without these
+        // the panel keeps showing the old rung and the previous session's turns
+        // until a page refresh — which reads as the chat being stuck.
+        await queryClient.invalidateQueries({ queryKey: ["assistant", "conversation"] });
+        await queryClient.invalidateQueries({ queryKey: ["me"] });
       }
     },
   });

@@ -131,6 +131,17 @@ export interface Session {
   findings: number;
   blocked: boolean;
   from_staff: boolean;
+  /** How many sessions they have been through. High means iterating hard. */
+  sessions: number;
+}
+
+export interface GateLogEntry {
+  stage: string;
+  /** What the model said at this stage — including a reply a gate then suppressed. */
+  response: string | null;
+  outcome: string;
+  latency_ms?: number;
+  truncated?: boolean;
 }
 
 export interface TranscriptTurn {
@@ -139,8 +150,10 @@ export interface TranscriptTurn {
   content: string;
   original_content: string | null;
   reasoning_content: string | null;
+  session_number: number;
   ladder_level: number | null;
   trace: string[] | null;
+  gate_log: GateLogEntry[] | null;
   latency_ms: number | null;
   upstream_calls: number | null;
   error: string | null;
@@ -152,6 +165,7 @@ export interface Transcript {
   player_name: string;
   /** False when retention has purged the conversation. */
   exists: boolean;
+  current_session: number;
   turns: TranscriptTurn[];
 }
 
@@ -159,10 +173,14 @@ export const getMetrics = () => api.get<Metrics>("/admin/assistant/metrics");
 
 export const getHealth = () => api.get<AssistantHealth>("/admin/assistant/health");
 
+export interface SessionsPage {
+  sessions: Session[];
+  /** What the default staff filter is hiding, so an empty tab is legible. */
+  hidden_staff_findings: number;
+}
+
 export const getSessions = (minutes: number | null) =>
-  api.get<{ sessions: Session[] }>(
-    `/admin/assistant/sessions?minutes=${minutes ?? 0}`,
-  );
+  api.get<SessionsPage>(`/admin/assistant/sessions?minutes=${minutes ?? 0}`);
 
 /** Admin only, and opening one is audited. */
 export const getTranscript = (userId: string) =>

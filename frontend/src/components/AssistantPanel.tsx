@@ -74,6 +74,17 @@ export default function AssistantPanel() {
   const level = conversation.data?.ladder_level ?? 0;
   const maxLevel = conversation.data?.max_ladder_level ?? 0;
 
+  // A conversation that vanishes with no explanation reads as a bug. Solving
+  // a rung starts a new session server-side (spec 036), so say so rather than
+  // letting the player wonder where their transcript went.
+  const [lastLevel, setLastLevel] = useState<number | null>(null);
+  const [justLevelled, setJustLevelled] = useState(false);
+  useEffect(() => {
+    if (!conversation.data) return;
+    if (lastLevel !== null && lastLevel !== level) setJustLevelled(true);
+    setLastLevel(level);
+  }, [conversation.data, level, lastLevel]);
+
   useEffect(() => {
     // Follow the conversation down as it grows, the way a chat should.
     const node = transcriptRef.current;
@@ -135,7 +146,13 @@ export default function AssistantPanel() {
           <>
           <div ref={transcriptRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
             {conversation.isPending && <p className="text-sm text-muted">Booting…</p>}
-            {!conversation.isPending && messages.length === 0 && (
+            {justLevelled && messages.length === 0 && (
+              <p role="status" className="rounded border border-torch/40 bg-torch/10 px-3 py-2 text-sm">
+                You levelled up. The System AI has been reset — it is running level{" "}
+                {level} defences now, and remembers nothing you said to the last one.
+              </p>
+            )}
+            {!conversation.isPending && !justLevelled && messages.length === 0 && (
               <p className="text-sm text-muted">
                 Ask for a nudge. The System AI built these challenges and won't hand you the
                 answer — but it might point you somewhere if you show your work.

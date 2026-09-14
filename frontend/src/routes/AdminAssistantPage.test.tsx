@@ -87,6 +87,7 @@ function session(overrides: Partial<Session> = {}): Session {
     findings: 1,
     blocked: false,
     from_staff: false,
+    sessions: 1,
     ...overrides,
   };
 }
@@ -98,8 +99,10 @@ function turn(overrides: Partial<TranscriptTurn> = {}): TranscriptTurn {
     content: "What the player saw.",
     original_content: null,
     reasoning_content: null,
+    session_number: 0,
     ladder_level: 2,
     trace: null,
+    gate_log: null,
     latency_ms: 800,
     upstream_calls: 1,
     error: null,
@@ -113,6 +116,7 @@ interface Options {
   metrics?: Metrics;
   sessions?: Session[];
   transcript?: Transcript;
+  hiddenStaff?: number;
   role?: "organizer" | "admin";
 }
 
@@ -122,6 +126,7 @@ function render(options: Options = {}) {
     metrics: metricsData = metrics(),
     sessions = [],
     transcript,
+    hiddenStaff = 0,
     role = "admin",
   } = options;
 
@@ -166,12 +171,13 @@ function render(options: Options = {}) {
             user_id: "u1",
             player_name: "Mira",
             exists: true,
+            current_session: 0,
             turns: [turn()],
           },
       };
     }
     if (path.includes("/admin/assistant/sessions")) {
-      return { status: 200, body: { sessions } };
+      return { status: 200, body: { sessions, hidden_staff_findings: hiddenStaff } };
     }
     return { status: 200, body: {} };
   });
@@ -329,6 +335,7 @@ describe("AdminAssistantPage sessions", () => {
         user_id: "u1",
         player_name: "Mira",
         exists: true,
+        current_session: 0,
         turns: [turn({ reasoning_content: "the flag is flag{live_value}" })],
       },
     });
@@ -342,7 +349,13 @@ describe("AdminAssistantPage sessions", () => {
   it("explains a conversation retention has purged", async () => {
     render({
       sessions: [session()],
-      transcript: { user_id: "u1", player_name: "Mira", exists: false, turns: [] },
+      transcript: {
+        user_id: "u1",
+        player_name: "Mira",
+        exists: false,
+        current_session: 0,
+        turns: [],
+      },
     });
     await screen.findByText("reachable");
     await openTab(/^sessions$/i);
@@ -373,5 +386,71 @@ describe("AdminAssistantPage sessions", () => {
     await openTab(/^sessions$/i);
 
     expect(await screen.findByText(/nobody is talking to it/i)).toBeInTheDocument();
+  });
+});
+
+describe("AdminAssistantPage gate log", () => {
+  it("shows the reply a gate suppressed", async () => {
+    // The whole point of the log: it separates "the gate is too strict" from
+    // "the prompt held", which trace alone cannot answer.
+    render({
+      sessions: [session()],
+      transcript: {
+        user_id: "u1",
+        player_name: "Mira",
+        exists: true,
+        current_session: 0,
+        turns: [
+          turn({
+            gate_log: [
+              { stage: "generate", response: "The loot is right here.", outcome: "verbatim" },
+              { stage: "warden", response: "BLOCK", outcome: "block" },
+            ],
+          }),
+        ],
+      },
+    });
+    await screen.findByText("reachable");
+    await userEvent.click(screen.getByRole("button", { name: /^sessions$/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /open transcript/i }));
+
+    await userEvent.click(await screen.findByText(/gate log — 2 calls/i));
+
+    expect(screen.getByText("The loot is right here.")).toBeInTheDocument();
+    expect(screen.getByText("block")).toBeInTheDocument();
+  });
+
+  it("marks the session a turn belongs to", async () => {
+    render({
+      sessions: [session()],
+      transcript: {
+        user_id: "u1",
+        player_name: "Mira",
+        exists: true,
+        current_session: 1,
+        turns: [
+          turn({ id: "t1", session_number: 0, content: "an abandoned attempt" }),
+          turn({ id: "t2", session_number: 1, content: "the current one" }),
+        ],
+      },
+    });
+    await screen.findByText("reachable");
+    await userEvent.click(screen.getByRole("button", { name: /^sessions$/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /open transcript/i }));
+
+    expect(await screen.findByText(/session 0$/i)).toBeInTheDocument();
+    expect(screen.getByText(/session 1 · current/i)).toBeInTheDocument();
+    // The session they reset away is still readable.
+    expect(screen.getByText("an abandoned attempt")).toBeInTheDocument();
+  });
+});
+
+describe("AdminAssistantPage hidden staff findings", () => {
+  it("says how many the default filter is hiding", async () => {
+    render({ findings: [], hiddenStaff: 3 });
+    await screen.findByText("reachable");
+    await userEvent.click(screen.getByRole("button", { name: /^flags$/i }));
+
+    expect(await screen.findByText(/3 from staff are hidden/i)).toBeInTheDocument();
   });
 });

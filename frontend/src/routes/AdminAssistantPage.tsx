@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import {
   acknowledgeFinding,
@@ -14,8 +14,10 @@ import {
   setAssistantBlock,
   type AssistantFinding,
   type FindingFilters,
+  type GateLogEntry,
   type Rung,
   type Session,
+  type TranscriptTurn,
 } from "../api/assistantAdmin";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
@@ -306,6 +308,13 @@ function FlagsSection() {
     queryKey: ["admin", "assistant", "metrics"],
     queryFn: getMetrics,
   });
+  // Staff findings are hidden by default so our own testing does not bury the
+  // real ones — but an empty tab that is actually "3 hidden" is
+  // indistinguishable from a broken one, and staff are the people testing.
+  const sessions = useQuery({
+    queryKey: ["admin", "assistant", "sessions", 30],
+    queryFn: () => getSessions(30),
+  });
 
   const acknowledge = useMutation({
     mutationFn: acknowledgeFinding,
@@ -384,7 +393,21 @@ function FlagsSection() {
       ) : findings.isError ? (
         <ErrorMessage error={findings.error} />
       ) : findings.data.findings.length === 0 ? (
-        <p className="mt-8 text-muted">Nothing flagged.</p>
+        <div className="mt-8">
+          <p className="text-muted">Nothing flagged.</p>
+          {!filters.includeStaff && (sessions.data?.hidden_staff_findings ?? 0) > 0 && (
+            <p className="mt-2 text-sm text-muted">
+              {sessions.data?.hidden_staff_findings} from staff are hidden —{" "}
+              <button
+                onClick={() => setFilters((f) => ({ ...f, includeStaff: true }))}
+                className="underline"
+              >
+                include them
+              </button>
+              .
+            </p>
+          )}
+        </div>
       ) : (
         <>
           <p className="mt-6 text-sm text-muted">{findings.data.total} matching.</p>
@@ -526,6 +549,7 @@ function SessionsSection() {
               <span className="font-medium">{session.player_name}</span>
               <span className="text-muted">rung {session.ladder_level}</span>
               <span className="text-muted">{session.turns} turns</span>
+              <span className="text-muted">{session.sessions} sessions</span>
               {session.findings > 0 && (
                 <span className="rounded bg-torch/15 px-2 py-0.5 text-xs text-torch">
                   {session.findings} flagged
@@ -589,7 +613,20 @@ function TranscriptView({ session, onBack }: { session: Session; onBack: () => v
         </p>
       ) : (
         <ol className="mt-4 space-y-3">
-          {transcript.data.turns.map((turn) => (
+          {transcript.data.turns.map((turn, index) => (
+            <Fragment key={turn.id}>
+            {/*
+              Players reset after nearly every attempt, so most of the material
+              is in sessions they walked away from. Marking the boundary is what
+              makes a long transcript readable.
+            */}
+            {(index === 0 ||
+              turn.session_number !== transcript.data.turns[index - 1]!.session_number) && (
+              <li className="pt-2 text-xs uppercase tracking-wide text-muted">
+                Session {turn.session_number}
+                {turn.session_number === transcript.data.current_session && " · current"}
+              </li>
+            )}
             <li
               key={turn.id}
               className={`rounded border p-3 text-sm ${
@@ -633,10 +670,61 @@ function TranscriptView({ session, onBack }: { session: Session; onBack: () => v
                   </p>
                 </details>
               )}
+
+              <GateLog turn={turn} />
             </li>
+            </Fragment>
           ))}
         </ol>
       )}
     </div>
+  );
+}
+
+/**
+ * Every upstream call the turn made, in order (spec 036).
+ *
+ * The entries that matter are the candidates: the reply a warden suppressed, and
+ * the raw text before `<think>` stripping. Those are what separate "the gate is
+ * too strict" from "the prompt held" — the question behind every complaint that
+ * a rung is too hard — and they exist nowhere else.
+ *
+ * Collapsed, like the scratchpad, because a candidate reply can contain the flag.
+ */
+function GateLog({ turn }: { turn: TranscriptTurn }) {
+  if (!turn.gate_log || turn.gate_log.length === 0) return null;
+
+  return (
+    <details className="mt-2">
+      <summary className="cursor-pointer text-xs text-muted">
+        Gate log — {turn.gate_log.length} call{turn.gate_log.length === 1 ? "" : "s"}
+      </summary>
+      <ol className="mt-1 space-y-1">
+        {turn.gate_log.map((entry, index) => (
+          <GateStage key={index} entry={entry} />
+        ))}
+      </ol>
+    </details>
+  );
+}
+
+const BLOCKING_OUTCOMES = ["block", "attack", "unavailable-failed-closed", "unreadable-failed-closed"];
+
+function GateStage({ entry }: { entry: GateLogEntry }) {
+  const blocked = BLOCKING_OUTCOMES.includes(entry.outcome);
+  return (
+    <li className="rounded bg-stone/20 p-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono font-medium">{entry.stage}</span>
+        <span className={blocked ? "text-torch" : "text-muted"}>{entry.outcome}</span>
+        {entry.latency_ms !== undefined && (
+          <span className="text-muted">{entry.latency_ms}ms</span>
+        )}
+        {entry.truncated && <span className="text-muted">(truncated)</span>}
+      </div>
+      {entry.response && (
+        <p className="mt-1 whitespace-pre-wrap rounded bg-parchment/60 p-2">{entry.response}</p>
+      )}
+    </li>
   );
 }
