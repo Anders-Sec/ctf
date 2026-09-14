@@ -10,11 +10,15 @@ import {
 import ErrorMessage from "./ErrorMessage";
 
 /**
- * Planning an event in a spreadsheet rather than in 242 web forms (spec 026).
+ * Planning an event in a spreadsheet rather than in 242 web forms (specs 026, 040).
  *
- * The template arrives with every category and a suggested difficulty already
- * filled in, so doing nothing but writing titles and flags produces an event
- * whose XP economy already matches the curve levels were tuned against.
+ * The template arrives with every category, a suggested difficulty and the XP
+ * that difficulty is worth already filled in, so doing nothing but writing
+ * titles and flags produces an event whose economy already matches the curve
+ * levels were tuned against.
+ *
+ * Since 040 the file carries everything: several flags with their match types,
+ * hints, prerequisites and boss tiers all ride along as JSON in one cell each.
  */
 export default function ChallengeCsvPanel() {
   const queryClient = useQueryClient();
@@ -35,11 +39,14 @@ export default function ChallengeCsvPanel() {
     <section className="mt-8 rounded border border-stone bg-white/40 p-4">
       <h2 className="text-lg font-semibold">Challenges as CSV</h2>
       <p className="mt-1 text-sm text-muted">
-        The template has a row for every challenge, with the category and a
-        suggested difficulty already filled in — write the titles, descriptions
-        and flags in a spreadsheet and upload it back. Re-uploading an edited
-        file updates rather than duplicating. Imported challenges arrive as
-        drafts. Hints and prerequisites stay in the platform.
+        The template has a row for every challenge, with the category,
+        difficulty and its suggested XP already filled in — write the rest in a
+        spreadsheet and upload it back. A row carries everything a challenge
+        has: several flags with their match types, hints, prerequisites and a
+        boss tier. Re-uploading an edited file updates rather than duplicating,
+        and a <code>slug</code> lets a title be renamed without creating a
+        second challenge. Imported challenges arrive as drafts; artifacts stay
+        in the platform.
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -116,8 +123,8 @@ export default function ChallengeCsvPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.errors.map((error) => (
-                    <tr key={`${error.row}-${error.column}`}>
+                  {report.errors.map((error, index) => (
+                    <tr key={`${error.row}-${error.column}-${index}`}>
                       <td className="border-b border-stone/50 py-1 pr-3 tabular-nums">
                         {error.row}
                       </td>
