@@ -30,3 +30,6 @@ loadtest/.venv/
 
 # The authoring spreadsheet carries real flag values — never commit.
 challenge-template.csv
+
+# Solve guide for the System AI ladder. Spoilers — never commit.
+SOLVES.md

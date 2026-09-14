@@ -1,6 +1,7 @@
 # Spec 037 — Ladder difficulty tune
 
-Status: **draft — awaiting sign-off**
+Status: **built** — measured at N=8, results in
+`specs/research/ladder/tune-2026-09.md`
 Phase: 1
 Covers: retuning the six ladder rungs so the curve is playable, including a new
 `semi-guarded` posture
@@ -248,6 +249,30 @@ Prompt text is the last resort, not the first.
 1. The `semi-guarded` posture file
 2. `levels.json`: postures on 1 and 2, few-shots off on 3
 3. The measurement run, and the results written into `research/`
+
+## Outcome
+
+Signed off on the measured curve. Every rung's own intended route works between
+25% and 94% of the time, in order, with **0 fabricated flags** across roughly
+1,400 attempts.
+
+Three findings worth carrying forward:
+
+1. **The security blocks, not the posture, are the difficulty lever.** The
+   `semi-guarded` posture alone moved nothing; trimming the lines in `sec-1.md`
+   and `sec-2.md` that named each level's own intended bypasses is what worked.
+   Start there next time.
+2. **The aggregate battery rate is misleading.** It is 19 attacks of mixed tier,
+   so most of it is aimed at other rungs. Judge a level by its own intended
+   route.
+3. **`IMPLEMENTATION.md` is wrong that level 5 is unwinnable.** It is winnable
+   4 times in 8 on its own chain. Corrected in the research file.
+
+Deliberately left undone: **level 2's blacklist**, which still refuses 43% of
+attempts before the model sees them. It is config rather than a prompt, and it is
+the obvious next lever if that rung ever wants to be easier.
+
+A spoiler walkthrough lives in the gitignored `SOLVES.md` at the repository root.
 
 ## Open questions
 
