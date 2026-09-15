@@ -23,6 +23,7 @@ from app.models.challenge import (
 )
 from app.models.instance import ContainerTemplate
 from app.models.play import Solve
+from app.models.puzzle import ChallengePuzzle, PuzzleKind
 from app.models.team import MembershipRole, Team, TeamMembership, TeamVisibility
 from app.models.user import User, UserRole, UserSource, UserStatus
 
@@ -261,3 +262,55 @@ async def make_ladder(
             )
         )
     return built
+
+
+async def make_puzzle(
+    session: AsyncSession,
+    challenge: Challenge,
+    *,
+    kind: PuzzleKind = PuzzleKind.WORDLE,
+    config: dict | None = None,
+) -> ChallengePuzzle:
+    """Attach a puzzle to a challenge (spec 044).
+
+    The config goes through the engine's validator, exactly as the admin route
+    does — a test fixture that skipped it could set up a puzzle the platform
+    would never accept, and then prove something about a state that cannot occur.
+    """
+    from app.services.puzzles import engine_for
+
+    puzzle = ChallengePuzzle(
+        challenge_id=challenge.id,
+        kind=kind,
+        config=engine_for(kind).validate(config or DEFAULT_PUZZLE_CONFIG[kind]),
+    )
+    session.add(puzzle)
+    await session.flush()
+    return puzzle
+
+
+#: Valid minimal content per kind, so a test that does not care about the puzzle
+#: itself does not have to invent one.
+DEFAULT_PUZZLE_CONFIG: dict[PuzzleKind, dict] = {
+    PuzzleKind.WORDLE: {"answer": "PROXY"},
+    PuzzleKind.CONNECTIONS: {
+        "groups": [
+            {"name": "Ports", "level": 1, "members": ["22", "80", "443", "3389"]},
+            {"name": "Hashes", "level": 2, "members": ["MD5", "SHA1", "BCRYPT", "ARGON2"]},
+            {"name": "Tools", "level": 3, "members": ["NMAP", "BURP", "HYDRA", "JOHN"]},
+            {"name": "Attacks", "level": 4, "members": ["XSS", "CSRF", "SQLI", "SSRF"]},
+        ]
+    },
+    PuzzleKind.CROSSWORD: {
+        "width": 3,
+        "height": 3,
+        "entries": [
+            {"direction": "across", "row": 0, "col": 0, "answer": "CAT", "clue": "Feline"},
+            {"direction": "across", "row": 1, "col": 0, "answer": "ARE", "clue": "Exist"},
+            {"direction": "across", "row": 2, "col": 0, "answer": "TEN", "clue": "Count"},
+            {"direction": "down", "row": 0, "col": 0, "answer": "CAT", "clue": "Feline down"},
+            {"direction": "down", "row": 0, "col": 1, "answer": "ARE", "clue": "Exist down"},
+            {"direction": "down", "row": 0, "col": 2, "answer": "TEN", "clue": "Count down"},
+        ],
+    },
+}

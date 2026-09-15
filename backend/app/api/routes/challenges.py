@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app.api.deps import AppSettings, DbSession, Player, RedisClient
 from app.models.challenge import Challenge, ChallengeState
 from app.models.play import Solve
+from app.models.puzzle import PuzzleKind, PuzzleStatus
 from app.schemas.challenges import (
     ArtifactResponse,
     CategoryResponse,
@@ -22,6 +23,9 @@ from app.schemas.challenges import (
     ChallengeListItem,
     HintResponse,
     MyScoreResponse,
+    PuzzleMoveRequest,
+    PuzzleSaveRequest,
+    PuzzleStateResponse,
     SolveSummary,
     SubmitAnswerRequest,
     SubmitAnswerResponse,
@@ -32,7 +36,7 @@ from app.services import achievements as achievement_service
 from app.services import artifacts as artifact_service
 from app.services import challenges as challenge_service
 from app.services import hints as hint_service
-from app.services import scoreboard_cache, scoring
+from app.services import puzzle_play, scoreboard_cache, scoring
 
 router = APIRouter(tags=["challenges"])
 
@@ -59,9 +63,15 @@ def _requirement_response(req) -> UnlockRequirementResponse:
     )
 
 
-def _list_item(row: dict) -> ChallengeListItem:
+def _list_item(
+    row: dict,
+    puzzle_kind: PuzzleKind | None = None,
+    puzzle_status: PuzzleStatus | None = None,
+) -> ChallengeListItem:
     challenge = row["challenge"]
     return ChallengeListItem(
+        puzzle_kind=puzzle_kind,
+        puzzle_status=puzzle_status,
         id=challenge.id,
         title=challenge.title,
         slug=challenge.slug,
@@ -84,7 +94,20 @@ def _list_item(row: dict) -> ChallengeListItem:
 @router.get("/challenges")
 async def list_challenges(db: DbSession, current: Player) -> list[ChallengeListItem]:
     rows = await challenge_service.list_for_player(db, current.user.id, datetime.now(UTC))
-    return [_list_item(row) for row in rows]
+
+    # Two queries for the whole board rather than two per row.
+    ids = [row["challenge"].id for row in rows]
+    kinds = await puzzle_play.kinds_for(db, ids)
+    statuses = await puzzle_play.statuses_for(db, current.user.id, ids)
+
+    return [
+        _list_item(
+            row,
+            kinds.get(row["challenge"].id),
+            statuses.get(row["challenge"].id),
+        )
+        for row in rows
+    ]
 
 
 @router.get("/challenges/{challenge_id}")
@@ -99,8 +122,19 @@ async def get_challenge(challenge_id: UUID, db: DbSession, current: Player) -> C
         [] if locked else await hint_service.list_for_challenge(db, challenge.id, current.user.id)
     )
 
+    puzzle = await puzzle_play.get_puzzle(db, challenge.id)
+    session = (
+        None if puzzle is None else await puzzle_play.session_for(db, current.user.id, challenge.id)
+    )
+
     return ChallengeDetail(
-        **_list_item(row).model_dump(),
+        **_list_item(
+            row,
+            # The kind is safe on a locked challenge — "this one is a Wordle"
+            # gives nothing away, and the board already says so.
+            puzzle.kind if puzzle else None,
+            session.status if session else None,
+        ).model_dump(),
         # The body is withheld server-side. The client is never sent something
         # it is trusted to hide.
         body=None if locked else challenge.body,
@@ -160,6 +194,83 @@ async def unlock_hint(
         cost_charged=result.cost_charged,
         already_unlocked=result.already_unlocked,
         new_total=await scoring.user_score(db, current.user.id),
+    )
+
+
+def _puzzle_response(view: puzzle_play.PuzzleView) -> PuzzleStateResponse:
+    return PuzzleStateResponse(
+        kind=view.kind,
+        puzzle=view.puzzle,
+        status=view.status,
+        moves_used=view.moves_used,
+        solved=view.solved,
+        feedback=view.feedback,
+        xp_awarded=view.xp_awarded,
+    )
+
+
+@router.get("/challenges/{challenge_id}/puzzle")
+async def get_puzzle(challenge_id: UUID, db: DbSession, current: Player) -> PuzzleStateResponse:
+    """Today's puzzle as it stands for this player.
+
+    Starts nothing. Opening a puzzle to look at it does not commit you to
+    playing it — the session, and the clock on the guesses, begin with the first
+    move.
+    """
+    return _puzzle_response(await puzzle_play.view_for_player(db, challenge_id, current.user.id))
+
+
+@router.post("/challenges/{challenge_id}/puzzle/move")
+async def play_puzzle(
+    challenge_id: UUID,
+    payload: PuzzleMoveRequest,
+    request: Request,
+    background: BackgroundTasks,
+    db: DbSession,
+    redis: RedisClient,
+    current: Player,
+) -> PuzzleStateResponse:
+    """One move: a guess, a group, a check.
+
+    A single endpoint for all three games — visibility, rate limiting, the lock,
+    the prerequisites and whether the session is already over are the same five
+    questions whichever game it is, and only then does the kind matter.
+    """
+    view = await puzzle_play.apply_move(
+        db,
+        redis,
+        current.user,
+        challenge_id,
+        payload.move,
+        ip=request.client.host if request.client else None,
+        request_id=_request_id(request),
+    )
+
+    if view.xp_awarded:
+        # A solve moves this player and, through decay, everyone else who has
+        # solved it. Queued so the recompute cannot see this transaction before
+        # it commits — the same reason as the flag path.
+        background.add_task(scoreboard_cache.mark_dirty, redis)
+
+    return _puzzle_response(view)
+
+
+@router.post("/challenges/{challenge_id}/puzzle/save")
+async def save_puzzle(
+    challenge_id: UUID,
+    payload: PuzzleSaveRequest,
+    db: DbSession,
+    redis: RedisClient,
+    current: Player,
+) -> PuzzleStateResponse:
+    """Keep what has been typed so far. Crossword only.
+
+    A flush, not an autosave: the client calls it on leaving, and every check
+    carries the grid anyway. It evaluates nothing, so it can never solve, fail or
+    score anything.
+    """
+    return _puzzle_response(
+        await puzzle_play.save_progress(db, redis, current.user, challenge_id, payload.model_dump())
     )
 
 

@@ -79,6 +79,30 @@ async def check_submission_limits(redis: Redis, user_id: UUID, challenge_id: UUI
         ) from exc
 
 
+#: Crossword typing, flushed to the server on leaving a puzzle and on each check
+#: (spec 044 §4.3). Generous because a save is not an attempt — it evaluates
+#: nothing and can never solve anything — and because the cost of refusing one is
+#: a player losing what they typed. It exists only so a broken client cannot turn
+#: a keystroke into a write.
+PUZZLE_SAVES_PER_MINUTE = 30
+
+
+async def check_puzzle_save_limit(redis: Redis, user_id: UUID, challenge_id: UUID) -> LimitDecision:
+    """**Fails open.** A save is not scored and not an attempt, so a limiter that
+    is itself unavailable must not be the reason someone loses ten minutes of
+    typing."""
+    try:
+        allowed, retry = await _hit(
+            redis, f"puzzlesave:u:{user_id}:c:{challenge_id}", PUZZLE_SAVES_PER_MINUTE
+        )
+        return LimitDecision(allowed, retry, None if allowed else "save")
+    except Exception as exc:
+        logger.warning(
+            "puzzle_save_limiter_unavailable", extra={"error_type": type(exc).__name__}
+        )
+        return LimitDecision(True)
+
+
 #: The assistant's hourly window. Limits themselves are configurable, because
 #: what counts as a conversation is a judgement call the event owner may revise.
 HOUR_SECONDS = 3600

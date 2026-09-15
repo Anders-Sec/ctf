@@ -22,6 +22,7 @@ from app.models.challenge import (
     UnlockRequirement,
 )
 from app.models.play import MAX_SUBMISSION_LENGTH, Solve, Submission
+from app.models.puzzle import ChallengePuzzle
 from app.models.user import User
 from app.services import achievements, progress, scoring, unlocks
 from app.services import answers as answer_service
@@ -42,6 +43,14 @@ class AttemptsExhausted(AppError):
     status_code = 429
     code = "attempts_exhausted"
     message = "You have used all your attempts on this challenge."
+
+
+class IsAPuzzle(AppError):
+    """Answering a challenge that is played instead (spec 044 §5)."""
+
+    status_code = 409
+    code = "puzzle_challenge"
+    message = "This one is played, not answered."
 
 
 #: What a player is allowed to see at each effective state.
@@ -230,14 +239,24 @@ async def submit_answer(
 
     if state == ChallengeState.LOCKED:
         # Logged anyway: someone probing locked challenges is worth seeing in 007.
-        await _record(db, user, challenge, raw_answer, False, None, ip, request_id, now)
+        await record_attempt(db, user, challenge, raw_answer, False, None, ip, request_id, now)
         raise ChallengeLocked
+
+    # A puzzle is played, not answered (spec 044 §5). Without this the Wordle
+    # answer would be an ordinary flag and anyone could type it straight in,
+    # which would make the whole game decorative.
+    # Queried directly rather than through `puzzle_play`, which imports this
+    # module: the dependency runs that way round and should keep doing so.
+    if await db.scalar(
+        select(ChallengePuzzle.id).where(ChallengePuzzle.challenge_id == challenge.id)
+    ):
+        raise IsAPuzzle
 
     # Prerequisite gate, enforced server-side so the lock is real, not cosmetic.
     prereqs = await prerequisite_status(db, user.id, [challenge.id], now)
     status_row = prereqs.get(challenge.id)
     if status_row is not None and status_row.locked:
-        await _record(db, user, challenge, raw_answer, False, None, ip, request_id, now)
+        await record_attempt(db, user, challenge, raw_answer, False, None, ip, request_id, now)
         raise ChallengeLocked
 
     already = (
@@ -279,7 +298,7 @@ async def submit_answer(
     ):
         is_correct = True
 
-    submission = await _record(
+    submission = await record_attempt(
         db,
         user,
         challenge,
@@ -308,6 +327,45 @@ async def submit_answer(
         # Players do re-submit to check. Logged, no second solve, no points.
         return SubmissionOutcome(True, True, 0, remaining)
 
+    awarded = await award_solve(
+        db,
+        redis,
+        user,
+        challenge,
+        submission_id=submission.id,
+        team_id=team.id if team else None,
+        now=now,
+    )
+    return SubmissionOutcome(True, awarded.already_solved, awarded.xp_awarded, remaining)
+
+
+@dataclass(frozen=True)
+class AwardOutcome:
+    xp_awarded: int
+    #: True when the race was lost — someone else's transaction got the solve in
+    #: first. The caller reports it the same way it reports a re-submission.
+    already_solved: bool
+
+
+async def award_solve(
+    db: AsyncSession,
+    redis: Redis,
+    user: User,
+    challenge: Challenge,
+    *,
+    submission_id: UUID | None,
+    team_id: UUID | None,
+    now: datetime,
+) -> AwardOutcome:
+    """Bank a solve. The one place XP is awarded, whatever route got here.
+
+    Shared by flag submission and by finishing a daily puzzle (spec 044 §6) — a
+    second copy of this is how two scoring systems end up quietly disagreeing
+    halfway through an event.
+
+    The caller owns everything before this point: deciding the answer was right,
+    checking it is not already solved, and logging the attempt.
+    """
     # Bank the XP now (spec 015): the challenge's value at this moment, minus the
     # hints this player used on it. A snapshot — it never changes again, so levels
     # stay monotonic. Hints are only "paid for" here, out of the reward.
@@ -322,9 +380,9 @@ async def submit_answer(
     solve = Solve(
         user_id=user.id,
         challenge_id=challenge.id,
-        team_id_at_solve=team.id if team else None,
+        team_id_at_solve=team_id,
         submitted_at=now,
-        submission_id=submission.id,
+        submission_id=submission_id,
         xp_awarded=xp_awarded,
     )
     try:
@@ -336,13 +394,13 @@ async def submit_answer(
     except IntegrityError:
         # Two correct submissions raced. The constraint decided; the loser is
         # told they had already solved it, which is true.
-        return SubmissionOutcome(True, True, 0, remaining)
+        return AwardOutcome(0, True)
 
     # Anything the solve moved — an achievement, a level, an ability score, a
     # whole wing opening — is noticed and announced here (spec 028).
     await progress.announce_changes(db, user.id, before, redis=redis)
 
-    return SubmissionOutcome(True, False, xp_awarded, remaining)
+    return AwardOutcome(xp_awarded, False)
 
 
 async def _hint_cost_for(db: AsyncSession, user_id: UUID, challenge_id: UUID) -> int:
@@ -359,7 +417,7 @@ async def _hint_cost_for(db: AsyncSession, user_id: UUID, challenge_id: UUID) ->
     ) or 0
 
 
-async def _record(
+async def record_attempt(
     db: AsyncSession,
     user: User,
     challenge: Challenge,
@@ -370,6 +428,11 @@ async def _record(
     request_id: str | None,
     now: datetime,
 ) -> Submission:
+    """Log one attempt, right or wrong.
+
+    Public because the puzzle path logs through it too (spec 044 §6): every move
+    is an attempt, and an attempt log with a hole in it is no use to spec 007.
+    """
     team = await load_active_team(db, user.id)
     submission = Submission(
         user_id=user.id,
