@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import { listChallenges } from "../api/challenges";
 import type { Zone } from "../api/dungeon";
+import { KIND_LABEL } from "../api/puzzles";
 import ErrorMessage from "./ErrorMessage";
 import Spinner from "./Spinner";
 
@@ -111,8 +112,16 @@ export default function ZonePanel({
                 >
                   <span className="font-medium">
                     {challenge.title}
+                    {challenge.puzzle_kind && (
+                      <span className="ml-2 rounded bg-stone/40 px-1.5 py-0.5 text-xs uppercase tracking-wide">
+                        {KIND_LABEL[challenge.puzzle_kind]}
+                      </span>
+                    )}
                     {challenge.solved && (
                       <span className="ml-2 text-sm text-muted">✓ cleared</span>
+                    )}
+                    {!challenge.solved && challenge.puzzle_status === "failed" && (
+                      <span className="ml-2 text-sm text-muted">✗ missed</span>
                     )}
                   </span>
                   <span className="text-sm text-muted tabular-nums">

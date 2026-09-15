@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { getMyScore, listChallenges, type ChallengeListItem } from "../api/challenges";
+import { KIND_LABEL } from "../api/puzzles";
 import { getMap } from "../api/dungeon";
 import DungeonMap from "../components/DungeonMap";
 import ErrorMessage from "../components/ErrorMessage";
@@ -208,10 +209,19 @@ function ChallengeCard({ challenge }: { challenge: ChallengeListItem }) {
         <span className="font-medium">
           {challenge.title}
           {challenge.solved && <span className="ml-2 text-sm text-muted">✓ solved</span>}
+          {/* A failed daily is not an untouched one (spec 044 §6). */}
+          {!challenge.solved && challenge.puzzle_status === "failed" && (
+            <span className="ml-2 text-sm text-muted">✗ missed</span>
+          )}
         </span>
         <span className="shrink-0 font-semibold">{challenge.value}</span>
       </div>
       <p className="mt-2 text-sm text-muted">
+        {challenge.puzzle_kind && (
+          <span className="mr-1 rounded bg-stone/40 px-1.5 py-0.5 text-xs uppercase tracking-wide">
+            {KIND_LABEL[challenge.puzzle_kind]}
+          </span>
+        )}
         {challenge.difficulty} · {challenge.solve_count}{" "}
         {challenge.solve_count === 1 ? "solve" : "solves"}
         {challenge.max_attempts !== null && (

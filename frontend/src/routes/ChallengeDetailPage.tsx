@@ -7,6 +7,7 @@ import { ApiError } from "../api/client";
 import ErrorMessage from "../components/ErrorMessage";
 import HintList from "../components/HintList";
 import InstancePanel from "../components/InstancePanel";
+import PuzzlePanel from "../components/puzzle/PuzzlePanel";
 import ReportChallenge from "../components/ReportChallenge";
 import Spinner from "../components/Spinner";
 
@@ -121,7 +122,7 @@ export default function ChallengeDetailPage() {
         </section>
       )}
 
-      {detail.body !== null && (
+      {detail.body !== null && detail.body !== "" && (
         <section className="mt-6 whitespace-pre-wrap rounded-lg border border-stone bg-white/60 p-5">
           {detail.body}
         </section>
@@ -151,6 +152,12 @@ export default function ChallengeDetailPage() {
         </section>
       )}
 
+      {/* The game goes where the description would be (spec 044 §1). The body
+          above stays as its framing when there is one. */}
+      {!detail.locked && detail.puzzle_kind !== null && (
+        <PuzzlePanel challengeId={detail.id} />
+      )}
+
       {!detail.locked && detail.has_container && (
         <InstancePanel challengeId={detail.id} />
       )}
@@ -159,7 +166,7 @@ export default function ChallengeDetailPage() {
         <HintList challengeId={detail.id} hints={detail.hints} />
       )}
 
-      {!detail.locked && (
+      {!detail.locked && detail.puzzle_kind === null && (
         <section className="mt-6">
           <form
             onSubmit={(event) => {

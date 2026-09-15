@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { PuzzleKind, PuzzleStatus } from "./puzzles";
 
 /** The six-tier ladder (spec 018). Difficulty derives a challenge's XP. */
 export type Difficulty =
@@ -53,6 +54,11 @@ export interface ChallengeListItem {
     threshold: number | null;
     progress: number | null;
   }[];
+  /** Which game this is, when it is one (spec 044). Null for nearly everything. */
+  puzzle_kind: PuzzleKind | null;
+  /** This player's standing on it. `solved` cannot express having lost, and a
+   *  failed daily should not look untouched on the board. */
+  puzzle_status: PuzzleStatus | null;
 }
 
 export interface Hint {

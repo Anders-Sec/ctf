@@ -32,6 +32,8 @@ function challenge(overrides: Partial<ChallengeListItem> = {}): ChallengeListIte
     max_attempts: null,
     release_at: null,
     unlock_requirements: [],
+    puzzle_kind: null,
+    puzzle_status: null,
     ...overrides,
   };
 }
