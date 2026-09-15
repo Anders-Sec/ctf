@@ -44,6 +44,7 @@ from app.models.notification import (
 )
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.player_event import PlayerEventKind
+from app.models.puzzle import ChallengePuzzle, PuzzleKind, PuzzleSession, PuzzleStatus
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.team import Team, TeamMembership
 from app.models.user import User
@@ -1243,6 +1244,113 @@ async def _above_your_pay_grade(db: AsyncSession, user_id: UUID) -> bool:
 async def _identity_crisis(db: AsyncSession, user_id: UUID) -> bool:
     """Ten changes of class. Re-picking the one already worn is not a change."""
     return await player_events.count(db, user_id, PlayerEventKind.CLASS_CHANGE) >= 10
+
+
+# --- The game show (spec 044) ----------------------------------------------
+# Puzzles pay flat XP, so playing *well* is recognised here instead. Each of
+# these is an ordinary predicate over `puzzle_session`, which is what the trigger
+# system already is — no new hook, no new event.
+#
+# They listen on SUBMIT rather than SOLVE because a puzzle move is an attempt:
+# `apply_move` evaluates on every counted move, and a flawless Connections is
+# true the instant the fourth group lands rather than on some later solve.
+
+
+async def _puzzle_sessions(
+    db: AsyncSession, user_id: UUID, status: PuzzleStatus
+) -> list[PuzzleSession]:
+    return list(
+        (
+            await db.execute(
+                select(PuzzleSession).where(
+                    PuzzleSession.user_id == user_id, PuzzleSession.status == status
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+@trigger("puzzle_first", SUBMIT)
+async def _first_puzzle(db: AsyncSession, user_id: UUID) -> bool:
+    """Finished any daily puzzle."""
+    return bool(await _puzzle_sessions(db, user_id, PuzzleStatus.SOLVED))
+
+
+@trigger("wordle_sharp", SUBMIT)
+async def _wordle_in_three(db: AsyncSession, user_id: UUID) -> bool:
+    """A Wordle in three guesses or fewer."""
+    kinds = await _puzzle_kinds(db, user_id)
+    return any(
+        kinds.get(session.challenge_id) == PuzzleKind.WORDLE and session.moves_used <= 3
+        for session in await _puzzle_sessions(db, user_id, PuzzleStatus.SOLVED)
+    )
+
+
+@trigger("connections_flawless", SUBMIT)
+async def _connections_without_a_mistake(db: AsyncSession, user_id: UUID) -> bool:
+    """A Connections solved with no mistakes at all."""
+    kinds = await _puzzle_kinds(db, user_id)
+    return any(
+        kinds.get(session.challenge_id) == PuzzleKind.CONNECTIONS
+        and not session.state.get("mistakes")
+        for session in await _puzzle_sessions(db, user_id, PuzzleStatus.SOLVED)
+    )
+
+
+@trigger("crossword_clean", SUBMIT)
+async def _crossword_first_check(db: AsyncSession, user_id: UUID) -> bool:
+    """A crossword right on the first check."""
+    kinds = await _puzzle_kinds(db, user_id)
+    return any(
+        kinds.get(session.challenge_id) == PuzzleKind.CROSSWORD and session.moves_used == 1
+        for session in await _puzzle_sessions(db, user_id, PuzzleStatus.SOLVED)
+    )
+
+
+@trigger("game_show_regular", SUBMIT)
+async def _one_of_each_game(db: AsyncSession, user_id: UUID) -> bool:
+    """Solved a puzzle of all three kinds."""
+    kinds = await _puzzle_kinds(db, user_id)
+    solved = {
+        kinds.get(session.challenge_id)
+        for session in await _puzzle_sessions(db, user_id, PuzzleStatus.SOLVED)
+    }
+    return len(solved - {None}) == len(PuzzleKind)
+
+
+@trigger("game_show_sweep", SUBMIT)
+async def _every_puzzle_solved(db: AsyncSession, user_id: UUID) -> bool:
+    """Every puzzle on the board solved, and none of them lost.
+
+    Counted against the puzzles that are *visible*, so it is earnable before the
+    last day releases — and then earned again is impossible, since an award is
+    once per player. Somebody who has solved every puzzle so far holds it; a
+    later failure cannot take it back, which is the monotonicity rule spec 039
+    settled.
+    """
+    published = set(
+        (
+            await db.execute(
+                select(ChallengePuzzle.challenge_id)
+                .join(Challenge, Challenge.id == ChallengePuzzle.challenge_id)
+                .where(Challenge.state == ChallengeState.PUBLISHED)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not published:
+        return False
+
+    solved = {s.challenge_id for s in await _puzzle_sessions(db, user_id, PuzzleStatus.SOLVED)}
+    return published <= solved
+
+
+async def _puzzle_kinds(db: AsyncSession, user_id: UUID) -> dict[UUID, PuzzleKind]:
+    rows = (await db.execute(select(ChallengePuzzle.challenge_id, ChallengePuzzle.kind))).all()
+    return {challenge_id: kind for challenge_id, kind in rows}
 
 
 # --- Evaluation ------------------------------------------------------------
