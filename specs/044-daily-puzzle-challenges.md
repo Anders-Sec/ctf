@@ -160,7 +160,7 @@ letter is only marked present as many times as it actually occurs).
   "answer": "NMAPS",
   "length": 5,
   "max_guesses": 6,
-  "extra_words": ["XSRF", "PCAPS"],
+  "extra_words": ["XSRFS", "PCAPS"],
   "reveal_on_fail": true
 }
 ```
@@ -178,6 +178,15 @@ The realistic failure mode here is an author choosing a term the list has never
 heard of and players being unable to type related words around it. The editor
 mitigates it by telling the author, at save time, how many list words share the
 answer's length, and by accepting `extra_words` inline.
+
+**Deviation, recorded at implementation:** the answer is fixed at **five
+letters**, and `extra_words` must match it. No word list was available to draw
+from — not on the build machine, not in the dependency tree — so the bundled list
+is ~1,000 common five-letter words written for this purpose. Supporting other
+lengths would mean shipping a list that covers them, and a length whose list is
+empty is a puzzle where every guess but the answer is refused. Five is what the
+game is anyway. `WORDLE_WORD_LIST_PATH` mounts a larger list without a code
+change, and widening the range afterwards is a one-line change to the validator.
 
 *Player view:* length, guesses used and remaining, and the per-letter verdict of
 every guess so far. Never the answer, until the session is terminal.
