@@ -1,6 +1,6 @@
 # Spec 044 — Daily Puzzle Challenges (Wordle, Connections, Crossword)
 
-Status: **draft** — awaiting sign-off
+Status: **done** (2026-09-14)
 Phase: 2/3 boundary (content)
 Depends on: 003 (challenges and flags), 015 (XP banking), 017/019 (the board and zones), 041 (the challenge manager)
 Amends: 007 (anti-cheat exemptions), 029 (achievement roster), 043 (event reset groups)
@@ -531,5 +531,29 @@ the roster, not here.
 ## 12. Open questions
 
 None outstanding. Everything §11 does not cover is a content decision — the
-fifteen puzzles themselves, and the achievement names and System AI lines, which
-follow spec 029's roster format rather than this spec.
+fifteen puzzles themselves, whose answers and clues are authored in the editor.
+
+## 13. What the build settled
+
+Recorded here rather than left in the commits.
+
+1. **Wordle answers are five letters** (§4.1). No word list was available to
+   draw from, so the bundled one was written for this and covers one length.
+   `WORDLE_WORD_LIST_PATH` mounts a larger one without a code change.
+2. **`submit_answer`'s award half became `award_solve`**, called by the flag path
+   and the puzzle path alike
+   ([challenges.py](../backend/app/services/challenges.py)). The extraction, not
+   a reimplementation — which is why a hint bought on a puzzle comes out of its
+   reward with nothing written to make that happen.
+3. **Achievement copy is written, not deferred.** 0030's convention was to seed a
+   placeholder; 0038 filled every one in and the suite now refuses a row without
+   its own line. Migration 0044 carries all six.
+4. **Wordle tiles are labelled by position** — "Guess 2, letter 3: D, not in the
+   word". Found in testing: the tile and the keyboard key for the same letter
+   had identical labels, so a screen reader announced the same string for two
+   different things.
+5. **A repeated Connections selection returns `counted=False`**, so it touches
+   neither `moves_used` nor the attempt log. Free at the engine level rather
+   than by the client remembering not to send it.
+6. **The board carries `puzzle_kind` and `puzzle_status`** on every list item,
+   from two queries for the whole board rather than two per row.
