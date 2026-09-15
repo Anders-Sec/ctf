@@ -56,6 +56,7 @@ from app.models.notification import (
 )
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.player_event import PlayerEvent, PlayerEventKind
+from app.models.puzzle import ChallengePuzzle, PuzzleKind, PuzzleSession, PuzzleStatus
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.signal import SignalDismissal
 from app.models.skill import ChallengeSkill, Skill
@@ -106,6 +107,10 @@ __all__ = [
     "ReportStatus",
     "PlayerEvent",
     "PlayerEventKind",
+    "ChallengePuzzle",
+    "PuzzleKind",
+    "PuzzleSession",
+    "PuzzleStatus",
     "ScoreAdjustment",
     "ScoringMode",
     "SignalDismissal",
