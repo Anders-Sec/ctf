@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import Admin, AppSettings, DbSession, Staff
+from app.config import get_settings
 from app.errors import ConflictError, NotFoundError
 from app.models.challenge import (
     MINIMUM_POINTS_FRACTION,
@@ -26,11 +27,13 @@ from app.models.challenge import (
     points_for,
 )
 from app.models.play import Solve, Submission
+from app.models.puzzle import ChallengePuzzle, PuzzleSession, PuzzleStatus
 from app.schemas.admin_challenges import (
     AddPrerequisiteRequest,
     AdminAnswerResponse,
     AdminChallengeDetail,
     AdminChallengeSummary,
+    AdminPuzzleResponse,
     AnswerTestRequest,
     AnswerTestResponse,
     BulkItemResult,
@@ -42,6 +45,8 @@ from app.schemas.admin_challenges import (
     DeletePreviewResponse,
     EmptiedZoneResponse,
     PrerequisiteResponse,
+    PuzzleValidationResponse,
+    SetPuzzleRequest,
     SetStateRequest,
     SubmissionLogEntry,
     UpdateChallengeRequest,
@@ -51,9 +56,11 @@ from app.schemas.auth import MessageResponse
 from app.schemas.challenges import ArtifactResponse, CategoryResponse
 from app.services import answers as answer_service
 from app.services import artifacts as artifact_service
-from app.services import challenge_bulk, challenge_manager, scoring
+from app.services import challenge_bulk, challenge_manager, puzzle_play, scoring
 from app.services import challenges as challenge_service
 from app.services.identity import record_audit
+from app.services.puzzles import engine_for
+from app.services.puzzles import words as puzzle_words
 
 router = APIRouter(prefix="/admin", tags=["admin-challenges"])
 
@@ -84,6 +91,7 @@ def _detail(
     solve_count: int,
     value: int,
     prerequisites: list[Challenge] | None = None,
+    puzzle: AdminPuzzleResponse | None = None,
 ) -> AdminChallengeDetail:
     return AdminChallengeDetail(
         id=challenge.id,
@@ -117,6 +125,7 @@ def _detail(
         prerequisites=[
             PrerequisiteResponse(challenge_id=p.id, title=p.title) for p in (prerequisites or [])
         ],
+        puzzle=puzzle,
         created_at=challenge.created_at,
     )
 
@@ -125,7 +134,36 @@ async def _detail_response(
     db: DbSession, challenge: Challenge, solve_count: int, value: int
 ) -> AdminChallengeDetail:
     prereqs = await challenge_service.list_prerequisites(db, challenge.id)
-    return _detail(challenge, solve_count, value, prereqs)
+    return _detail(challenge, solve_count, value, prereqs, await _puzzle_response(db, challenge.id))
+
+
+async def _puzzle_response(db: DbSession, challenge_id: UUID) -> AdminPuzzleResponse | None:
+    """This challenge's puzzle, with how players are getting on with it.
+
+    The counts are the signal that a puzzle is too hard while there is still
+    time to do something about it — a daily where thirty sessions are open and
+    none has finished is a puzzle with a problem, not a hard one.
+    """
+    puzzle = await puzzle_play.get_puzzle(db, challenge_id)
+    if puzzle is None:
+        return None
+
+    counts = dict(
+        (
+            await db.execute(
+                select(PuzzleSession.status, func.count())
+                .where(PuzzleSession.challenge_id == challenge_id)
+                .group_by(PuzzleSession.status)
+            )
+        ).all()
+    )
+    return AdminPuzzleResponse(
+        kind=puzzle.kind,
+        config=puzzle.config,
+        sessions=sum(counts.values()),
+        solved=counts.get(PuzzleStatus.SOLVED, 0),
+        failed=counts.get(PuzzleStatus.FAILED, 0),
+    )
 
 
 @router.get("/challenges")
@@ -544,6 +582,109 @@ async def delete_challenge(
 # --------------------------------------------------------------------------
 
 
+@router.put("/challenges/{challenge_id}/puzzle")
+async def set_puzzle(
+    challenge_id: UUID,
+    payload: SetPuzzleRequest,
+    request: Request,
+    db: DbSession,
+    current: Admin,
+) -> PuzzleValidationResponse:
+    """Attach or replace this challenge's puzzle (spec 044 §7).
+
+    The config is validated by its kind's engine and stored **normalised** — the
+    answer uppercased, the clue numbers derived, the groups sorted — so what
+    comes back is what will be played rather than what was typed.
+    """
+    challenge = await _load(db, challenge_id)
+
+    # A challenge is answered or played, never both: with answer rules in place
+    # the puzzle's answer would also be typeable into the flag box, which is the
+    # exact hole §5 closes.
+    if challenge.answers:
+        raise ConflictError(
+            "This challenge has answer rules. A puzzle is played, not answered — "
+            "remove the flags first."
+        )
+
+    config = engine_for(payload.kind).validate(payload.config)
+
+    puzzle = await puzzle_play.get_puzzle(db, challenge.id)
+    if puzzle is None:
+        puzzle = ChallengePuzzle(challenge_id=challenge.id, kind=payload.kind, config=config)
+        db.add(puzzle)
+    else:
+        puzzle.kind = payload.kind
+        puzzle.config = config
+    await db.flush()
+
+    await record_audit(
+        db,
+        action="challenge.puzzle_set",
+        target_type="challenge",
+        target_id=challenge.id,
+        actor_user_id=current.user.id,
+        # The kind, never the config. The audit log is read by organizers and is
+        # not the place to publish today's answers.
+        meta={"kind": payload.kind.value},
+        request_id=_request_id(request),
+    )
+    return PuzzleValidationResponse(
+        kind=puzzle.kind, config=config, notes=_puzzle_notes(payload.kind, config)
+    )
+
+
+def _puzzle_notes(kind, config: dict) -> list[str]:
+    """Advisory, not errors. Things an author wants to know now rather than at
+    09:00 on the day."""
+    notes: list[str] = []
+    if kind.value == "wordle":
+        covered = puzzle_words.count_of_length(get_settings(), config["length"])
+        notes.append(f"{covered} words of this length are in the guess list.")
+        if not covered:
+            notes.append(
+                "No list words of this length — every guess but the answer will be refused."
+            )
+    return notes
+
+
+@router.delete("/challenges/{challenge_id}/puzzle")
+async def clear_puzzle(
+    challenge_id: UUID, request: Request, db: DbSession, current: Admin
+) -> MessageResponse:
+    """Detach the puzzle, turning this back into an ordinary challenge.
+
+    Player sessions go with it — they are progress against a puzzle that no
+    longer exists, and leaving them would leave players marked as having failed
+    something unplayable.
+    """
+    puzzle = await puzzle_play.get_puzzle(db, challenge_id)
+    if puzzle is None:
+        raise NotFoundError("This challenge has no puzzle.")
+
+    played = (
+        await db.scalar(select(func.count()).where(PuzzleSession.challenge_id == challenge_id))
+    ) or 0
+
+    await db.execute(
+        ChallengePuzzle.__table__.delete().where(ChallengePuzzle.challenge_id == challenge_id)
+    )
+    await db.execute(
+        PuzzleSession.__table__.delete().where(PuzzleSession.challenge_id == challenge_id)
+    )
+    await record_audit(
+        db,
+        action="challenge.puzzle_clear",
+        target_type="challenge",
+        target_id=challenge_id,
+        actor_user_id=current.user.id,
+        meta={"kind": puzzle.kind.value, "sessions_discarded": played},
+        request_id=_request_id(request),
+    )
+    await db.flush()
+    return MessageResponse(message="Puzzle removed.")
+
+
 @router.post("/challenges/{challenge_id}/answers", status_code=status.HTTP_201_CREATED)
 async def add_answer(
     challenge_id: UUID,
@@ -553,6 +694,14 @@ async def add_answer(
     current: Admin,
 ) -> AdminAnswerResponse:
     challenge = await _load(db, challenge_id)
+
+    # The other direction of the same rule as `set_puzzle`: a challenge is
+    # answered or played, and a flag on a puzzle would be a way round the game.
+    if await puzzle_play.is_puzzle(db, challenge.id):
+        raise ConflictError(
+            "This challenge is a puzzle. It is played, not answered — remove the puzzle first."
+        )
+
     # Validated here so a broken pattern fails in the editor rather than
     # silently rejecting every correct answer at 09:00 on event day.
     answer_service.validate_rule(payload.match_type, payload.value, payload.options)

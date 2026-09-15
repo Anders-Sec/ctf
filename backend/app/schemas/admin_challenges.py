@@ -16,6 +16,7 @@ from app.models.challenge import (
     ScoringMode,
 )
 from app.models.play import MAX_SUBMISSION_LENGTH
+from app.models.puzzle import PuzzleKind
 from app.schemas.challenges import ArtifactResponse, CategoryResponse
 from app.services.challenge_bulk import BulkAction
 
@@ -201,7 +202,39 @@ class AdminChallengeDetail(BaseModel):
     #: Null when this challenge is not a boss (spec 031).
     boss_tier: BossTier | None = None
     prerequisites: list[PrerequisiteResponse] = []
+    #: The puzzle attached to this challenge, answers and all (spec 044). Null
+    #: for an ordinary challenge. An admin who cannot see the answer cannot
+    #: debug a puzzle nobody is solving.
+    puzzle: "AdminPuzzleResponse | None" = None
     created_at: datetime
+
+
+class AdminPuzzleResponse(BaseModel):
+    kind: PuzzleKind
+    #: The stored config, normalised by the engine — uppercased answers, derived
+    #: clue numbers, sorted groups. What was saved, not what was typed.
+    config: dict[str, Any]
+    #: How many players have started it, and how they have got on. The signal
+    #: that a puzzle is too hard, while there is still time to do something.
+    sessions: int = 0
+    solved: int = 0
+    failed: int = 0
+
+
+class SetPuzzleRequest(BaseModel):
+    kind: PuzzleKind
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class PuzzleValidationResponse(BaseModel):
+    """What the editor learns on a save that worked."""
+
+    kind: PuzzleKind
+    config: dict[str, Any]
+    #: Advisory notes — not errors. How many list words share the answer's
+    #: length, say: an author needs to know a Wordle is playable before the
+    #: event rather than during it.
+    notes: list[str] = []
 
 
 class SubmissionLogEntry(BaseModel):

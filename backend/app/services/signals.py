@@ -22,13 +22,14 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.models.challenge import Challenge
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.play import Solve, Submission
+from app.models.puzzle import ChallengePuzzle
 from app.models.signal import SignalDismissal
 from app.models.team import Team, TeamMembership
 from app.models.user import User, UserRole, UserStatus
@@ -109,8 +110,22 @@ async def _load_context(db: AsyncSession, settings: Settings) -> _Context:
         .all()
     }
     team_names = dict((await db.execute(select(Team.id, Team.name))).all())
+    # Ladder challenges (spec 033) and daily puzzles (spec 044) are both
+    # exempt, for the same reason: identical submissions from unrelated players
+    # are the *expected* shape of play there. Two hundred people guessing AUDIT
+    # at the same Wordle is not collusion, and `shared_wrong_answers` would be
+    # unreadable with it in.
     exempt = set(
-        (await db.execute(select(Challenge.id).where(Challenge.ai_ladder_level.is_not(None))))
+        (
+            await db.execute(
+                select(Challenge.id).where(
+                    or_(
+                        Challenge.ai_ladder_level.is_not(None),
+                        Challenge.id.in_(select(ChallengePuzzle.challenge_id)),
+                    )
+                )
+            )
+        )
         .scalars()
         .all()
     )

@@ -39,6 +39,7 @@ from app.models.instance import ChallengeInstance
 from app.models.notification import AchievementAward, LootBox, Notification
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.player_event import PlayerEvent
+from app.models.puzzle import PuzzleSession
 from app.models.report import ChallengeReport
 from app.models.signal import SignalDismissal
 from app.models.user import User
@@ -61,6 +62,7 @@ class ResetGroup(enum.StrEnum):
     ASSISTANT = "assistant"
     AI_LADDER = "ai_ladder"
     CLASS_CHOICES = "class_choices"
+    PUZZLE_SESSIONS = "puzzle_sessions"
 
 
 #: Group -> (label, the tables it counts). The label is what the confirm dialog
@@ -89,6 +91,15 @@ GROUPS: dict[ResetGroup, tuple[str, list[type]]] = {
     #: carrying them.
     ResetGroup.AI_LADDER: ("AI ladder progress", []),
     ResetGroup.CLASS_CHOICES: ("Class choices", [ClassPreference]),
+    #: A player's play of a daily puzzle (spec 044) — guesses, groups found,
+    #: letters typed, and whether they solved or lost it. **Not**
+    #: ``challenge_puzzle``, which is the authored puzzle itself: the same
+    #: distinction as Loot above, and the same trap in the naming.
+    #:
+    #: Its own group because clearing Solves alone leaves a *failed* session
+    #: failed, and a re-run event would open with players still locked out of
+    #: days they lost the first time round.
+    ResetGroup.PUZZLE_SESSIONS: ("Puzzle play", [PuzzleSession]),
 }
 
 
