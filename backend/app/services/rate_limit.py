@@ -97,9 +97,7 @@ async def check_puzzle_save_limit(redis: Redis, user_id: UUID, challenge_id: UUI
         )
         return LimitDecision(allowed, retry, None if allowed else "save")
     except Exception as exc:
-        logger.warning(
-            "puzzle_save_limiter_unavailable", extra={"error_type": type(exc).__name__}
-        )
+        logger.warning("puzzle_save_limiter_unavailable", extra={"error_type": type(exc).__name__})
         return LimitDecision(True)
 
 

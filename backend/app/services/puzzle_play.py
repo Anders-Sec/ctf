@@ -119,9 +119,7 @@ async def statuses_for(
     return {challenge_id: status for challenge_id, status in rows}
 
 
-async def session_for(
-    db: AsyncSession, user_id: UUID, challenge_id: UUID
-) -> PuzzleSession | None:
+async def session_for(db: AsyncSession, user_id: UUID, challenge_id: UUID) -> PuzzleSession | None:
     return (
         await db.execute(
             select(PuzzleSession).where(
