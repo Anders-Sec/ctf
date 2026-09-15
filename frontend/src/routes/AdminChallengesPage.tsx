@@ -41,6 +41,7 @@ import BulkToolbar from "../components/BulkToolbar";
 import ChallengeCsvPanel from "../components/ChallengeCsvPanel";
 import ChallengeTable from "../components/ChallengeTable";
 import ErrorMessage from "../components/ErrorMessage";
+import PuzzleEditor from "../components/PuzzleEditor";
 import SkillPicker from "../components/SkillPicker";
 import Spinner from "../components/Spinner";
 
@@ -608,13 +609,26 @@ function ChallengeEditor({
         />
       )}
 
-      <Collapsible title="Flags" count={challenge.answers.length}>
-        <AnswerRules
-          challenge={challenge}
-          canWrite={canWrite}
-          onChanged={reload}
-        />
-      </Collapsible>
+      {/* A challenge is answered or played, never both — so the two sections
+          sit next to each other and each says why the other is empty. */}
+      {challenge.puzzle === null && (
+        <Collapsible title="Flags" count={challenge.answers.length}>
+          <AnswerRules
+            challenge={challenge}
+            canWrite={canWrite}
+            onChanged={reload}
+          />
+        </Collapsible>
+      )}
+
+      {canWrite && (
+        <Collapsible
+          title="Puzzle"
+          count={challenge.puzzle ? 1 : 0}
+        >
+          <PuzzleEditor challenge={challenge} onChanged={reload} />
+        </Collapsible>
+      )}
 
       {canWrite && (
         <Collapsible title="Hints">

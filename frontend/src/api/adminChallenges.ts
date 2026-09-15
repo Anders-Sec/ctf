@@ -1,5 +1,6 @@
 import type { BossTier } from "./bosses";
 import { api } from "./client";
+import type { PuzzleKind } from "./puzzles";
 import type {
   Artifact,
   Category,
@@ -143,7 +144,57 @@ export interface AdminChallengeDetail {
   artifacts: Artifact[];
   container_template_id: string | null;
   prerequisites: { challenge_id: string; title: string }[];
+  /** The attached puzzle, answers and all (spec 044). Null for an ordinary
+   *  challenge — which is nearly all of them. */
+  puzzle: AdminPuzzle | null;
   created_at: string;
+}
+
+export interface AdminPuzzle {
+  kind: PuzzleKind;
+  /** As stored: normalised by the engine, so this is what will be played rather
+   *  than what was typed. Contains the answers — admin eyes only. */
+  config: Record<string, unknown>;
+  sessions: number;
+  solved: number;
+  failed: number;
+}
+
+export interface PuzzleValidation {
+  kind: PuzzleKind;
+  config: Record<string, unknown>;
+  /** Advisory, not errors. Things worth knowing before the event rather than
+   *  during it. */
+  notes: string[];
+}
+
+export interface WordleConfig {
+  answer: string;
+  length: number;
+  max_guesses: number;
+  extra_words: string[];
+  reveal_on_fail: boolean;
+}
+
+export interface ConnectionsConfig {
+  groups: { name: string; level: number; members: string[] }[];
+  max_mistakes: number;
+}
+
+export interface CrosswordConfig {
+  width: number;
+  height: number;
+  blocks: [number, number][];
+  entries: {
+    number: number;
+    direction: "across" | "down";
+    row: number;
+    col: number;
+    length: number;
+    answer: string;
+    clue: string;
+  }[];
+  max_checks: number;
 }
 
 export interface UpdateChallengeInput {
@@ -280,3 +331,16 @@ export const removePrerequisite = (
 /** Deletes the challenge, and prunes its category if that leaves it empty. */
 export const deleteChallenge = (id: string) =>
   api.delete<{ message: string }>(`/admin/challenges/${id}`);
+
+export const setPuzzle = (
+  challengeId: string,
+  kind: PuzzleKind,
+  config: Record<string, unknown>,
+) =>
+  api.put<PuzzleValidation>(`/admin/challenges/${challengeId}/puzzle`, {
+    kind,
+    config,
+  });
+
+export const clearPuzzle = (challengeId: string) =>
+  api.delete<{ message: string }>(`/admin/challenges/${challengeId}/puzzle`);
