@@ -276,6 +276,14 @@ class Settings(BaseSettings):
     #: has to mean 01:00 there rather than 01:00 UTC (spec 029).
     event_utc_offset_hours: int = 0
 
+    # --- Daily puzzles (spec 044) --------------------------------------------
+    #: Where the Wordle guess list lives. Null uses the list bundled in the
+    #: image (`app/data/wordle_words_5.txt`, ~1,000 common words). Pointing this
+    #: at a mounted file is how the list is grown without a code change, which
+    #: matters because an author cannot know in advance which ordinary word a
+    #: player will try and be refused.
+    wordle_word_list_path: str | None = None
+
     @property
     def instances_configured(self) -> bool:
         return bool(self.instances_enabled and self.kube_namespace)

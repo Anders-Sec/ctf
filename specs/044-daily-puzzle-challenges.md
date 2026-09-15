@@ -473,7 +473,7 @@ the roster, not here.
 
 *Play*
 
-- Wordle marks duplicate letters correctly (guessing `LEVEL` against `ELDER`).
+- Wordle marks duplicate letters correctly: `ALLOY` against `LEMON` marks one L present and one absent, and `GEESE` against `THESE` marks its leading E absent because exact matches claimed both.
 - A guess outside the list is rejected, consumes no guess, and logs no submission; the answer itself is always accepted.
 - Connections returns one away for three-of-four and costs a mistake; a repeated identical selection costs nothing; solving three groups auto-solves the fourth.
 - A crossword check marks wrong cells without correcting them, and the save endpoint stores letters without consuming a check.
