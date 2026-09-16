@@ -67,6 +67,23 @@ export default function AdminInstancesPage() {
   );
 }
 
+/**
+ * A real template needs more than a name and an image. Until spec 046 these
+ * fields existed on the API but not on this form, so every template took the
+ * defaults — and `injects_answer` defaulting to true meant a static-flagged
+ * container got a flag-shaped environment variable the platform would then
+ * refuse, which is an hour of somebody's event spent chasing a decoy.
+ */
+const BLANK_TEMPLATE = {
+  name: "",
+  image: "",
+  image_tag: "v1",
+  container_port: 80,
+  ttl_seconds: 3600,
+  injects_answer: true,
+  shared_instance: false,
+};
+
 function Templates() {
   const queryClient = useQueryClient();
   const templates = useQuery({
@@ -74,12 +91,7 @@ function Templates() {
     queryFn: listTemplates,
   });
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    image: "",
-    image_tag: "v1",
-    container_port: 80,
-  });
+  const [form, setForm] = useState({ ...BLANK_TEMPLATE });
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["admin", "templates"] });
@@ -87,7 +99,7 @@ function Templates() {
   const create = useMutation({
     mutationFn: () => createTemplate(form),
     onSuccess: async () => {
-      setForm({ name: "", image: "", image_tag: "v1", container_port: 80 });
+      setForm({ ...BLANK_TEMPLATE });
       setOpen(false);
       await invalidate();
     },
@@ -159,6 +171,54 @@ function Templates() {
               className="mt-1 w-full rounded border border-stone px-3 py-2"
             />
           </label>
+          <label className="text-sm">
+            Lifetime (seconds)
+            <input
+              type="number"
+              value={form.ttl_seconds}
+              onChange={(e) =>
+                setForm({ ...form, ttl_seconds: Number(e.target.value) })
+              }
+              className="mt-1 w-full rounded border border-stone px-3 py-2"
+            />
+          </label>
+          <fieldset className="text-sm sm:col-span-2">
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={form.shared_instance}
+                onChange={(e) =>
+                  setForm({ ...form, shared_instance: e.target.checked })
+                }
+                className="mt-1"
+              />
+              <span>
+                One container for every challenge on this template
+                <span className="block text-xs text-muted">
+                  For an image that carries several challenges. A party launches
+                  it once and works all of them inside it.
+                </span>
+              </span>
+            </label>
+            <label className="mt-2 flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={form.injects_answer}
+                onChange={(e) =>
+                  setForm({ ...form, injects_answer: e.target.checked })
+                }
+                className="mt-1"
+              />
+              <span>
+                Mint a flag per team
+                <span className="block text-xs text-muted">
+                  Each challenge gets its own flag, unique to whoever launched
+                  it, so a leaked flag is worthless to anyone else. Needs a
+                  dynamic flag rule on each challenge.
+                </span>
+              </span>
+            </label>
+          </fieldset>
           <div className="sm:col-span-2">
             <button
               type="submit"
@@ -181,7 +241,12 @@ function Templates() {
             <span className="flex-1">
               <span className="font-medium">{t.name}</span>
               <span className="block font-mono text-xs text-muted">
-                {t.image}:{t.image_tag} · :{t.container_port}
+                {t.image}:{t.image_tag} · :{t.container_port} · {t.ttl_seconds}s
+              </span>
+              <span className="block text-xs text-muted">
+                {t.shared_instance ? "shared container" : "one container per challenge"}
+                {" · "}
+                {t.injects_answer ? "flag minted per team" : "static flags"}
               </span>
             </span>
             <button
@@ -213,6 +278,7 @@ function Row({
         <p className="font-medium">{instance.challenge_title}</p>
         <p className="text-sm text-muted">
           {instance.owner_label} · {instance.status}
+          {instance.template_name ? ` · ${instance.template_name}` : ""}
           {instance.error ? ` · ${instance.error}` : ""}
         </p>
       </div>

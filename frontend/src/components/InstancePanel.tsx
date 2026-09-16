@@ -16,6 +16,11 @@ import { ApiError } from "../api/client";
  * `pending`, and the query below re-fetches every couple of seconds until the
  * dungeon master reports it `running` and hands over a link — or `failed`, which
  * is shown rather than spun on forever.
+ *
+ * One target can serve several encounters (spec 046), which is why the cache is
+ * invalidated across every instance query rather than just this challenge's: a
+ * target closed from one encounter is closed for its siblings too, and a stale
+ * entry under a sibling would offer a link to a container that is gone.
  */
 export default function InstancePanel({ challengeId }: { challengeId: string }) {
   const queryClient = useQueryClient();
@@ -34,17 +39,20 @@ export default function InstancePanel({ challengeId }: { challengeId: string }) 
   const current: Instance | null =
     instance.data && instance.data.status !== "destroyed" ? instance.data : null;
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["instance", challengeId] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["instance"] });
 
   const launch = useMutation({ mutationFn: () => launchInstance(challengeId), onSuccess: invalidate });
   const destroy = useMutation({
     mutationFn: () => destroyInstance(challengeId),
-    onSuccess: () => queryClient.setQueryData(["instance", challengeId], null),
+    onSuccess: () => {
+      queryClient.setQueryData(["instance", challengeId], null);
+      invalidate();
+    },
   });
   const extend = useMutation({ mutationFn: () => extendInstance(challengeId), onSuccess: invalidate });
 
   const notFound = instance.error instanceof ApiError && instance.error.status === 404;
+  const shared = current?.shared_challenge_count ?? 0;
 
   return (
     <section className="mt-6 rounded-lg border border-stone bg-white/40 p-4">
@@ -90,6 +98,14 @@ export default function InstancePanel({ challengeId }: { challengeId: string }) 
             Enter the dungeon ↗
           </a>
           <p className="text-xs text-muted">{current.connection_url}</p>
+          {shared > 0 && (
+            <p className="text-xs text-muted">
+              This target also serves {shared} other{" "}
+              {shared === 1 ? "encounter" : "encounters"} in this area. The flags
+              inside it are yours alone — a flag from another party will not be
+              accepted.
+            </p>
+          )}
           <div className="flex gap-3 text-sm">
             <button onClick={() => extend.mutate()} className="underline">
               Give me more time
@@ -98,6 +114,11 @@ export default function InstancePanel({ challengeId }: { challengeId: string }) 
               Close it
             </button>
           </div>
+          {shared > 0 && (
+            <p className="text-xs text-muted">
+              Closing it ends it for those encounters too.
+            </p>
+          )}
         </div>
       )}
 

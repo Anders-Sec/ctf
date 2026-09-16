@@ -18,6 +18,7 @@ function instance(overrides: Partial<Instance> = {}): Instance {
     connection_url: "https://dm-abc.ctf-nm.org",
     expires_at: "2026-09-07T18:00:00Z",
     error: null,
+    shared_challenge_count: 0,
     ...overrides,
   };
 }
@@ -97,5 +98,26 @@ describe("InstancePanel", () => {
     render({ getStatus: 200, getBody: instance({ status: "failed", error: "ImagePullBackOff" }) });
 
     expect(await screen.findByText(/collapsed as it formed/i)).toBeInTheDocument();
+  });
+
+  it("says a shared target serves other encounters, and that closing it ends those too", async () => {
+    render({
+      getStatus: 200,
+      getBody: instance({ shared_challenge_count: 3 }),
+    });
+
+    expect(
+      await screen.findByText(/also serves 3 other encounters/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/flags inside it are yours alone/i)).toBeInTheDocument();
+    expect(screen.getByText(/ends it for those encounters too/i)).toBeInTheDocument();
+  });
+
+  it("says nothing about sharing for an ordinary target", async () => {
+    render({ getStatus: 200, getBody: instance() });
+
+    await screen.findByRole("link", { name: /enter the dungeon/i });
+    expect(screen.queryByText(/also serves/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/yours alone/i)).not.toBeInTheDocument();
   });
 });

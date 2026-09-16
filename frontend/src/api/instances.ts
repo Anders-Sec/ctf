@@ -10,6 +10,11 @@ export interface Instance {
   connection_url: string | null;
   expires_at: string;
   error: string | null;
+  /**
+   * How many *other* published challenges this container also serves (spec 046).
+   * Zero for an ordinary target, which is every target that existed before it.
+   */
+  shared_challenge_count: number;
 }
 
 export const launchInstance = (challengeId: string) =>

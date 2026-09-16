@@ -9,6 +9,8 @@ export interface ContainerTemplate {
   protocol: string;
   ttl_seconds: number;
   injects_answer: boolean;
+  /** One container for every challenge bound to this template (spec 046). */
+  shared_instance: boolean;
 }
 
 export const listTemplates = () =>
@@ -21,6 +23,7 @@ export const createTemplate = (input: {
   container_port?: number;
   ttl_seconds?: number;
   injects_answer?: boolean;
+  shared_instance?: boolean;
   readiness_path?: string;
 }) => api.post<ContainerTemplate>("/admin/templates", input);
 

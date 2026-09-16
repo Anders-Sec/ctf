@@ -15,6 +15,7 @@ function inst(overrides: Partial<AdminInstance> = {}): AdminInstance {
     id: "i1",
     challenge_id: "c1",
     challenge_title: "Sealed Vault",
+    template_name: "vault",
     status: "running",
     owner_label: "party: The Bold",
     connection_url: "https://dm-abc.ctf-nm.org",
