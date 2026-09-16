@@ -72,6 +72,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 043 | `043-event-reset-and-zone-preservation.md` | Tooling — per-group reset of play data so scaffolding challenges can be deleted; **stop pruning categories**, which was silently destroying seeded zones and their skill grouping, plus migration 0042 to repair the damage | **done** |
 | 044 | `044-daily-puzzle-challenges.md` | Content — Wordle, Connections and a crossword mini played inside the challenge description block; a puzzle is an ordinary challenge, one per game per day, 15 across five days for 1,950 XP; server-held answers and sessions, completion awards the solve, failure is terminal | **done** — content (the 15 puzzles) still to author |
 | 045 | `045-web-apothecary-container.md` | Content — the `web-apothecary` challenge image: one hardened Flask/SQLite portal carrying four Web Attacks challenges (IDOR, SQLi auth bypass, single-pass-filtered path traversal, SSTI → RCE), with solve and hardening tests in CI | **draft** |
+| 046 | `046-shared-container-instances.md` | Platform — one container serving several challenges, each with a flag minted per team as an authored stem plus a hex tail; the `dynamic` match type 003 reserved; **amends 009, completes 008 Decision 6** | **draft** |
 
 ## Sequencing rationale
 

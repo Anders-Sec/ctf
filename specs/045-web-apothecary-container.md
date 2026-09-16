@@ -5,8 +5,9 @@ Phase: content (Phase 2/3 — challenge images, not platform)
 Covers: `Challenge/container-web-apothecary.md` — four of the eight Web Attacks
 challenges
 Depends on: 009 (the instance machinery, the pod hardening contract, the CI image
-job), 040 (the CSV rows that already carry these four flags)
-Blocks play on: **046 — shared instances per template** (see Prerequisite below)
+job), 040 (the CSV rows), **046** (shared instances and per-team flags)
+Blocks play on: **046 — one container, several challenges, a flag each per team**
+(see Prerequisite below)
 
 ## Purpose
 
@@ -20,10 +21,12 @@ in this repo's app. The deliverable is an image under `deploy/instances/`, its
 tests, its CI entry, and the exact `container_template` field values an operator
 enters once at event setup.
 
-The challenge text, hints, flags and XP are written and imported already. This
-document is measured against `Challenge/container-web-apothecary.md`; where it
-deviates, the deviation is called out in **Deviations from the brief** so the
-other session can correct a row if it disagrees.
+The challenge text, hints and XP are written and imported already. This document
+is measured against `Challenge/container-web-apothecary.md`; where it deviates,
+the deviation is called out in **Deviations from the brief** so the other session
+can correct a row if it disagrees. The flag *values* in that brief have since
+been superseded by per-team minting (046) — the authored strings live on as the
+stems, and `Challenge/dynamic-flags-note.md` is what was sent to that session.
 
 ## Prerequisite (decided, separate spec)
 
@@ -32,12 +35,12 @@ keys a `challenge_instance` to a **challenge**, so as built today a team playing
 all four would launch four identical pods and hit `INSTANCE_MAX_PER_OWNER` (2) on
 the third.
 
-Decision: **one instance serves all four challenges.** That is a change to
-`launcher.py` — reuse and lookup match on `template_id` rather than
-`challenge_id` — and it is written and signed off as **spec 046** before the
-event, not here. The image is buildable and testable without it; only play is
-blocked. The same change is what makes `web-registry` (also four challenges, one
-image) work, so it is done once for both.
+Decision: **one instance serves all four challenges, each with its own per-team
+flag.** That is spec 046 — the launcher matches on `template_id`, and each
+instance mints a flag per challenge as an authored stem plus a hex tail. It is
+signed off before the event, not here. The image is buildable and testable
+without it; only play is blocked. The same change is what makes `web-registry`
+(also four challenges, one image) work, so it is done once for both.
 
 ## What it is
 
@@ -57,8 +60,9 @@ brief's hard constraint.
   image, its templates, its seed data or its comments.
 - Every patient name, record number, address and clinical note is invented and
   obviously so. Nothing resembling a real record format is used.
-- All four flags are **static** — identical in every instance. The template
-  therefore sets `injects_answer = false` and no `INSTANCE_ANSWER` is used.
+- All four flags are **minted per team** (spec 046): the authored stem with a
+  hex tail, e.g. `flag{not_your_chart_a3f9c1d0}`, delivered at launch in
+  `INSTANCE_ANSWERS`. A flag one team screenshots is worthless to another.
 
 ## Stack and layout
 
@@ -68,6 +72,7 @@ it) · stdlib `sqlite3` · gunicorn, 2 workers × 4 threads · port **8080**.
 ```
 deploy/instances/web-apothecary/
   Dockerfile
+  entrypoint.py           # materialises this team's flags, scrubs the env, execs
   app.py                  # routes; the four flaws live here and nowhere else
   db.py                   # read-only SQLite connection helper
   seed.sql                # the invented patients, users and notes
@@ -90,28 +95,67 @@ negotiable and the image is built to fit it as-is:
 | --- | --- |
 | `runAsNonRoot` | `USER 10001`, a fixed numeric uid, as the demo image does |
 | `readOnlyRootFilesystem: true` | nothing outside `/tmp` is writable at runtime |
-| only `/tmp` writable (emptyDir) | gunicorn's temp dir points at `/tmp`; **the database is opened read-only** |
+| only `/tmp` writable (emptyDir) | **everything minted per team is built under `/tmp` at start** — the database and both flag files |
 | `capabilities: drop ALL`, seccomp `RuntimeDefault`, gVisor | the RCE in challenge 4 lands in a sandbox with no capabilities |
 | `EgressPolicy.NONE` | no outbound network, satisfying the brief directly |
 | `restartPolicy: Always` | a player who kills the app gets a clean one back |
 | readiness probe | `/healthz` returns 200 and touches nothing |
 
-**The database is opened read-only** (`file:...?mode=ro`, `uri=True`) from
-`/opt/apothecary/apothecary.db`, built at image build time from `seed.sql`. No
-copy-to-`/tmp` step, no journal file, no writable state anywhere. This is also
-most of the answer to "survive being hammered": there is nothing to corrupt, and
-a restart is indistinguishable from a fresh start.
+Per-team flags mean the database cannot be baked at build time — two of the four
+flags live inside it. So the entrypoint builds `/tmp/apothecary.db` from
+`seed.sql` at container start, and the app then opens it **read-only**
+(`file:/tmp/apothecary.db?mode=ro`, `uri=True`) for the rest of its life. No
+journal, no writable handle, nothing a player can corrupt from the app. That is
+most of the answer to "survive being hammered": a restart rebuilds from the same
+seed and the same injected flags, so it is indistinguishable from a fresh start.
 
 The "send a message" feature of challenge 4 therefore renders and displays the
 message rather than persisting it — which is what the challenge needs, and is
 honest about a portal that "queues" outbound mail.
+
+## Flags at runtime
+
+The platform hands the container one environment variable, `INSTANCE_ANSWERS`, a
+JSON object keyed by challenge slug (046). `entrypoint.py` runs before anything
+else and, in order:
+
+1. Parses it, and falls back to the four authored stems with a fixed
+   `_local` tail when it is absent — so `docker run` and the test suite work with
+   no platform. The fallback logs loudly at warning level; it is a development
+   convenience, never a production path.
+2. Writes each flag where its challenge needs it:
+   - `someone-elses-chart` → the clinical notes of record `1043`, in the database
+     it is building.
+   - `quotes-are-load-bearing` → a `portal_setting` row in the same database,
+     which the admin dashboard renders.
+   - `up-and-out` → `/tmp/flag.txt`.
+   - `curly-braces` → `/tmp/.flag`, mode `0400`.
+3. **Unsets `INSTANCE_ANSWERS` and `exec`s gunicorn**, which inherits the
+   scrubbed environment.
+
+Step 3 is the whole reason this is an entrypoint and not application startup
+code. The path-traversal challenge can read `/proc/self/environ`. Leave the flags
+in the environment and that `hard` challenge hands over the `very_hard`
+challenge's flag — the upward leak this spec works to prevent everywhere else.
+The pod spec that carried the variable is not readable from inside the container:
+the service-account token is not mounted, by 009's hardening.
+
+Two consequences of the read-only root filesystem, both visible to players and
+both harmless:
+
+- The two flag **files move from `/opt` to `/tmp`** — `/opt` cannot be written at
+  runtime. `/tmp` is still outside the web root, which is all the challenge text
+  claims, and it is among the first places anyone with a file read looks. The
+  path is also named in `app.py`, which the traversal itself can read.
+- Nothing survives a restart except what the entrypoint rebuilds, which is
+  exactly the set of things that should.
 
 ## The four flaws
 
 Each is the **only** flaw on its route. Everything else in the app uses bound
 parameters, checks the session, and normalises paths.
 
-### 1. `Someone Else's Chart` — IDOR — `flag{not_your_chart}`
+### 1. `Someone Else's Chart` — IDOR — stem `not_your_chart`
 
 `GET /record?id=<n>` looks up the record and renders it with **no comparison
 between the record's owner and the session user**. Every other authenticated
@@ -126,7 +170,7 @@ route checks the session properly, so the flaw is this one missing check.
 - Credentials are on the login page (below), so the challenge is reachable
   without changing the imported challenge row.
 
-### 2. `Quotes Are Load Bearing` — SQLi auth bypass — `flag{quotes_are_load_bearing}`
+### 2. `Quotes Are Load Bearing` — SQLi auth bypass — stem `quotes_are_load_bearing`
 
 `POST /login` builds its query by string concatenation:
 
@@ -152,9 +196,10 @@ SELECT id, username, role FROM portal_user
 - **Only this query is built by concatenation.** Every other query in the app
   uses bound parameters.
 - `GET /admin` renders the admin dashboard, gated on `session["role"] ==
-  "admin"`. `flag{quotes_are_load_bearing}` is displayed on it.
+  "admin"`. This challenge's minted flag is displayed on it, read from the
+  `portal_setting` row the entrypoint wrote.
 
-### 3. `Up And Out` — path traversal — `flag{up_and_out}`
+### 3. `Up And Out` — path traversal — stem `up_and_out`
 
 `GET /page?f=welcome.html` reads a file and renders its contents inside the
 portal chrome. Content pages live in `/opt/apothecary/pages/`.
@@ -168,11 +213,11 @@ path = os.path.join(PAGES_DIR, cleaned)   # no normalisation, no realpath
 
 - `....//....//....//etc/passwd` survives the pass as `../../../etc/passwd` and
   resolves — the confirmation step the second hint describes.
-- The flag is at **`/opt/flag.txt`**, outside the web root, reached the same way.
+- The flag is at **`/tmp/flag.txt`**, outside the web root, reached the same way.
 - No recursive strip, no `realpath` containment check on the traversal itself.
   This is the difficulty of the challenge and it stays.
 
-### 4. `Curly Braces` — SSTI → RCE — `flag{the_template_ate_it}`
+### 4. `Curly Braces` — SSTI → RCE — stem `the_template_ate_it`
 
 `POST /message` composes an outbound note and renders it through
 `render_template_string` — Flask's own unsandboxed Jinja2 environment — before
@@ -185,11 +230,12 @@ rendered = render_template_string(f"Dear {patient.name},\n\n{body}\n\n— {clini
 - `{{7*7}}` comes back as `49`, the identification step the first hint describes.
 - The context is Flask's default, so the usual walk from a template global to
   `os.popen` reaches command execution. No sandbox, no attribute denylist.
-- The flag is at **`/opt/apothecary/.flag`**, owned by uid `10001`, mode `0400` —
+- The flag is at **`/tmp/.flag`**, owned by uid `10001`, mode `0400` —
   restrictive-looking, readable by the app's own uid, requiring an actual command
   to read. **It is not in an environment variable, Flask config, or the
-  database**, so `{{ config }}` and a `/proc/self/environ` read both come up
-  empty and the player has to reach real execution.
+  database**: the entrypoint scrubbed `INSTANCE_ANSWERS` before the server
+  started, so `{{ config }}` and a `/proc/self/environ` read both come up empty
+  and the player has to reach real execution.
 
 ## Keeping the four independent
 
@@ -200,14 +246,14 @@ free, and this is how each is handled:
 | --- | --- | --- |
 | SSTI (very hard) → RCE | everything: all three other flags, the DB, the source | **Accepted.** Leakage from the hardest challenge downward is normal and costs nothing — anyone who lands the RCE could have solved the other three. |
 | LFI (hard) → arbitrary file read | app source, the SQLite file, hence flags 1 and 2 | **Accepted.** Same direction: hard reveals easy and medium. The player has already done the harder work. |
-| LFI (hard) → `/opt/apothecary/.flag` | flag 4 (very hard) | **Not accepted** — this leaks *upward* and would hand out the hardest flag in the area for free. Guarded, see below. |
+| LFI (hard) → `/tmp/.flag` or `/proc/self/environ` | flag 4 (very hard) | **Not accepted** — this leaks *upward* and would hand out the hardest flag in the area for free. Guarded by the dotfile rule below, and by the entrypoint's scrub. |
 
 The guard, in the `/page` handler only:
 
 1. After the single pass, if the **basename begins with a dot**, 404. Framed in
    the code as "only visible pages are servable", which is a plausible thing for
    a 2011 page renderer to do, and is invisible to every intended payload —
-   `/etc/passwd` and `/opt/flag.txt` both pass.
+   `/etc/passwd` and `/tmp/flag.txt` both pass.
 2. A second, explicit check that the normalised path is not the challenge-4 flag
    file. Belt and braces, commented as a challenge-integrity guard rather than a
    puzzle element.
@@ -256,9 +302,10 @@ named".
 | `cpu_request` / `cpu_limit` | `100m` / `500m` |
 | `memory_request` / `memory_limit` | `128Mi` / `256Mi` |
 | `ttl_seconds` | `7200` — four challenges on one container, so twice the default |
-| `env` | `{}` — no flags, no configuration, nothing |
+| `env` | `{}` — the platform adds `INSTANCE_ANSWERS` itself; nothing static belongs here |
 | `egress_policy` | `none` |
-| `injects_answer` | **`false`** — the flags are static |
+| `shared_instance` | **`true`** — one container for all four challenges (046) |
+| `injects_answer` | **`true`** — one minted flag per challenge, per team (046) |
 | `readiness_path` | `/healthz` |
 | `runtime_class` | `gvisor` |
 
@@ -286,29 +333,36 @@ the build rather than the event.
 The point of testing a challenge image is not that the code works — it is that
 **the intended solution still works and the unintended ones still don't**.
 
-`test_solves.py` — each asserts the exact flag string from the CSV:
+`test_solves.py` runs the entrypoint with a **known `INSTANCE_ANSWERS`** carrying
+four distinguishable test flags, then solves each challenge and asserts it got
+that challenge's flag and not a sibling's:
 
-- Log in with the published credentials, `GET /record?id=1043`, find
-  `flag{not_your_chart}` in the response.
+- Log in with the published credentials, `GET /record?id=1043`, find the
+  `someone-elses-chart` flag in the response.
 - `POST /login` with `' OR '1'='1` as the username and anything as the password,
-  land on `/admin` as `h.mercer`, find `flag{quotes_are_load_bearing}`.
-- `GET /page?f=....//....//....//opt/flag.txt`, find `flag{up_and_out}`; and
+  land on `/admin` as `h.mercer`, find the `quotes-are-load-bearing` flag.
+- `GET /page?f=....//....//....//tmp/flag.txt`, find the `up-and-out` flag; and
   `....//....//....//etc/passwd` returns passwd-shaped content.
-- `POST /message` with a Jinja payload that executes `cat /opt/apothecary/.flag`,
-  find `flag{the_template_ate_it}`; and `{{7*7}}` returns `49`.
+- `POST /message` with a Jinja payload that executes `cat /tmp/.flag`, find the
+  `curly-braces` flag; and `{{7*7}}` returns `49`.
+- Each of the four responses contains **only** its own flag.
+- The whole suite runs a second time with `INSTANCE_ANSWERS` unset, proving the
+  local fallback keeps the image runnable and testable off-platform.
 
 `test_hardening.py` — the routes that must stay shut:
 
-- `/page` cannot read `/opt/apothecary/.flag` by any of: the direct path, a
-  traversal to it, a dot-prefixed basename, `/proc/self/root/...`.
+- `/page` cannot read `/tmp/.flag` by any of: the direct path, a traversal to it,
+  a dot-prefixed basename, `/proc/self/root/...`.
+- **`/proc/self/environ` read through `/page` contains no flag** — the
+  entrypoint's scrub, tested through the route that would exploit its absence.
 - `/admin` is 403 for the seeded low-privilege session.
 - The apostrophe payload that breaks `/login` does **not** break `/record`,
   `/page` or `/message` — those are parameterised.
 - The traversal filter is exactly single-pass: `../` is stripped, `....//`
   survives, and a recursive-strip regression (which would make `....//` fail)
   is caught.
-- `flag{the_template_ate_it}` appears in no environment variable, no Flask config
-  value, and nowhere in the database.
+- The `curly-braces` flag appears in no environment variable, no Flask config
+  value, and nowhere in the database — it exists only as `/tmp/.flag`.
 - `/healthz` answers without a session and without touching the database.
 - Malformed input — a non-integer `id`, a missing `f`, an unterminated Jinja
   expression, a 1 MB message body — returns an error page, not a 500 traceback
@@ -319,10 +373,10 @@ The point of testing a challenge image is not that the code works — it is that
 Flagged per the brief's closing instruction. **No flag value changes and no
 technique changes**; the hints remain correct as written.
 
-1. **The `/page` handler refuses dot-prefixed basenames.** The brief puts the
-   challenge-4 flag at `/opt/apothecary/.flag` and gives challenge 3 an arbitrary
-   file read, which would hand a `hard` solver the `very_hard` flag. The guard
-   closes that and is invisible to both intended payloads.
+1. **The `/page` handler refuses dot-prefixed basenames.** The brief gives
+   challenge 3 an arbitrary file read and puts challenge 4's flag in a file,
+   which would hand a `hard` solver the `very_hard` flag. The guard closes that
+   and is invisible to both intended payloads.
 2. **The login query has `password` before `username`.** Without it the hint's
    `' OR '1'='1` in the username field does not actually work, because `AND`
    binds tighter than `OR`.
@@ -330,6 +384,12 @@ technique changes**; the hints remain correct as written.
    hardened pod makes the robust choice means "sending" displays the rendered
    note rather than persisting it. Challenge 4 is unaffected — the flaw is in the
    render, not the store.
+4. **Both flag files moved from `/opt` to `/tmp`.** Per-team flags are written at
+   container start, and `/tmp` is the only writable mount under 009's read-only
+   root filesystem. Still outside the web root, so the challenge text stands.
+5. **The flag values in the brief are now stems, not flags.** `flag{up_and_out}`
+   becomes `flag{up_and_out_<8 hex>}`, minted per team. Nothing about the
+   techniques or the hints changes.
 
 ## Open questions
 
@@ -342,6 +402,6 @@ technique changes**; the hints remain correct as written.
 ## Non-goals
 
 - The `web-registry` image — its own spec, after this one.
-- The shared-instance-per-template platform change — spec 046.
+- The platform side of sharing and flag minting — spec 046.
 - Any app-side backend, frontend or schema change.
-- Per-instance dynamic flags. The brief says static, and the imported rows agree.
+- Persisting anything across a restart. The entrypoint rebuilds what matters.
