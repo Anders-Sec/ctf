@@ -13,6 +13,7 @@ export interface ContainerTemplate {
   shared_instance: boolean;
   cpu_limit: string;
   memory_limit: string;
+  readiness_path: string;
 }
 
 export const listTemplates = () =>

@@ -139,3 +139,30 @@ class TestIngress:
         tls = ing["spec"]["tls"][0]
         assert tls["hosts"] == ["dm-abc123.ctf-nm.org"]
         assert tls["secretName"] == "ctf-tls"
+
+
+class TestReadinessProbeBudget:
+    """Kubernetes defaults a probe timeout to one second.
+
+    That is not enough for a gVisor sandbox on a 250m CPU limit: a live
+    instance failed this probe with "context deadline exceeded" while healthy,
+    and twenty consecutive misses would have pulled a working container out of
+    its Service — the player watching their instance stop answering about a
+    minute later, with the pod still Running and never restarted.
+    """
+
+    def test_the_probe_gets_more_than_a_second(self) -> None:
+        probe = manifests.pod_manifest(_spec())["spec"]["containers"][0]["readinessProbe"]
+
+        assert probe["timeoutSeconds"] >= 3
+
+    def test_there_is_still_a_minute_to_become_ready(self) -> None:
+        """A cold pull plus a sandbox start needs it."""
+        probe = manifests.pod_manifest(_spec())["spec"]["containers"][0]["readinessProbe"]
+
+        assert probe["periodSeconds"] * probe["failureThreshold"] >= 60
+
+    def test_a_probe_cannot_outlast_its_own_period(self) -> None:
+        probe = manifests.pod_manifest(_spec())["spec"]["containers"][0]["readinessProbe"]
+
+        assert probe["timeoutSeconds"] <= probe["periodSeconds"]

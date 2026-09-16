@@ -39,6 +39,7 @@ function template(overrides: Record<string, unknown> = {}) {
     shared_instance: true,
     cpu_limit: "500m",
     memory_limit: "384Mi",
+    readiness_path: "/",
     ...overrides,
   };
 }

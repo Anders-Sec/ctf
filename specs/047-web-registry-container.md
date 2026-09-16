@@ -345,7 +345,15 @@ Recorded because each is a thing this spec asserted and reality corrected:
 3. **Configurable headers on `/api/fetch`** — without them there is no way to
    present an admin token to the maintenance service, and the boss is unreachable
    rather than hard.
-4. **Which loopback spellings work is a property of the environment**, not of the
+4. **One worker each, with `--preload`.** Two gunicorn workers on the API meant
+   five Python processes for a 250m CPU limit inside a gVisor sandbox, and a
+   live instance failed its readiness probe with "context deadline exceeded"
+   while otherwise healthy. Twenty consecutive misses pulls a working container
+   out of its Service, which is what a player sees as the instance dying about
+   a minute in — pod still Running, never restarted. One worker and a preloaded
+   app cut resident memory by a quarter; the probe's own one-second default was
+   raised to three in the manifest builder, which is the other half of the fix.
+5. **Which loopback spellings work is a property of the environment**, not of the
    image: Windows resolves none of the IPv4 shorthands and refuses to connect to
    `0.0.0.0`; a container without IPv6 refuses `[::1]`. The tests pick one that
    works where they run and skip the rest, saying which and why.

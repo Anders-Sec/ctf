@@ -94,3 +94,4 @@ class TemplateResponse(BaseModel):
     shared_instance: bool
     cpu_limit: str
     memory_limit: str
+    readiness_path: str

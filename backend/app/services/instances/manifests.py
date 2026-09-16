@@ -86,10 +86,21 @@ def pod_manifest(spec: InstanceSpec) -> dict:
         # Anything the image needs to write goes to memory it cannot use to
         # persist across a restart, and never to the host.
         "volumeMounts": [{"name": "scratch", "mountPath": "/tmp"}],
+        # `timeoutSeconds` is set explicitly because Kubernetes defaults it to
+        # **one second**, and one second is not a safe budget for a
+        # gVisor-sandboxed pod holding a 250m CPU limit: a live instance was
+        # observed failing this probe with "context deadline exceeded" while
+        # perfectly healthy. Twenty consecutive misses would take a working
+        # container out of its Service, and the player would see their instance
+        # stop answering about a minute later with the pod still Running.
+        #
+        # Period and threshold together still allow 60 seconds to become ready,
+        # which is what a cold image pull plus a sandbox start needs.
         "readinessProbe": {
             "httpGet": {"path": spec.readiness_path, "port": spec.container_port},
-            "periodSeconds": 3,
-            "failureThreshold": 20,
+            "timeoutSeconds": 3,
+            "periodSeconds": 5,
+            "failureThreshold": 12,
         },
     }
 

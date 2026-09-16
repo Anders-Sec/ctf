@@ -105,15 +105,28 @@ def materialise(minted: dict[str, str]) -> None:
     logger.info("flags materialised; the boss flag is on disk and in no process")
 
 
-def _gunicorn(module: str, binds: tuple[str, ...], workers: str) -> list[str]:
+def _gunicorn(module: str, binds: tuple[str, ...], threads: str) -> list[str]:
+    """One worker, several threads, and the app loaded before the fork.
+
+    Two processes in one container on a 250m CPU limit, inside a gVisor sandbox,
+    is a tight budget: a live instance failed its readiness probe with "context
+    deadline exceeded" while otherwise healthy. Every process here is one the
+    sandbox has to schedule, so there is one worker each rather than two, and
+    `--preload` imports the app in the master so the fork is cheap and the
+    worker's pages are shared rather than copied.
+
+    One worker is ample for the one party that owns an instance, and threads
+    absorb the SSRF endpoint's outbound wait without blocking anything else.
+    """
     command = ["gunicorn"]
     for bind in binds:
         command += ["--bind", bind]
     return command + [
+        "--preload",
         "--workers",
-        workers,
+        "1",
         "--threads",
-        "4",
+        threads,
         "--timeout",
         "30",
         "--worker-tmp-dir",
@@ -139,8 +152,8 @@ def main() -> int:
 
 def supervise() -> int:
     services = {
-        "maintenance": _gunicorn("maintenance", maintenance_binds(), "1"),
-        "api": _gunicorn("api", (API_BIND,), "2"),
+        "maintenance": _gunicorn("maintenance", maintenance_binds(), "4"),
+        "api": _gunicorn("api", (API_BIND,), "8"),
     }
     children: dict[str, subprocess.Popen] = {}
     started: dict[str, float] = {}

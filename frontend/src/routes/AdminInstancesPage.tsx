@@ -86,6 +86,7 @@ const BLANK_TEMPLATE = {
   shared_instance: false,
   cpu_limit: "250m",
   memory_limit: "256Mi",
+  readiness_path: "/",
 };
 
 /**
@@ -234,6 +235,20 @@ function Templates() {
               placeholder="256Mi"
               className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
             />
+          </label>
+          <label className="text-sm">
+            Readiness path
+            <input
+              value={form.readiness_path}
+              onChange={(e) => setForm({ ...form, readiness_path: e.target.value })}
+              placeholder="/"
+              className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+            />
+            <span className="mt-1 block text-xs text-muted">
+              What the probe polls to decide the container is ready. Keep it
+              cheap — a slow one fails the probe and takes a healthy instance
+              out of service.
+            </span>
           </label>
           <fieldset className="text-sm sm:col-span-2">
             <label className="flex items-start gap-2">

@@ -60,6 +60,7 @@ def _template_response(template: ContainerTemplate) -> TemplateResponse:
         shared_instance=template.shared_instance,
         cpu_limit=template.cpu_limit,
         memory_limit=template.memory_limit,
+        readiness_path=template.readiness_path,
     )
 
 
