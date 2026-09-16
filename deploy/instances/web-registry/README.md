@@ -87,6 +87,23 @@ docker run --rm -p 8080:8080 \
 Those flags are how the pod actually runs it (spec 009). Sign in as
 `t.brennan` / `bureau2019`.
 
+## Checking a deployed instance
+
+Browsing the API by hand cannot work: every endpoint but `/` and `/healthz`
+needs a bearer token, so a browser gets `{"error": "A bearer token is
+required."}` — which is the API behaving correctly, not a fault.
+
+To check a real instance end to end:
+
+```sh
+python verify.py https://dm-xxxx.ctf-nm.org
+```
+
+It signs in, solves all four challenges in order, and prints which step failed
+and what came back. It also reports whether the maintenance service is up, since
+challenges 3 and 4 are unreachable without it. Exit code 0 means the instance is
+good, which separates an image fault from a platform one.
+
 ## Tests
 
 ```sh
