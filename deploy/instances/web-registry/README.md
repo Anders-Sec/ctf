@@ -93,11 +93,17 @@ Browsing the API by hand cannot work: every endpoint but `/` and `/healthz`
 needs a bearer token, so a browser gets `{"error": "A bearer token is
 required."}` — which is the API behaving correctly, not a fault.
 
-To check a real instance end to end:
+A deployed instance also sits behind the **ingress auth check** (spec 009):
+every request to an instance subdomain is validated against the player's
+platform session before it reaches the container at all, so a script with no
+cookie gets a 401 *from nginx* and never touches the challenge.
 
 ```sh
-python verify.py https://dm-xxxx.ctf-nm.org
+python verify.py https://dm-xxxx.ctf-nm.org <ctf_access>
 ```
+
+Copy `ctf_access` from devtools → Application → Cookies. It is a 15-minute
+token, so use a fresh one. Omit it only when testing a container directly.
 
 It signs in, solves all four challenges in order, and prints which step failed
 and what came back. It also reports whether the maintenance service is up, since

@@ -1,11 +1,19 @@
 """Solve all four challenges against a running instance, and say what broke.
 
-    python verify.py https://dm-xxxx.ctf-nm.org
+    python verify.py https://dm-xxxx.ctf-nm.org            # local, or no edge auth
+    python verify.py https://dm-xxxx.ctf-nm.org <ctf_access>
 
 Written for checking a *deployed* instance, because browsing the API by hand
 cannot work: every endpoint but `/` and `/healthz` needs a bearer token, so a
 browser gets `{"error": "A bearer token is required."}` and that is the API
 behaving correctly, not a fault.
+
+**A deployed instance sits behind the ingress auth check (spec 009).** Every
+request to an instance subdomain triggers `GET /api/instances/authorise/<name>`
+on the platform, which wants the player's session cookie — so without one, nginx
+answers 401 and nothing reaches the container at all. Pass the `ctf_access`
+cookie value as the second argument: in the browser, devtools → Application →
+Cookies → `ctf_access`. It is a 15-minute token, so copy a fresh one.
 
 Exit code is 0 when all four solve. Anything else prints which step failed and
 what came back, so a broken instance can be told apart from a broken platform.
@@ -30,6 +38,12 @@ BOSS_FLAG_PATH = "/tmp/registry/secrets/.flag"
 MAINTENANCE = "http://127.1:9000"
 
 TIMEOUT = 15
+#: The platform's session cookie, checked at the edge before a request reaches
+#: the instance at all.
+ACCESS_COOKIE = "ctf_access"
+
+#: Set from argv, and sent on every request when present.
+SESSION: str | None = None
 
 
 def call(url: str, *, method: str = "GET", body: dict | None = None, token: str | None = None):
@@ -37,6 +51,8 @@ def call(url: str, *, method: str = "GET", body: dict | None = None, token: str 
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
+    if SESSION:
+        headers["Cookie"] = f"{ACCESS_COOKIE}={SESSION}"
     request = urllib.request.Request(url, data=data, method=method, headers=headers)  # noqa: S310
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:  # noqa: S310
@@ -76,6 +92,11 @@ def boss_payload() -> str:
     return base64.b64encode(pickle.dumps(Gadget())).decode()
 
 
+def edge_rejected(status: int, payload: dict) -> bool:
+    """Whether nginx turned us away before the container ever saw the request."""
+    return status == 401 and "nginx" in str(payload.get("body", ""))
+
+
 def main(base: str) -> int:
     base = base.rstrip("/")
     failures: list[str] = []
@@ -88,6 +109,19 @@ def main(base: str) -> int:
     print(f"Verifying {base}")
 
     status, root = call(f"{base}/")
+    if edge_rejected(status, root):
+        print("  FAIL  the API answers — the ingress turned us away, not the container")
+        print()
+        print("This 401 is nginx, not the challenge. Every request to an instance")
+        print("subdomain is checked against the platform session (spec 009), so a")
+        print("script needs the player's cookie:")
+        print()
+        print(f"    python verify.py {base} <ctf_access>")
+        print()
+        print("Copy it from devtools → Application → Cookies → ctf_access. It lasts")
+        print("15 minutes, so use a fresh one. Nothing is wrong with the container")
+        print("yet — this check never reached it.")
+        return 1
     check("the API answers", status == 200, f"HTTP {status}: {root}")
     status, health = call(f"{base}/healthz")
     check(
@@ -160,7 +194,9 @@ def main(base: str) -> int:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    if len(sys.argv) not in (2, 3):
         print(__doc__)
         raise SystemExit(2)
+    if len(sys.argv) == 3:
+        SESSION = sys.argv[2]
     raise SystemExit(main(sys.argv[1]))
