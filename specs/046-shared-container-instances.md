@@ -1,6 +1,6 @@
 # Spec 046 — One container, several challenges, a flag each per team
 
-Status: **draft** — awaiting sign-off
+Status: **done**
 Phase: platform (amends 009, completes 008 Decision 6)
 Covers: the prerequisite `045-web-apothecary-container.md` records, and the same
 prerequisite for the `web-registry` image after it

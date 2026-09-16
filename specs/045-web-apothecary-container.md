@@ -1,6 +1,6 @@
 # Spec 045 — The `web-apothecary` challenge container
 
-Status: **draft** — awaiting sign-off
+Status: **done**
 Phase: content (Phase 2/3 — challenge images, not platform)
 Covers: `Challenge/container-web-apothecary.md` — four of the eight Web Attacks
 challenges
@@ -405,7 +405,7 @@ technique changes**; the hints remain correct as written.
 
 ## Non-goals
 
-- The `web-registry` image — its own spec, after this one.
+- The `web-registry` image — spec 047.
 - The platform side of sharing and flag minting — spec 046.
 - Any app-side backend, frontend or schema change.
 - Persisting anything across a restart. The entrypoint rebuilds what matters.
