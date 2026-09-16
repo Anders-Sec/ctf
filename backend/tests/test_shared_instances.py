@@ -351,3 +351,33 @@ class TestWindDown:
 
         await db_session.refresh(instance)
         assert instance.expires_at == soon
+
+
+class TestTemplateLifetime:
+    """A lifetime a form can send but nobody can survive.
+
+    An emptied number input sends 0, `ttl_seconds` had no bounds, and
+    `expires_at = now + 0` means the expiry reconciler destroys the instance on
+    its next 30-second tick. That reached a live event: a team's target kept
+    vanishing about a minute after they launched it. The save-time bound lives
+    with the other template CRUD tests; this is the other half.
+    """
+
+    async def test_a_template_already_saved_with_zero_still_launches(
+        self, app: FastAPI, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Rows that predate the bound do not re-validate themselves.
+
+        Handing a team a target that dies on the next tick is worse than
+        quietly using the default and saying so in the log.
+        """
+        _enable(app)
+        await player(db_session, client, sign_in)
+        template = await make_template(db_session, ttl_seconds=0)
+        challenge = await make_container_challenge(db_session, template)
+
+        response = await client.post(f"/api/challenges/{challenge.id}/instance")
+
+        assert response.status_code == 201
+        expires = datetime.fromisoformat(response.json()["expires_at"])
+        assert expires > datetime.now(UTC) + timedelta(minutes=5)

@@ -57,6 +57,8 @@ def _template_response(template: ContainerTemplate) -> TemplateResponse:
         ttl_seconds=template.ttl_seconds,
         injects_answer=template.injects_answer,
         shared_instance=template.shared_instance,
+        cpu_limit=template.cpu_limit,
+        memory_limit=template.memory_limit,
     )
 
 

@@ -11,6 +11,8 @@ export interface ContainerTemplate {
   injects_answer: boolean;
   /** One container for every challenge bound to this template (spec 046). */
   shared_instance: boolean;
+  cpu_limit: string;
+  memory_limit: string;
 }
 
 export const listTemplates = () =>
@@ -24,6 +26,8 @@ export const createTemplate = (input: {
   ttl_seconds?: number;
   injects_answer?: boolean;
   shared_instance?: boolean;
+  cpu_limit?: string;
+  memory_limit?: string;
   readiness_path?: string;
 }) => api.post<ContainerTemplate>("/admin/templates", input);
 

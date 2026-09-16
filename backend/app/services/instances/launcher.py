@@ -45,6 +45,14 @@ ANSWER_ENV = "INSTANCE_ANSWER"
 #: already the CSV's match key.
 ANSWERS_ENV = "INSTANCE_ANSWERS"
 
+#: Templates saved before the lifetime was bounded can hold a value that expires
+#: an instance before the player reaches it — a zero, most likely, which is what
+#: an emptied number field used to send. The schema refuses those now, but a row
+#: already in the database does not re-validate itself, so a non-positive TTL is
+#: treated as the configured default rather than handed to a team as a target
+#: that dies on the next reconciler tick.
+MIN_USABLE_TTL_SECONDS = 60
+
 #: Length of the per-team tail, in bytes — eight hex characters. Guessing is not
 #: the threat (003 rate-limits submissions); sharing is. Eight keeps a flag short
 #: enough to retype off a terminal.
@@ -244,6 +252,14 @@ async def launch(
     if len(live) >= settings.instance_max_per_owner:
         raise InstanceCapReached
 
+    ttl_seconds = template.ttl_seconds
+    if ttl_seconds < MIN_USABLE_TTL_SECONDS:
+        logger.warning(
+            "template_ttl_unusable",
+            extra={"template": template.name, "ttl_seconds": ttl_seconds},
+        )
+        ttl_seconds = settings.instance_default_ttl_seconds
+
     instance = ChallengeInstance(
         challenge_id=challenge.id,
         template_id=template.id,
@@ -251,7 +267,7 @@ async def launch(
         owner_user_id=None if team is not None else owner_user.id,
         k8s_name=_dns_name(),
         status=InstanceStatus.PENDING,
-        expires_at=now + timedelta(seconds=template.ttl_seconds),
+        expires_at=now + timedelta(seconds=ttl_seconds),
     )
     db.add(instance)
     await db.flush()

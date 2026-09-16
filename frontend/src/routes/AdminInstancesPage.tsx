@@ -82,6 +82,20 @@ const BLANK_TEMPLATE = {
   ttl_seconds: 3600,
   injects_answer: true,
   shared_instance: false,
+  cpu_limit: "250m",
+  memory_limit: "256Mi",
+};
+
+/**
+ * A cleared number input reads as "", and `Number("")` is 0 — which for a
+ * lifetime meant `expires_at = now`, and the expiry reconciler destroying a
+ * team's container about a minute after they launched it. That happened at a
+ * live event. Blank now falls back to the default instead of silently becoming
+ * zero, and the server refuses out-of-range values regardless.
+ */
+const numberOr = (raw: string, fallback: number) => {
+  const parsed = Number(raw);
+  return raw.trim() === "" || Number.isNaN(parsed) ? fallback : parsed;
 };
 
 function Templates() {
@@ -164,9 +178,14 @@ function Templates() {
             Container port
             <input
               type="number"
+              min={1}
+              max={65535}
               value={form.container_port}
               onChange={(e) =>
-                setForm({ ...form, container_port: Number(e.target.value) })
+                setForm({
+                  ...form,
+                  container_port: numberOr(e.target.value, BLANK_TEMPLATE.container_port),
+                })
               }
               className="mt-1 w-full rounded border border-stone px-3 py-2"
             />
@@ -175,11 +194,38 @@ function Templates() {
             Lifetime (seconds)
             <input
               type="number"
+              min={60}
+              max={86400}
               value={form.ttl_seconds}
               onChange={(e) =>
-                setForm({ ...form, ttl_seconds: Number(e.target.value) })
+                setForm({
+                  ...form,
+                  ttl_seconds: numberOr(e.target.value, BLANK_TEMPLATE.ttl_seconds),
+                })
               }
               className="mt-1 w-full rounded border border-stone px-3 py-2"
+            />
+            <span className="mt-1 block text-xs text-muted">
+              How long a launched container lives. At least 60 seconds — anything
+              shorter is reaped before the team can use it.
+            </span>
+          </label>
+          <label className="text-sm">
+            CPU limit
+            <input
+              value={form.cpu_limit}
+              onChange={(e) => setForm({ ...form, cpu_limit: e.target.value })}
+              placeholder="250m"
+              className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+            />
+          </label>
+          <label className="text-sm">
+            Memory limit
+            <input
+              value={form.memory_limit}
+              onChange={(e) => setForm({ ...form, memory_limit: e.target.value })}
+              placeholder="256Mi"
+              className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
             />
           </label>
           <fieldset className="text-sm sm:col-span-2">
@@ -241,7 +287,8 @@ function Templates() {
             <span className="flex-1">
               <span className="font-medium">{t.name}</span>
               <span className="block font-mono text-xs text-muted">
-                {t.image}:{t.image_tag} · :{t.container_port} · {t.ttl_seconds}s
+                {t.image}:{t.image_tag} · :{t.container_port} · {t.ttl_seconds}s ·{" "}
+                {t.cpu_limit}/{t.memory_limit}
               </span>
               <span className="block text-xs text-muted">
                 {t.shared_instance ? "shared container" : "one container per challenge"}

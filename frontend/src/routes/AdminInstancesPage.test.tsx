@@ -74,4 +74,26 @@ describe("AdminInstancesPage", () => {
     render([]);
     expect(await screen.findByText(/nothing running/i)).toBeInTheDocument();
   });
+
+  it("sends the default lifetime when the field is cleared, never zero", async () => {
+    // A cleared number input reads as "" and Number("") is 0. Saved as a
+    // lifetime, that expired a team's container about a minute after launch.
+    const fetchMock = render([]);
+    await screen.findByRole("button", { name: /new template/i });
+    await userEvent.click(screen.getByRole("button", { name: /new template/i }));
+
+    await userEvent.type(screen.getByLabelText(/^name$/i), "web-registry");
+    await userEvent.type(screen.getByLabelText(/^image$/i), "ghcr.io/x/y");
+    await userEvent.clear(screen.getByLabelText(/lifetime/i));
+    await userEvent.click(screen.getByRole("button", { name: /create template/i }));
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([path, init]) =>
+          String(path).endsWith("/admin/templates") && init?.method === "POST",
+      );
+      expect(call).toBeTruthy();
+      expect(JSON.parse(String(call![1]!.body)).ttl_seconds).toBe(3600);
+    });
+  });
 });

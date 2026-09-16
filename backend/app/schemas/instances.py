@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.instance import InstanceStatus
 
@@ -38,19 +38,28 @@ class AdminInstanceResponse(BaseModel):
     error: str | None
 
 
+#: A lifetime below this is almost certainly a typo, and a very short one is
+#: indistinguishable from a broken container: the expiry reconciler destroys the
+#: instance within its next 30-second tick and the player watches their target
+#: vanish. A zero — which is what an emptied number field sends — did exactly
+#: that at the event, so the floor is enforced here rather than trusted to the UI.
+MIN_TTL_SECONDS = 60
+MAX_TTL_SECONDS = 86_400
+
+
 class CreateTemplateRequest(BaseModel):
-    name: str
-    image: str
-    image_tag: str = "latest"
-    container_port: int = 80
+    name: str = Field(min_length=1, max_length=120)
+    image: str = Field(min_length=1, max_length=300)
+    image_tag: str = Field(default="latest", min_length=1, max_length=120)
+    container_port: int = Field(default=80, ge=1, le=65535)
     protocol: str = "http"
-    ttl_seconds: int = 3600
+    ttl_seconds: int = Field(default=3600, ge=MIN_TTL_SECONDS, le=MAX_TTL_SECONDS)
     injects_answer: bool = True
     #: One container for every challenge bound to this template (spec 046).
     shared_instance: bool = False
-    readiness_path: str = "/"
-    cpu_limit: str = "250m"
-    memory_limit: str = "256Mi"
+    readiness_path: str = Field(default="/", min_length=1, max_length=200)
+    cpu_limit: str = Field(default="250m", min_length=1, max_length=16)
+    memory_limit: str = Field(default="256Mi", min_length=1, max_length=16)
 
 
 class TemplateResponse(BaseModel):
@@ -63,3 +72,5 @@ class TemplateResponse(BaseModel):
     ttl_seconds: int
     injects_answer: bool
     shared_instance: bool
+    cpu_limit: str
+    memory_limit: str

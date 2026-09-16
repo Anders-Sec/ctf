@@ -217,3 +217,82 @@ class TestTemplateDeletion:
 
         assert response.status_code == 409
         assert response.json()["error"]["code"] == "template_in_use"
+
+
+class TestTemplateLifetimeIsBounded:
+    """An emptied number field sends 0, and 0 was accepted.
+
+    `expires_at = now + 0` means the expiry reconciler destroys the instance on
+    its next 30-second tick, so a team's target vanished about a minute after
+    they launched it. Found at a live event; these are what stop it recurring.
+    """
+
+    async def test_a_zero_lifetime_is_refused(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await admin(db_session, client, sign_in)
+
+        response = await client.post(
+            "/api/admin/templates",
+            json={"name": "broken", "image": "ghcr.io/x/y", "ttl_seconds": 0},
+        )
+
+        assert response.status_code == 422
+
+    async def test_a_lifetime_under_a_minute_is_refused(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await admin(db_session, client, sign_in)
+
+        response = await client.post(
+            "/api/admin/templates",
+            json={"name": "brief", "image": "ghcr.io/x/y", "ttl_seconds": 30},
+        )
+
+        assert response.status_code == 422
+
+    async def test_an_absurd_lifetime_is_refused_too(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await admin(db_session, client, sign_in)
+
+        response = await client.post(
+            "/api/admin/templates",
+            json={"name": "forever", "image": "ghcr.io/x/y", "ttl_seconds": 999_999},
+        )
+
+        assert response.status_code == 422
+
+    async def test_an_empty_name_or_image_is_refused(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await admin(db_session, client, sign_in)
+
+        for payload in ({"name": "", "image": "ghcr.io/x/y"}, {"name": "x", "image": ""}):
+            response = await client.post("/api/admin/templates", json=payload)
+            assert response.status_code == 422, payload
+
+    async def test_a_sensible_lifetime_is_accepted_and_reported(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await admin(db_session, client, sign_in)
+
+        created = await client.post(
+            "/api/admin/templates",
+            json={
+                "name": "web-registry",
+                "image": "ghcr.io/anders-sec/ctf-web-registry",
+                "ttl_seconds": 7200,
+                "shared_instance": True,
+                "cpu_limit": "500m",
+                "memory_limit": "384Mi",
+            },
+        )
+
+        assert created.status_code == 201
+        body = created.json()
+        assert body["ttl_seconds"] == 7200
+        assert body["shared_instance"] is True
+        # Visible in the response, so an operator can see what they actually saved.
+        assert body["cpu_limit"] == "500m"
+        assert body["memory_limit"] == "384Mi"
