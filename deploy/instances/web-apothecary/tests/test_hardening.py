@@ -13,7 +13,7 @@ import sqlite3
 
 import pytest
 
-from tests.conftest import MINTED, traverse
+from tests.conftest import MINTED, shipped_files, traverse
 
 posix_only = pytest.mark.skipif(
     os.name == "nt", reason="the container is Linux; these are POSIX paths"
@@ -172,8 +172,13 @@ class TestItSurvivesBeingHammered:
 
 
 class TestNothingRealIsNamed:
-    def test_no_real_organisation_appears_anywhere(self, portal) -> None:
-        """The brief is explicit: it is a fictional clinic."""
+    """The brief is explicit: it is a fictional clinic.
+
+    Checked against the files the image *ships*, not the working directory. A
+    checkout also holds the README and the tests, and neither reaches a player.
+    """
+
+    def test_no_real_organisation_appears_in_the_image(self, portal) -> None:
         import pathlib
 
         import flags
@@ -181,11 +186,10 @@ class TestNothingRealIsNamed:
         root = pathlib.Path(flags.__file__).resolve().parent
         banned = ("northwestern", "nmh.org", "nm.org")
 
-        for path in root.rglob("*"):
-            if not path.is_file() or path.suffix in {".db", ".pyc"}:
-                continue
-            if "tests" in path.parts or "__pycache__" in path.parts:
-                continue
+        shipped = shipped_files(root)
+        assert shipped, "found no shipped files; the Dockerfile parse is wrong"
+
+        for path in shipped:
             body = path.read_text(encoding="utf-8", errors="ignore").lower()
             for word in banned:
                 assert word not in body, f"{path.name} mentions {word!r}"

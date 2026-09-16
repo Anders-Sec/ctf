@@ -100,3 +100,30 @@ def signed_in(client):
     """A session as the seeded low-privilege patient, the way a player starts."""
     client.post("/login", data={"username": "p.abernathy", "password": "springfield"})
     return client
+
+
+def shipped_files(image_root):
+    """Every file the Dockerfile actually copies into the image.
+
+    Scoped to what ships rather than to the working directory, because the rule
+    is about what is *in the container*. A checkout also holds this image's
+    README, its tests and its tooling, none of which a player can ever see —
+    and scanning those made a docs example mentioning the event's own domain
+    fail a check meant to catch a real organisation's name in the product.
+    """
+    import pathlib
+    import shlex
+
+    root = pathlib.Path(image_root)
+    sources: list[pathlib.Path] = []
+    for line in (root / "Dockerfile").read_text(encoding="utf-8").splitlines():
+        if not line.startswith("COPY "):
+            continue
+        parts = [p for p in shlex.split(line)[1:] if not p.startswith("--")]
+        for source in parts[:-1]:  # the last argument is the destination
+            target = root / source
+            if target.is_dir():
+                sources.extend(p for p in target.rglob("*") if p.is_file())
+            elif target.is_file():
+                sources.append(target)
+    return sources
