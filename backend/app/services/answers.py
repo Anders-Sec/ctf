@@ -212,6 +212,25 @@ def check(submitted: str, answers: Iterable[ChallengeAnswer]) -> Verdict:
     return Verdict(False, None, tuple(errors))
 
 
+#: A stem has to survive being wrapped as ``flag{<stem>_<tail>}``, so it is held
+#: to the same shape as the flags the rest of the event uses.
+STEM_PATTERN = regex.compile(r"[a-z0-9_]{1,64}")
+
+
+@resolver(MatchType.DYNAMIC)
+def _dynamic(submitted: str, answer: ChallengeAnswer) -> MatchResult:
+    """Never matches here, and that is not a stub.
+
+    A per-team flag can only be checked against the submitting player's own
+    instance, and this registry is pure by design — it takes a submission and a
+    rule and cannot see who is asking. The match happens in
+    ``app/services/instances/launcher.answer_matches``; this rule exists to
+    declare that the challenge's flag is minted per team, and to carry the stem
+    that minting uses (spec 046).
+    """
+    return MatchResult(False)
+
+
 def validate_rule(match_type: MatchType, value: str, options: dict[str, Any]) -> None:
     """Reject a malformed rule when it is saved rather than mid-event.
 
@@ -240,6 +259,12 @@ def validate_rule(match_type: MatchType, value: str, options: dict[str, Any]) ->
 
     if match_type == MatchType.ANY_OF and not [line for line in value.splitlines() if line.strip()]:
         raise InvalidAnswerRule("Provide at least one alternative, one per line.")
+
+    if match_type == MatchType.DYNAMIC and not STEM_PATTERN.fullmatch(value.strip()):
+        raise InvalidAnswerRule(
+            "A dynamic flag needs a stem of lowercase letters, digits and "
+            "underscores — the inside of flag{...} without the braces or a tail."
+        )
 
 
 def supported_match_types() -> list[str]:

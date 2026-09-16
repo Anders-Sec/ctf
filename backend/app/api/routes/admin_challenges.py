@@ -23,6 +23,7 @@ from app.models.challenge import (
     ChallengeAnswer,
     ChallengeState,
     Difficulty,
+    MatchType,
     ScoringMode,
     points_for,
 )
@@ -705,6 +706,15 @@ async def add_answer(
     # Validated here so a broken pattern fails in the editor rather than
     # silently rejecting every correct answer at 09:00 on event day.
     answer_service.validate_rule(payload.match_type, payload.value, payload.options)
+
+    # A per-team flag is minted by the container at launch, so a dynamic rule on
+    # a challenge with no container is a challenge nobody can ever solve. Refuse
+    # it here rather than let somebody discover it mid-event (spec 046).
+    if payload.match_type == MatchType.DYNAMIC and challenge.container_template_id is None:
+        raise ConflictError(
+            "A dynamic flag is minted by a container at launch. Give this "
+            "challenge a container template first."
+        )
 
     answer = ChallengeAnswer(
         challenge_id=challenge.id,

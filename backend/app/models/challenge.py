@@ -173,8 +173,7 @@ class DecayBasis(enum.StrEnum):
 class MatchType(enum.StrEnum):
     """How a submission is compared against an answer rule.
 
-    Open by design: adding a type is one resolver and one member here. Spec 009
-    will add a computed per-instance type that fits the same column shape.
+    Open by design: adding a type is one resolver and one member here.
     """
 
     EXACT = "exact"
@@ -185,6 +184,11 @@ class MatchType(enum.StrEnum):
     SET = "set"
     #: A list of accepted alternatives.
     ANY_OF = "any_of"
+    #: Minted per team at container launch (spec 046). ``value`` holds the stem;
+    #: the flag the player sees is ``flag{<stem>_<tail>}`` and is matched on the
+    #: instance path, not here — this rule declares that the flag is per-team,
+    #: and by itself never matches anything.
+    DYNAMIC = "dynamic"
 
 
 def _enum(python_enum: type[enum.StrEnum], name: str) -> Enum:

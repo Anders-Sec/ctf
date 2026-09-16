@@ -115,10 +115,19 @@ class ContainerTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         JSONB, nullable=False, default=list, server_default="[]"
     )
 
-    #: When true, each instance gets a generated answer as an env var and the
-    #: submission is checked against that instance's value (spec 008 Decision 6).
+    #: When true, each instance mints a flag per challenge it serves and the
+    #: submission is checked against that instance's own value (008 Decision 6,
+    #: extended to several challenges by spec 046).
     injects_answer: Mapped[bool] = mapped_column(
         nullable=False, default=True, server_default="true"
+    )
+    #: When true, one instance serves every challenge bound to this template —
+    #: the four-challenges-one-image shape both Web Attacks containers have
+    #: (spec 046). Explicit rather than inferred from two challenges sharing a
+    #: template, so binding a second challenge to a single-challenge template
+    #: does not silently change how it behaves mid-event.
+    shared_instance: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default="false"
     )
     #: HTTP path the readiness probe hits before the instance is called running.
     readiness_path: Mapped[str] = mapped_column(String(200), nullable=False, default="/")
@@ -178,10 +187,6 @@ class ChallengeInstance(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     connection_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
     node_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    #: The answer baked into this one instance. Unique per instance, which is what
-    #: closes the answer-sharing hole a shared live target would open.
-    generated_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
-
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
     destroyed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     last_error: Mapped[str | None] = mapped_column(String(300), nullable=True)
@@ -189,3 +194,48 @@ class ChallengeInstance(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     template: Mapped["ContainerTemplate | None"] = relationship(
         back_populates="instances", lazy="raise"
     )
+    #: The flags minted for this instance, one per challenge it serves. Replaces
+    #: spec 009's single ``generated_answer`` column: a shared instance serves
+    #: several challenges and one string across all of them would mean the first
+    #: solve handed over the rest (spec 046).
+    answers: Mapped[list["ChallengeInstanceAnswer"]] = relationship(
+        back_populates="instance",
+        lazy="raise",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class ChallengeInstanceAnswer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One challenge's flag inside one instance.
+
+    Minted at launch for every published challenge the instance's template
+    serves, as the challenge's authored stem plus a tail drawn independently per
+    row. Independently matters: a tail shared across an instance's challenges
+    would let a team read one flag and construct its siblings from the challenge
+    titles, which are the stems.
+    """
+
+    __tablename__ = "challenge_instance_answer"
+    __table_args__ = (
+        Index(
+            "uq_challenge_instance_answer",
+            "instance_id",
+            "challenge_id",
+            unique=True,
+        ),
+    )
+
+    instance_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("challenge_instance.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    challenge_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("challenge.id", ondelete="CASCADE"), nullable=False
+    )
+    #: Plaintext, as every other answer in the event is. The database is not
+    #: reachable by players (spec 003).
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+
+    instance: Mapped["ChallengeInstance"] = relationship(back_populates="answers", lazy="raise")

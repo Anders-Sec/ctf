@@ -524,6 +524,27 @@ def _plan_row(
         fail(*problem)
         return None
 
+    # A per-team flag is minted by a container at launch, so a dynamic rule
+    # without one is a challenge nobody can ever solve (spec 046). And a static
+    # rule sitting beside it is the shareable answer the dynamic rule exists to
+    # remove — both are refused here rather than found mid-event.
+    if flags and any(f["match_type"] == MatchType.DYNAMIC for f in flags):
+        if container_template_id is None:
+            fail(
+                "flags",
+                "A dynamic flag is minted by a container at launch. "
+                "This row needs a container_template.",
+            )
+            return None
+        if any(f["match_type"] != MatchType.DYNAMIC for f in flags):
+            fail(
+                "flags",
+                "A dynamic flag cannot share a row with a static one — the "
+                "static value is the same for every team and would be the way "
+                "round it.",
+            )
+            return None
+
     hints, problem = _parse_hints(row)
     if problem:
         fail(*problem)

@@ -42,6 +42,7 @@ from app.models.guardrail import (
 from app.models.hint import Hint, HintUnlock
 from app.models.instance import (
     ChallengeInstance,
+    ChallengeInstanceAnswer,
     ContainerTemplate,
     EgressPolicy,
     InstanceProtocol,
@@ -88,6 +89,7 @@ __all__ = [
     "ClassRequirement",
     "Rarity",
     "ChallengeInstance",
+    "ChallengeInstanceAnswer",
     "ContainerTemplate",
     "ChallengeReport",
     "Challenge",
