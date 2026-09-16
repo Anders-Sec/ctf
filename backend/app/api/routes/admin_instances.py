@@ -27,6 +27,7 @@ from app.schemas.instances import (
     AdminInstanceResponse,
     CreateTemplateRequest,
     TemplateResponse,
+    UpdateTemplateRequest,
 )
 from app.services.identity import record_audit
 from app.services.instances import launcher
@@ -101,6 +102,42 @@ async def create_template(
         target_type="container_template",
         target_id=template.id,
         actor_user_id=current.user.id,
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return _template_response(template)
+
+
+@router.patch("/templates/{template_id}")
+async def update_template(
+    template_id: UUID,
+    payload: UpdateTemplateRequest,
+    request: Request,
+    db: DbSession,
+    current: Admin,
+) -> TemplateResponse:
+    """Correct a template in place.
+
+    Deleting and recreating is not the same operation: the challenge FK is
+    ON DELETE SET NULL, so a delete unbinds every challenge that pointed at the
+    template and they have to be re-imported to get them back. A wrong lifetime
+    at setup should cost thirty seconds, not a re-import.
+    """
+    template = await db.get(ContainerTemplate, template_id)
+    if template is None:
+        raise NotFoundError("No such template.")
+
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        setattr(template, field, value)
+    await db.flush()
+
+    await record_audit(
+        db,
+        action="container_template.update",
+        target_type="container_template",
+        target_id=template.id,
+        actor_user_id=current.user.id,
+        meta={"fields": sorted(changes)},
         request_id=getattr(request.state, "request_id", None),
     )
     return _template_response(template)

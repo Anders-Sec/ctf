@@ -26,7 +26,24 @@ function inst(overrides: Partial<AdminInstance> = {}): AdminInstance {
   };
 }
 
-function render(instances: AdminInstance[]) {
+function template(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "t1",
+    name: "web-registry",
+    image: "ghcr.io/anders-sec/ctf-web-registry",
+    image_tag: "sha-abc",
+    container_port: 8080,
+    protocol: "http",
+    ttl_seconds: 90,
+    injects_answer: true,
+    shared_instance: true,
+    cpu_limit: "500m",
+    memory_limit: "384Mi",
+    ...overrides,
+  };
+}
+
+function render(instances: AdminInstance[], templates: unknown[] = []) {
   const mock = stubFetch((path, init) => {
     if (path.endsWith("/auth/me")) {
       return { status: 200, body: me({ user: { ...me().user, role: "organizer" } }) };
@@ -38,7 +55,7 @@ function render(instances: AdminInstance[]) {
       return { status: 200, body: instances };
     }
     if (path.endsWith("/admin/templates")) {
-      return { status: 200, body: [] };
+      return { status: 200, body: templates };
     }
     return { status: 200, body: {} };
   });
@@ -94,6 +111,29 @@ describe("AdminInstancesPage", () => {
       );
       expect(call).toBeTruthy();
       expect(JSON.parse(String(call![1]!.body)).ttl_seconds).toBe(3600);
+    });
+  });
+
+  it("corrects a template's lifetime in place, without deleting it", async () => {
+    // A short lifetime expired a team's container almost as soon as they
+    // launched it, and deleting the template would have unbound every
+    // challenge that used it.
+    const fetchMock = render([], [template()]);
+    await screen.findByText("web-registry");
+
+    await userEvent.click(screen.getByRole("button", { name: /lifetime/i }));
+    const field = screen.getByLabelText(/lifetime for web-registry/i);
+    await userEvent.clear(field);
+    await userEvent.type(field, "7200");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([path, init]) =>
+          String(path).includes("/admin/templates/t1") && init?.method === "PATCH",
+      );
+      expect(call).toBeTruthy();
+      expect(JSON.parse(String(call![1]!.body)).ttl_seconds).toBe(7200);
     });
   });
 });

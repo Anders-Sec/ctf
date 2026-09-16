@@ -1,6 +1,7 @@
 """Admin template CRUD, the instance list, force-teardown, and lifecycle (spec 009)."""
 
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
@@ -8,7 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.models.instance import InstanceStatus
+from app.models.instance import ContainerTemplate, InstanceStatus
 from app.models.user import UserRole, UserStatus
 from app.services.instances import launcher, reconciler
 from app.services.instances.fake import FakeOrchestrator
@@ -296,3 +297,84 @@ class TestTemplateLifetimeIsBounded:
         # Visible in the response, so an operator can see what they actually saved.
         assert body["cpu_limit"] == "500m"
         assert body["memory_limit"] == "384Mi"
+
+
+class TestTemplateEditing:
+    """Fixing a template must not mean unbinding every challenge that uses it.
+
+    A template's lifetime was typed wrong at an event and there was no way to
+    correct it: the UI could create and delete, and deleting sets every
+    `challenge.container_template_id` to NULL.
+    """
+
+    async def _template(self, client: AsyncClient) -> str:
+        created = await client.post(
+            "/api/admin/templates",
+            json={"name": "web-registry", "image": "ghcr.io/x/y", "ttl_seconds": 90},
+        )
+        assert created.status_code == 201
+        return created.json()["id"]
+
+    async def test_a_lifetime_can_be_corrected_in_place(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await admin(db_session, client, sign_in)
+        template_id = await self._template(client)
+
+        updated = await client.patch(
+            f"/api/admin/templates/{template_id}", json={"ttl_seconds": 7200}
+        )
+
+        assert updated.status_code == 200
+        assert updated.json()["ttl_seconds"] == 7200
+
+    async def test_the_challenge_binding_survives_the_edit(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """The whole point: deleting and recreating would not do this."""
+        await admin(db_session, client, sign_in)
+        template_id = await self._template(client)
+        template = await db_session.get(ContainerTemplate, UUID(template_id))
+        challenge = await make_container_challenge(db_session, template)
+
+        await client.patch(f"/api/admin/templates/{template_id}", json={"ttl_seconds": 7200})
+        await db_session.refresh(challenge)
+
+        assert challenge.container_template_id == UUID(template_id)
+
+    async def test_an_edit_is_still_bounded(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await admin(db_session, client, sign_in)
+        template_id = await self._template(client)
+
+        refused = await client.patch(f"/api/admin/templates/{template_id}", json={"ttl_seconds": 0})
+
+        assert refused.status_code == 422
+
+    async def test_untouched_fields_are_left_alone(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await admin(db_session, client, sign_in)
+        template_id = await self._template(client)
+
+        updated = await client.patch(
+            f"/api/admin/templates/{template_id}", json={"ttl_seconds": 7200}
+        )
+
+        assert updated.json()["image"] == "ghcr.io/x/y"
+        assert updated.json()["container_port"] == 80
+
+    async def test_a_player_cannot_edit_a_template(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await admin(db_session, client, sign_in)
+        template_id = await self._template(client)
+
+        player_user = await make_user(db_session, status=UserStatus.ACTIVE)
+        await sign_in(client, player_user)
+        refused = await client.patch(
+            f"/api/admin/templates/{template_id}", json={"ttl_seconds": 7200}
+        )
+
+        assert refused.status_code in (401, 403)

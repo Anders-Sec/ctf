@@ -62,6 +62,26 @@ class CreateTemplateRequest(BaseModel):
     memory_limit: str = Field(default="256Mi", min_length=1, max_length=16)
 
 
+class UpdateTemplateRequest(BaseModel):
+    """Editing a template in place, rather than deleting and starting again.
+
+    Deleting is not a substitute: the FK from `challenge` is ON DELETE SET NULL,
+    so removing a template silently unbinds every challenge that used it and the
+    rows have to be re-imported. A lifetime typed wrong at setup should be a
+    thirty-second fix, not a re-import (spec 046).
+    """
+
+    image: str | None = Field(default=None, min_length=1, max_length=300)
+    image_tag: str | None = Field(default=None, min_length=1, max_length=120)
+    container_port: int | None = Field(default=None, ge=1, le=65535)
+    ttl_seconds: int | None = Field(default=None, ge=MIN_TTL_SECONDS, le=MAX_TTL_SECONDS)
+    injects_answer: bool | None = None
+    shared_instance: bool | None = None
+    readiness_path: str | None = Field(default=None, min_length=1, max_length=200)
+    cpu_limit: str | None = Field(default=None, min_length=1, max_length=16)
+    memory_limit: str | None = Field(default=None, min_length=1, max_length=16)
+
+
 class TemplateResponse(BaseModel):
     id: UUID
     name: str

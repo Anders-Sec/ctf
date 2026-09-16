@@ -10,6 +10,8 @@ import {
   createTemplate,
   deleteTemplate,
   listTemplates,
+  updateTemplate,
+  type ContainerTemplate,
 } from "../api/adminTemplates";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
@@ -120,6 +122,11 @@ function Templates() {
   });
   const remove = useMutation({
     mutationFn: deleteTemplate,
+    onSuccess: invalidate,
+  });
+  const retime = useMutation({
+    mutationFn: ({ id, ttl_seconds }: { id: string; ttl_seconds: number }) =>
+      updateTemplate(id, { ttl_seconds }),
     onSuccess: invalidate,
   });
 
@@ -296,6 +303,7 @@ function Templates() {
                 {t.injects_answer ? "flag minted per team" : "static flags"}
               </span>
             </span>
+            <Lifetime template={t} onSave={(ttl) => retime.mutate({ id: t.id, ttl_seconds: ttl })} />
             <button
               onClick={() => remove.mutate(t.id)}
               className="text-xs text-torch underline"
@@ -309,6 +317,65 @@ function Templates() {
         )}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Correcting a lifetime without deleting the template.
+ *
+ * A template created with a short lifetime expires a team's container almost as
+ * soon as they launch it, and until this existed the only remedy was deleting
+ * the template — which unbinds every challenge that used it, because the FK is
+ * ON DELETE SET NULL. That happened at an event.
+ */
+function Lifetime({
+  template,
+  onSave,
+}: {
+  template: ContainerTemplate;
+  onSave: (ttl: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(template.ttl_seconds));
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => {
+          setValue(String(template.ttl_seconds));
+          setEditing(true);
+        }}
+        className="text-xs underline text-muted"
+      >
+        Lifetime
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        type="number"
+        min={60}
+        max={86400}
+        aria-label={`Lifetime for ${template.name}`}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="w-24 rounded border border-stone px-2 py-1 text-xs"
+      />
+      <button
+        onClick={() => {
+          onSave(numberOr(value, template.ttl_seconds));
+          setEditing(false);
+        }}
+        className="text-xs underline"
+      >
+        Save
+      </button>
+      <button onClick={() => setEditing(false)} className="text-xs text-muted underline">
+        Cancel
+      </button>
+    </span>
   );
 }
 

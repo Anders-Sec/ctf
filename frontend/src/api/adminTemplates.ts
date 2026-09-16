@@ -31,5 +31,13 @@ export const createTemplate = (input: {
   readiness_path?: string;
 }) => api.post<ContainerTemplate>("/admin/templates", input);
 
+/**
+ * Correcting a template in place. Deleting and recreating is not equivalent:
+ * the challenge FK is ON DELETE SET NULL, so a delete unbinds every challenge
+ * that used it and they have to be re-imported.
+ */
+export const updateTemplate = (id: string, input: Partial<ContainerTemplate>) =>
+  api.patch<ContainerTemplate>(`/admin/templates/${id}`, input);
+
 export const deleteTemplate = (id: string) =>
   api.delete<void>(`/admin/templates/${id}`);
