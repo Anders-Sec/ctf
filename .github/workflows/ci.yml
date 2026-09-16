@@ -78,6 +78,31 @@ jobs:
       - name: Test
         run: uv run pytest -q
 
+  # A challenge image is only as good as its challenges still being solvable.
+  # These tests perform the four intended solutions and check that the routes
+  # that must stay shut are still shut, so a regression fails a build rather
+  # than an event.
+  challenge-images:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy/instances/web-apothecary
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Pinned to the versions the image installs, so a pass here means a pass
+      # in the container.
+      - name: Install
+        run: pip install "flask==3.0.3" pytest
+
+      - name: Test
+        run: python -m pytest -q
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -109,8 +134,9 @@ jobs:
   # sits in ImagePullBackOff no matter how healthy the sync looks in ArgoCD.
   images:
     runs-on: ubuntu-latest
-    # Only publish what already passed lint and tests.
-    needs: [backend, frontend]
+    # Only publish what already passed lint and tests — including the proof
+    # that each challenge image is still solvable.
+    needs: [backend, frontend, challenge-images]
 
     permissions:
       contents: read
@@ -129,6 +155,9 @@ jobs:
           # container_template can point at ghcr.io/anders-sec/ctf-demo.
           - name: demo
             context: deploy/instances/demo
+          # The four Web Attacks challenges in the apothecary (spec 045).
+          - name: web-apothecary
+            context: deploy/instances/web-apothecary
 
     steps:
       - uses: actions/checkout@v4

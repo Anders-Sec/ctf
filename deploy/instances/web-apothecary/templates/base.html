@@ -1,0 +1,37 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+  <title>{{ site_name }} &mdash; Patient Portal</title>
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='portal.css') }}" />
+</head>
+<body>
+<table class="shell" cellpadding="0" cellspacing="0" border="0">
+  <tr><td class="banner">
+    <span class="logo">{{ site_name }}</span>
+    <span class="strap">Patient Portal</span>
+  </td></tr>
+  <tr><td class="navbar">
+    {% if user %}
+      <a href="{{ url_for('portal') }}">Home</a> |
+      <a href="{{ url_for('record') }}">My record</a> |
+      <a href="{{ url_for('page') }}?f=welcome.html">Information</a> |
+      <a href="{{ url_for('message') }}">Send a message</a> |
+      {% if user['role'] == 'admin' %}<a href="{{ url_for('admin') }}">Administration</a> | {% endif %}
+      <a href="{{ url_for('logout') }}">Sign out</a>
+      <span class="who">Signed in as {{ user['fullname'] }}</span>
+    {% else %}
+      <a href="{{ url_for('login') }}">Sign in</a>
+    {% endif %}
+  </td></tr>
+  <tr><td class="content">
+    {% block content %}{% endblock %}
+  </td></tr>
+  <tr><td class="footer">
+    {{ site_name }} Patient Portal, build {{ build }}.
+    This system is for the use of registered patients and practice staff.
+    Problems? Telephone the front desk during surgery hours.
+  </td></tr>
+</table>
+</body>
+</html>

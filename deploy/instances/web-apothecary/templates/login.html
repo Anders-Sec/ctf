@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Sign in</h1>
+
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<form method="post" action="{{ url_for('login') }}">
+  <table class="form" cellpadding="4" cellspacing="0" border="0">
+    <tr>
+      <th><label for="username">Username</label></th>
+      <td><input type="text" id="username" name="username" size="28" /></td>
+    </tr>
+    <tr>
+      <th><label for="password">Password</label></th>
+      <td><input type="password" id="password" name="password" size="28" /></td>
+    </tr>
+    <tr><td></td><td><input type="submit" value="Sign in" class="button" /></td></tr>
+  </table>
+</form>
+
+<div class="notice">
+  <b>Patient portal accounts</b><br />
+  Temporary accounts were issued to all registered patients in 2011 and have not
+  yet been changed over. If you have not set your own password, sign in with:
+  <br /><br />
+  Username: <tt>{{ demo_user }}</tt> &nbsp;&nbsp; Password: <tt>{{ demo_password }}</tt>
+  <br /><br />
+  Contact the front desk to have your password changed.
+</div>
+{% endblock %}

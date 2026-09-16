@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Administration</h1>
+
+<div class="notice">
+  <b>Notice for administrators</b><br />
+  {{ notice }}
+</div>
+
+<p>{{ record_count }} patient records are held on this system.</p>
+
+<h2>Portal accounts</h2>
+<table class="listing" cellpadding="6" cellspacing="0" border="1">
+  <tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th></tr>
+  {% for row in users %}
+  <tr>
+    <td>{{ row['id'] }}</td>
+    <td><tt>{{ row['username'] }}</tt></td>
+    <td>{{ row['fullname'] }}</td>
+    <td>{{ row['role'] }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

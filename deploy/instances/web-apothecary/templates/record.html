@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Patient record {{ record['id'] }}</h1>
+
+<table class="listing" cellpadding="6" cellspacing="0" border="0">
+  <tr><th>Patient</th><td>{{ record['patient'] }}</td></tr>
+  <tr><th>Date of birth</th><td>{{ record['born'] }}</td></tr>
+  <tr><th>Physician</th><td>{{ record['physician'] }}</td></tr>
+  <tr><th>Last seen</th><td>{{ record['seen_on'] }}</td></tr>
+  <tr><th>Summary</th><td>{{ record['summary'] }}</td></tr>
+</table>
+
+<h2>Clinical notes</h2>
+<div class="notes">{{ record['notes'] }}</div>
+
+<p class="nav">
+  <a href="{{ url_for('record') }}?id={{ record['id'] - 1 }}">&laquo; Previous record</a> &nbsp;|&nbsp;
+  <a href="{{ url_for('record') }}?id={{ record['id'] + 1 }}">Next record &raquo;</a>
+</p>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Send a message</h1>
+
+<p>
+  Messages are composed here and queued for the practice's outbound post. Your
+  name and the practice details are added automatically.
+</p>
+
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<form method="post" action="{{ url_for('message') }}">
+  <table class="form" cellpadding="4" cellspacing="0" border="0">
+    <tr>
+      <th><label for="recipient">To</label></th>
+      <td>
+        <select id="recipient" name="recipient">
+          {% for row in patients %}
+          <option value="{{ row['id'] }}">{{ row['patient'] }}</option>
+          {% endfor %}
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <th valign="top"><label for="body">Message</label></th>
+      <td><textarea id="body" name="body" rows="8" cols="52"></textarea></td>
+    </tr>
+    <tr><td></td><td><input type="submit" value="Compose" class="button" /></td></tr>
+  </table>
+</form>
+
+{% if preview %}
+<h2>Queued for sending</h2>
+<pre class="preview">{{ preview }}</pre>
+{% endif %}
+{% endblock %}

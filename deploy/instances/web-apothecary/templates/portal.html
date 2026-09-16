@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Welcome, {{ user['fullname'] }}</h1>
+
+<p>
+  From here you can review your own record, read practice information, and send
+  a message to the surgery.
+</p>
+
+<table class="listing" cellpadding="6" cellspacing="0" border="0">
+  <tr><th>Your record</th><td><a href="{{ url_for('record') }}?id={{ own_record }}">Record {{ own_record }}</a></td></tr>
+  <tr><th>Practice information</th><td><a href="{{ url_for('page') }}?f=welcome.html">Welcome and opening hours</a></td></tr>
+  <tr><th>Repeat prescriptions</th><td><a href="{{ url_for('page') }}?f=prescriptions.html">How to request a repeat</a></td></tr>
+  <tr><th>Contact</th><td><a href="{{ url_for('message') }}">Send a message to the practice</a></td></tr>
+</table>
+{% endblock %}

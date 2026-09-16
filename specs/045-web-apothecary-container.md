@@ -73,8 +73,9 @@ it) · stdlib `sqlite3` · gunicorn, 2 workers × 4 threads · port **8080**.
 deploy/instances/web-apothecary/
   Dockerfile
   entrypoint.py           # materialises this team's flags, scrubs the env, execs
+  flags.py                # where the four flags live, and how they get there
   app.py                  # routes; the four flaws live here and nowhere else
-  db.py                   # read-only SQLite connection helper
+  db.py                   # built at start under /tmp, then opened read-only
   seed.sql                # the invented patients, users and notes
   templates/              # Jinja2 templates for the portal
   static/portal.css       # one stylesheet, deliberately of its era
@@ -184,7 +185,10 @@ SELECT id, username, role FROM portal_user
   `' OR '1'='1` in the *username* field works directly — which is what the hint
   tells the player to reach for. Written the usual way round, `AND` binds tighter
   than `OR` and the bare payload silently fails; that would make the hint wrong.
-  `' OR 1=1 -- ` and the same payload in the password field also work.
+  `' OR 1=1 -- ` in the username field works too. The mirror image does *not*:
+  the same payload in the **password** field fails, because the true test is
+  then ANDed against a username that does not exist. Verified, and covered by a
+  test, so the asymmetry is recorded rather than discovered.
 - A lone apostrophe surfaces the raw SQLite error (`near "...": syntax error`) on
   the login page, so the player can confirm the bug before exploiting it — the
   brief's "visible error or a clear difference in behaviour".
