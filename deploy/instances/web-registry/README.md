@@ -31,9 +31,14 @@ the API can. That asymmetry is what challenges 3 and 4 are built on.
 The re-exec is not decoration: `unsetenv` does not clear `/proc/<pid>/environ`,
 so without it PID 1 would advertise all four flags for the life of the container.
 
-The API's `/healthz` also checks that maintenance is alive, so a container with
-one dead service fails readiness instead of being handed to a team with two
-broken challenges.
+`/healthz` is the readiness endpoint and is deliberately **cheap and local** —
+it does not wait on the maintenance service. Readiness decides whether the pod
+stays in its Service, and coupling that to a loopback HTTP call inside a gVisor
+sandbox means one slow round trip takes all four challenges off the network for
+a minute. The supervisor restarts a dead maintenance process anyway.
+
+`/healthz/deep` is the honest check — it reports both services and returns 503
+when maintenance is down. Use it from a script or by hand, never as a probe.
 
 ### IPv6
 
@@ -70,7 +75,7 @@ reference it **by the name `web-registry`** — it must match exactly.
 | Lifetime | `7200` seconds |
 | One container for every challenge | **yes** |
 | Mint a flag per team | **yes** |
-| Readiness path | `/healthz` |
+| Readiness path | `/healthz` — never `/healthz/deep` |
 | CPU / memory limit | `500m` / `384Mi` — two processes want more room than one |
 
 Egress (`none`) and runtime class (`gvisor`) take their defaults.

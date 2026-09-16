@@ -205,8 +205,22 @@ def shipped_files(image_root):
     import shlex
 
     root = pathlib.Path(image_root)
+    dockerfile = root / "Dockerfile"
+    if not dockerfile.exists():
+        # Running inside the built image: there is no Dockerfile here, and
+        # everything present *is* the shipped set. Tests are mounted in, so they
+        # are the only thing to leave out.
+        return [
+            p
+            for p in root.rglob("*")
+            if p.is_file()
+            and "tests" not in p.parts
+            and "__pycache__" not in p.parts
+            and p.suffix not in {".db", ".pyc"}
+        ]
+
     sources: list[pathlib.Path] = []
-    for line in (root / "Dockerfile").read_text(encoding="utf-8").splitlines():
+    for line in dockerfile.read_text(encoding="utf-8").splitlines():
         if not line.startswith("COPY "):
             continue
         parts = [p for p in shlex.split(line)[1:] if not p.startswith("--")]

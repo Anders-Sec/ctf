@@ -306,3 +306,47 @@ class TestNothingRealIsNamed:
             body = path.read_text(encoding="utf-8", errors="ignore").lower()
             for word in banned:
                 assert word not in body, f"{path.name} mentions {word!r}"
+
+
+class TestReadinessStaysCheap:
+    """Readiness decides whether the pod stays in its Service.
+
+    Coupling that to a loopback HTTP call to the second process meant one slow
+    round trip inside a gVisor sandbox could take all four challenges off the
+    network for a minute. The supervisor restarts a dead maintenance process on
+    its own, so the gate bought nothing and cost availability.
+    """
+
+    def test_healthz_does_not_wait_on_maintenance(self, client, monkeypatch, registry) -> None:
+        api, _, _, _ = registry
+
+        def explode(*_args, **_kwargs):
+            raise AssertionError("readiness must not call the maintenance service")
+
+        monkeypatch.setattr(api.urllib.request, "urlopen", explode)
+
+        response = client.get("/healthz")
+
+        assert response.status_code == 200
+
+    def test_healthz_is_ok_even_when_maintenance_is_unreachable(
+        self, client, monkeypatch, registry
+    ) -> None:
+        api, _, _, _ = registry
+        monkeypatch.setattr(api, "_maintenance_up", lambda: False)
+
+        assert client.get("/healthz").status_code == 200
+
+    def test_the_deep_check_still_reports_the_truth(self, client, monkeypatch, registry) -> None:
+        """Operators and verify.py need the honest answer, just not the probe."""
+        api, _, _, _ = registry
+
+        monkeypatch.setattr(api, "_maintenance_up", lambda: True)
+        healthy = client.get("/healthz/deep")
+        assert healthy.status_code == 200
+        assert healthy.get_json()["maintenance"] is True
+
+        monkeypatch.setattr(api, "_maintenance_up", lambda: False)
+        degraded = client.get("/healthz/deep")
+        assert degraded.status_code == 503
+        assert degraded.get_json()["maintenance"] is False

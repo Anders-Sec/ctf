@@ -123,7 +123,7 @@ def main(base: str) -> int:
         print("yet — this check never reached it.")
         return 1
     check("the API answers", status == 200, f"HTTP {status}: {root}")
-    status, health = call(f"{base}/healthz")
+    status, health = call(f"{base}/healthz/deep")
     check(
         "the maintenance service is up",
         status == 200 and health.get("maintenance") is True,

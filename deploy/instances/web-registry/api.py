@@ -52,6 +52,9 @@ TOKEN_TTL = timedelta(hours=4)
 #: address can be written."
 BLOCKED_HOSTS = {"localhost", "127.0.0.1"}
 
+#: Where the maintenance service listens. Only this process reaches it.
+MAINTENANCE_URL = "http://127.0.0.1:9000"
+
 #: Not part of the puzzle: challenge integrity. Without this,
 #: `file:///tmp/registry/secrets/.flag` ends the area boss from inside a
 #: challenge two difficulty steps below it. The hostname blocklist above — the
@@ -146,21 +149,36 @@ def body() -> dict:
     return data
 
 
+def _maintenance_up() -> bool:
+    try:
+        with urllib.request.urlopen(f"{MAINTENANCE_URL}/healthz", timeout=2) as response:
+            return response.status == 200
+    except OSError:
+        return False
+
+
 @app.route("/healthz")
 def healthz():
-    """Readiness — and it checks the maintenance service too.
+    """Readiness: can *this* container serve? Cheap, local, and always 200.
 
-    Two processes in one container means one of them can die while the other
-    keeps answering. An instance that looks healthy with two broken challenges
-    is worse than one that fails readiness and gets replaced.
+    It deliberately does **not** wait on the maintenance service. Readiness
+    decides whether the pod stays in its Service, and coupling that to a second
+    process over a loopback HTTP call inside a gVisor sandbox means one slow
+    round trip can take all four challenges off the network for a minute — which
+    is exactly the failure this endpoint was meant to prevent. The supervisor in
+    `entrypoint.py` restarts a dead maintenance process anyway, so the gate
+    bought nothing and cost availability.
+
+    `/healthz/deep` is the honest check, for operators and for verify.py.
     """
-    try:
-        with urllib.request.urlopen("http://127.0.0.1:9000/healthz", timeout=2) as response:
-            if response.status != 200:
-                raise OSError("maintenance unhealthy")
-    except OSError:
-        return jsonify({"status": "degraded", "maintenance": False}), 503
-    return jsonify({"status": "ok", "maintenance": True}), 200
+    return jsonify({"status": "ok"}), 200
+
+
+@app.route("/healthz/deep")
+def healthz_deep():
+    """Both services, for a human or a verification script — never for a probe."""
+    up = _maintenance_up()
+    return jsonify({"status": "ok" if up else "degraded", "maintenance": up}), 200 if up else 503
 
 
 @app.route("/")
