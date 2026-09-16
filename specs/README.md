@@ -73,7 +73,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 044 | `044-daily-puzzle-challenges.md` | Content — Wordle, Connections and a crossword mini played inside the challenge description block; a puzzle is an ordinary challenge, one per game per day, 15 across five days for 1,950 XP; server-held answers and sessions, completion awards the solve, failure is terminal | **done** — content (the 15 puzzles) still to author |
 | 045 | `045-web-apothecary-container.md` | Content — the `web-apothecary` challenge image: one hardened Flask/SQLite portal carrying four Web Attacks challenges (IDOR, SQLi auth bypass, single-pass-filtered path traversal, SSTI → RCE), with solve and hardening tests in CI | **draft** |
 | 046 | `046-shared-container-instances.md` | Platform — one container serving several challenges, each with a flag minted per team as an authored stem plus a hex tail; the `dynamic` match type 003 reserved; **amends 009, completes 008 Decision 6** | **done** |
-| 047 | `047-web-registry-container.md` | Content — the `web-registry` challenge image: a JSON API plus a loopback-only maintenance service in one container, carrying mass assignment, JWT forgery, SSRF to loopback, and the province boss (deserialization → RCE, no hints) | **draft** |
+| 047 | `047-web-registry-container.md` | Content — the `web-registry` challenge image: a JSON API plus a loopback-only maintenance service in one container, carrying mass assignment, JWT forgery, SSRF to loopback, and the province boss (deserialization → RCE, no hints) | **done** |
 
 ## Sequencing rationale
 

@@ -84,9 +84,19 @@ jobs:
   # than an event.
   challenge-images:
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: web-apothecary
+            deps: '"flask==3.0.3"'
+          - image: web-registry
+            deps: '"flask==3.0.3" "pyjwt==2.9.0"'
+
     defaults:
       run:
-        working-directory: deploy/instances/web-apothecary
+        working-directory: deploy/instances/${{ matrix.image }}
 
     steps:
       - uses: actions/checkout@v4
@@ -98,7 +108,7 @@ jobs:
       # Pinned to the versions the image installs, so a pass here means a pass
       # in the container.
       - name: Install
-        run: pip install "flask==3.0.3" pytest
+        run: pip install ${{ matrix.deps }} pytest
 
       - name: Test
         run: python -m pytest -q
@@ -158,6 +168,9 @@ jobs:
           # The four Web Attacks challenges in the apothecary (spec 045).
           - name: web-apothecary
             context: deploy/instances/web-apothecary
+          # The other four, including the area boss (spec 047).
+          - name: web-registry
+            context: deploy/instances/web-registry
 
     steps:
       - uses: actions/checkout@v4

@@ -1,6 +1,6 @@
 # Spec 047 — The `web-registry` challenge container
 
-Status: **draft** — awaiting sign-off
+Status: **done**
 Phase: content (Phase 2/3 — challenge images)
 Covers: `Challenge/container-web-registry.md` — the other four Web Attacks
 challenges, including the area boss
@@ -34,8 +34,8 @@ meant to face anybody.
 ```
 player ──HTTP──> :8080  api                 (published, 0.0.0.0)
                           │
-                          └──HTTP──> 127.0.0.1:9000  maintenance
-                                     ::1:9000        (loopback only)
+                          └──HTTP──> 127.0.0.1:9000  maintenance (loopback only)
+                                     [::1]:9000      (when the runtime has IPv6)
 ```
 
 That asymmetry is the entire basis of challenges 3 and 4: a player's browser
@@ -57,10 +57,17 @@ survives contact with the pod:
   **9000** — a thoroughly ordinary place for an internal console, and the second
   hint tells the player to "work through the obvious ports", which 9000 is.
 
-Maintenance listens on **both `127.0.0.1` and `::1`**, so every address form the
-first hint promises will get through the filter — including `[::1]` — actually
-connects once it does. A filter the player defeats only to hit a closed port
-would read as the challenge being broken.
+Maintenance listens on `127.0.0.1` always, and on `::1` **when the runtime has an
+IPv6 loopback address** — probed at start, not assumed. A plain container usually
+has no `::1` at all, and binding an address that does not exist takes gunicorn
+down with it, which would cost the maintenance service and challenges 3 and 4
+with it in exchange for one alternative spelling.
+
+**Corrected during the build.** An earlier version of this spec bound `::1`
+unconditionally, which would not have started in a container without IPv6. The
+four IPv4 spellings — `127.1`, decimal, hex and `0.0.0.0` — work everywhere and
+are enough for the challenge as the hints describe it; `[::1]` works wherever the
+pod has IPv6.
 
 ## Two processes, one PID 1
 
@@ -68,11 +75,19 @@ would read as the challenge being broken.
 no second package:
 
 1. Materialise this team's flags (below).
-2. **Scrub `INSTANCE_ANSWERS`** from its own environment, so neither child ever
-   sees it and neither `/proc/<pid>/environ` carries it.
+2. **Scrub `INSTANCE_ANSWERS` and re-exec itself**, so no `/proc/<pid>/environ`
+   carries it — including its own.
 3. Start maintenance (loopback) and the API (published) as child processes.
 4. Wait. If either child dies, restart it; if it dies repeatedly and immediately,
    exit so the pod restarts cleanly rather than sitting there half-alive.
+
+**Step 2 re-execs, and that was a correction made during the build.** Unsetting
+alone is what the apothecary does, and it works there because that entrypoint
+then `exec`s gunicorn. Here the entrypoint stays resident, and `os.environ.pop`
+calls `unsetenv`, which updates the process's own copy of the environment but
+*not* `/proc/<pid>/environ` — the kernel's record of what was on the stack at
+`execve`. Checking a real container caught PID 1 still advertising all four
+flags; re-exec is what actually clears it, and a test now pins it.
 
 Step 4 is why the entrypoint stays PID 1 instead of `exec`ing the way the
 apothecary does. The apothecary has one process, so `exec` is right there. Here,
@@ -125,14 +140,15 @@ Authentication is a JWT in `Authorization: Bearer`. The brief says build **one**
 of `alg: none` or a weak HS256 secret; the published hint mentions both as
 things to try.
 
-**Recommendation: the weak secret, `changeme`, and not `alg: none`.** At `hard`
-and 225 XP, `alg: none` is a thirty-second win that undersells the challenge,
-while cracking the secret is a real (if short) piece of work with ordinary tools,
-and gives the player something to *do*. The hint offers two things to try, and a
+**Signed off: the weak secret, `changeme`, and not `alg: none`.** At `hard` and
+225 XP, `alg: none` is a thirty-second win that undersells the challenge, while
+cracking the secret is a real (if short) piece of work with ordinary tools, and
+gives the player something to *do*. The hint offers two things to try, and a
 player trying the refused one first and moving on is the ordinary shape of this
 challenge. Building both would mean nobody ever cracks anything.
 
-Flagged as **open question 1**, because it is the brief's explicit choice to make.
+`alg: none` is refused, and a test says so: a later change that started accepting
+unsigned tokens would quietly turn a 225 XP challenge into a free one.
 
 The forged token impersonates **`m.calloway`**, whose private record carries the
 flag. `GET /api/records/mine` returns the caller's own private records — and
@@ -143,8 +159,14 @@ becoming Calloway does.
 ### 3. `Fetch It For Me` — SSRF to loopback — stem `the_server_fetched_it`
 
 `POST /api/fetch` takes a URL, retrieves it server-side, and returns the response
-body. It is framed as a webhook tester, so it also accepts an optional method and
-body — which is how the boss submits a job, and is why that is not a bolt-on.
+body. It is framed as a webhook tester, so it also accepts an optional method,
+body **and headers** — which is how the boss submits a job, and is why that is
+not a bolt-on.
+
+The headers were added during the build, and they are load-bearing: the
+maintenance service has no session with the player and sees only what the API
+sends it, so an administrator token has to be carried *inward* on the fetch.
+Realising that is a step the boss requires and challenge 3 does not.
 
 **The filter is a hostname blocklist**, exactly as the hint describes: the literal
 strings `localhost` and `127.0.0.1` are refused. The name is **not** resolved and
@@ -209,13 +231,14 @@ real work of its own.
 
 | Route | Purpose | Flaw |
 | --- | --- | --- |
+| `GET /` | service banner and endpoint list | — |
 | `POST /api/login` | token for a seeded account | — |
 | `GET /api/profile` | the whole user object, `role` included | (feeds **mass assignment**) |
 | `PATCH /api/profile` | update; binds the whole body | **Mass assignment** |
 | `GET /api/records` | the public record list | — |
 | `GET /api/records/mine` | the caller's own private records | (target of **JWT forgery**) |
 | `GET /api/admin/audit` | admin only; carries flag 1 | — |
-| `POST /api/fetch` | webhook tester; retrieves a URL | **SSRF** |
+| `POST /api/fetch` | webhook tester; URL, method, body, headers | **SSRF** |
 | `GET /healthz` | readiness; also checks maintenance is up | — |
 
 **Maintenance — loopback only, 9000**
@@ -223,7 +246,9 @@ real work of its own.
 | Route | Purpose | Flaw |
 | --- | --- | --- |
 | `GET /` | identifies the service, lists its endpoints | — |
+| `GET /status` | service status | — |
 | `GET /status/flag` | carries flag 3 | — |
+| `GET /healthz` | liveness, for the API's readiness check | — |
 | `POST /jobs` | base64 pickle, unpickled unvalidated, returns the result | **Deserialization → RCE** |
 
 ## Container template
@@ -301,15 +326,29 @@ container as it actually starts.
 4. `/jobs`, the deserialization sink — challenge 4, with the negative tests.
 5. CI entry, README, and the operator's template values.
 
-## Open questions
+## Resolved at sign-off
 
-1. **JWT: weak secret, `alg: none`, or both?** Recommendation above: the weak
-   secret alone. The brief says build one; the hint describes two.
-2. **The prerequisite chain is (1 or 2) and 3**, not 2 and 3. Confirm that is
-   acceptable, or say the boss must demand something promotion cannot give.
-3. **Ports 8080 and 9000** rather than the brief's 80 and 8080. The first is
-   forced by the dropped capabilities; the second follows from it. No hint text
-   changes — "the obvious ports" still describes 9000.
+1. **JWT: the weak secret (`changeme`) alone**, not `alg: none` — which is
+   refused, and there is a test saying so, because a later "fix" that started
+   accepting unsigned tokens would quietly devalue a 225 XP challenge.
+2. **The prerequisite chain is (1 or 2) and 3**, not 2 and 3.
+3. **Ports 8080 and 9000** rather than the brief's 80 and 8080.
+
+## Found during the build
+
+Recorded because each is a thing this spec asserted and reality corrected:
+
+1. **The re-exec** — see "Two processes, one PID 1" above. Unsetting is not
+   scrubbing when the process stays resident.
+2. **Conditional IPv6 binding** — an unconditional `[::1]` bind does not start in
+   a container without IPv6.
+3. **Configurable headers on `/api/fetch`** — without them there is no way to
+   present an admin token to the maintenance service, and the boss is unreachable
+   rather than hard.
+4. **Which loopback spellings work is a property of the environment**, not of the
+   image: Windows resolves none of the IPv4 shorthands and refuses to connect to
+   `0.0.0.0`; a container without IPv6 refuses `[::1]`. The tests pick one that
+   works where they run and skip the rest, saying which and why.
 
 ## Non-goals
 
