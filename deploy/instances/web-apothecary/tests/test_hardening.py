@@ -51,7 +51,7 @@ class TestTheTemplateInjectionFlagStaysPut:
     @posix_only
     def test_proc_self_environ_gives_the_traversal_nothing(self, signed_in) -> None:
         """The same guarantee, through the route that would exploit its absence."""
-        response = signed_in.get("/page?f=" + "....//" * 12 + "proc/self/environ")
+        response = signed_in.get(f"/page?f={traverse('/proc/self/environ')}")
 
         for value in MINTED.values():
             assert value.encode() not in response.data

@@ -105,8 +105,14 @@ class TestUpAndOut:
 
     @posix_only
     def test_nested_traversal_reaches_etc_passwd(self, signed_in) -> None:
-        """The confirmation step the second hint describes."""
-        response = signed_in.get("/page?f=....//....//....//etc/passwd")
+        """The confirmation step the second hint describes.
+
+        Built with `traverse` rather than a fixed number of levels: in the image
+        the pages directory is three deep, but these tests also run against a
+        checkout, which is not. A player counts levels for the container they
+        are attacking; a test has to work out how many it needs.
+        """
+        response = signed_in.get(f"/page?f={traverse('/etc/passwd')}")
 
         assert response.status_code == 200
         assert b"root:" in response.data
