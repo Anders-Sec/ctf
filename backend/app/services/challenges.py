@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import get_settings
 from app.errors import AppError, NotFoundError
 from app.logging import get_logger
 from app.models.challenge import (
@@ -336,6 +337,12 @@ async def submit_answer(
         team_id=team.id if team else None,
         now=now,
     )
+
+    # A shared container winds down once its owner has solved everything it
+    # serves, so the capacity goes back rather than idling out its TTL (046).
+    if challenge.container_template_id is not None:
+        await instance_launcher.note_solved(db, get_settings(), challenge, team, user, now)
+
     return SubmissionOutcome(True, awarded.already_solved, awarded.xp_awarded, remaining)
 
 

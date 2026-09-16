@@ -198,6 +198,7 @@ async def make_template(
     name: str = "Demo Target",
     image: str = "ghcr.io/anders-sec/ctf-demo",
     injects_answer: bool = True,
+    shared_instance: bool = False,
     ttl_seconds: int = 3600,
 ) -> ContainerTemplate:
     template = ContainerTemplate(
@@ -206,6 +207,7 @@ async def make_template(
         image_tag="v1",
         container_port=8080,
         injects_answer=injects_answer,
+        shared_instance=shared_instance,
         ttl_seconds=ttl_seconds,
     )
     session.add(template)

@@ -2,7 +2,8 @@
 
 This is the hole that a shared live target would otherwise open: if every player
 attacking a copy of the same challenge got the same flag, one could hand it to
-another. The answer is generated per instance, so they cannot.
+another. The answer is minted per instance and per challenge, so they cannot
+(spec 009, extended by 046).
 """
 
 import pytest
@@ -11,7 +12,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.instance import ChallengeInstance
+from app.models.instance import ChallengeInstance, ChallengeInstanceAnswer
 from app.models.play import Solve
 from app.models.user import UserStatus
 from tests.factories import make_container_challenge, make_template, make_user
@@ -41,7 +42,12 @@ async def _launch_and_get_answer(client: AsyncClient, db: AsyncSession, challeng
         .scalars()
         .all()[-1]
     )
-    return instance.generated_answer
+    return await db.scalar(
+        select(ChallengeInstanceAnswer.value).where(
+            ChallengeInstanceAnswer.instance_id == instance.id,
+            ChallengeInstanceAnswer.challenge_id == challenge_id,
+        )
+    )
 
 
 class TestPerInstanceAnswer:
@@ -77,7 +83,11 @@ class TestPerInstanceAnswer:
         their_instance = await launcher.launch(
             db_session, app.state.settings, FakeOrchestrator(), challenge.id, other
         )
-        stolen = their_instance.generated_answer
+        stolen = await db_session.scalar(
+            select(ChallengeInstanceAnswer.value).where(
+                ChallengeInstanceAnswer.instance_id == their_instance.id
+            )
+        )
 
         # ...and a different player tries to use it.
         await player(db_session, client, sign_in)

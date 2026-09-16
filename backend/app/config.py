@@ -241,6 +241,11 @@ class Settings(BaseSettings):
     instance_default_ttl_seconds: int = 3600
     #: TTL granted by an extend, while under the cap.
     instance_extend_seconds: int = 1800
+    #: Grace left on a shared container once its owner has solved every challenge
+    #: it serves (spec 046). Not an immediate teardown: the expiry loop already
+    #: destroys correctly, and a few minutes means the container does not vanish
+    #: out from under a teammate still reading what they just solved.
+    instance_completion_grace_seconds: int = 300
     #: The image-pull secret the platform copied into the instance namespace.
     instance_image_pull_secret: str = "ghcr-pull"
     #: The wildcard-cert secret in the instance namespace (cert-manager issues it).

@@ -56,6 +56,7 @@ def _template_response(template: ContainerTemplate) -> TemplateResponse:
         protocol=template.protocol.value,
         ttl_seconds=template.ttl_seconds,
         injects_answer=template.injects_answer,
+        shared_instance=template.shared_instance,
     )
 
 
@@ -85,6 +86,7 @@ async def create_template(
         protocol=InstanceProtocol.HTTP,
         ttl_seconds=payload.ttl_seconds,
         injects_answer=payload.injects_answer,
+        shared_instance=payload.shared_instance,
         readiness_path=payload.readiness_path,
         cpu_limit=payload.cpu_limit,
         memory_limit=payload.memory_limit,
@@ -175,10 +177,18 @@ async def _instance_response(
     db: AsyncSession, instance: ChallengeInstance
 ) -> AdminInstanceResponse:
     title = await db.scalar(select(Challenge.title).where(Challenge.id == instance.challenge_id))
+    template = (
+        await db.scalar(
+            select(ContainerTemplate.name).where(ContainerTemplate.id == instance.template_id)
+        )
+        if instance.template_id is not None
+        else None
+    )
     return AdminInstanceResponse(
         id=instance.id,
         challenge_id=instance.challenge_id,
         challenge_title=title or "(unknown)",
+        template_name=template,
         status=instance.status,
         owner_label=await _owner_label(db, instance),
         connection_url=instance.connection_url,

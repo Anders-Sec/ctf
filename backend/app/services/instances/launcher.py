@@ -7,6 +7,7 @@ Kubernetes library. The two things worth reading carefully are the per-owner cap
 `refresh`, which is what the poll endpoint calls.
 """
 
+import json
 import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -17,15 +18,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import Settings
 from app.errors import AppError, NotFoundError
 from app.logging import get_logger
-from app.models.challenge import Challenge, ChallengeState
+from app.models.challenge import Challenge, ChallengeAnswer, ChallengeState, MatchType
 from app.models.instance import (
     LIVE_STATUSES,
     ChallengeInstance,
+    ChallengeInstanceAnswer,
     ContainerTemplate,
     InstanceProtocol,
     InstanceStatus,
 )
-from app.models.team import Team
+from app.models.play import Solve
+from app.models.team import Team, TeamMembership
 from app.models.user import User
 from app.services.instances.manifests import InstanceSpec
 from app.services.instances.orchestrator import InstanceOrchestrator
@@ -33,9 +36,19 @@ from app.services.user_cache import load_active_team
 
 logger = get_logger(__name__)
 
-#: Env var name the demo image (and real challenge images) read the per-instance
-#: answer from. Baked into the target at launch.
+#: Env var name a single-challenge image reads its per-instance answer from.
+#: Kept from spec 009 so the demo image and anything like it is untouched.
 ANSWER_ENV = "INSTANCE_ANSWER"
+
+#: Env var a multi-challenge image reads from: a JSON object of challenge slug to
+#: minted flag (spec 046). Slug-keyed because a slug survives a retitle and is
+#: already the CSV's match key.
+ANSWERS_ENV = "INSTANCE_ANSWERS"
+
+#: Length of the per-team tail, in bytes — eight hex characters. Guessing is not
+#: the threat (003 rate-limits submissions); sharing is. Eight keeps a flag short
+#: enough to retype off a terminal.
+TAIL_BYTES = 4
 
 
 class InstancesUnavailable(AppError):
@@ -69,6 +82,17 @@ def _dns_name() -> str:
 
 def _generate_answer() -> str:
     return "flag{" + secrets.token_hex(12) + "}"
+
+
+def _mint(stem: str) -> str:
+    """One challenge's flag for one instance: the authored stem, a fresh tail.
+
+    Called once per challenge per launch, so every sibling gets a tail of its
+    own. A tail shared across an instance's challenges would be worse than
+    useless: the stems are the challenge titles, so a team that solved the easy
+    one could type the hard one's flag without exploiting anything.
+    """
+    return "flag{" + stem + "_" + secrets.token_hex(TAIL_BYTES) + "}"
 
 
 async def _owner(db: AsyncSession, user: User) -> tuple[Team | None, User]:
@@ -108,6 +132,86 @@ async def _lock_owner(db: AsyncSession, team: Team | None, user: User) -> None:
         await db.execute(select(User.id).where(User.id == user.id).with_for_update())
 
 
+async def _served_challenges(
+    db: AsyncSession, template: ContainerTemplate, challenge: Challenge, now: datetime
+) -> list[Challenge]:
+    """Every published challenge this instance will serve.
+
+    One challenge for an ordinary template; all of a shared template's published
+    challenges, because the container is handed its flags once at launch and
+    cannot be topped up afterwards. A player is then free to work them in any
+    order.
+    """
+    if not template.shared_instance:
+        return [challenge]
+
+    rows = (
+        (await db.execute(select(Challenge).where(Challenge.container_template_id == template.id)))
+        .scalars()
+        .all()
+    )
+    published = [c for c in rows if c.effective_state(now) == ChallengeState.PUBLISHED]
+    # A sibling published after this launch has no flag here; relaunching is what
+    # fixes it, and the TTL makes that happen anyway.
+    return published or [challenge]
+
+
+async def _stems(db: AsyncSession, challenge_ids: list[UUID]) -> dict[UUID, str]:
+    """Each challenge's dynamic stem, for the challenges that declare one."""
+    if not challenge_ids:
+        return {}
+    rows = (
+        (
+            await db.execute(
+                select(ChallengeAnswer).where(
+                    ChallengeAnswer.challenge_id.in_(challenge_ids),
+                    ChallengeAnswer.match_type == MatchType.DYNAMIC,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    # First rule wins if somebody has written two; display_order is the author's
+    # stated preference.
+    stems: dict[UUID, str] = {}
+    for rule in sorted(rows, key=lambda r: (r.display_order, r.created_at)):
+        stems.setdefault(rule.challenge_id, rule.value.strip())
+    return stems
+
+
+async def _mint_answers(
+    db: AsyncSession,
+    instance: ChallengeInstance,
+    template: ContainerTemplate,
+    challenge: Challenge,
+    now: datetime,
+) -> list[tuple[Challenge, ChallengeInstanceAnswer]]:
+    """Mint one flag per challenge this instance serves.
+
+    A challenge with no dynamic rule is skipped rather than given a random flag:
+    it is solved by its static answer, and inventing one nobody can reach would
+    turn a working challenge into an unsolvable one.
+    """
+    if not template.injects_answer:
+        return []
+
+    served = await _served_challenges(db, template, challenge, now)
+    stems = await _stems(db, [c.id for c in served])
+
+    minted: list[tuple[Challenge, ChallengeInstanceAnswer]] = []
+    for served_challenge in served:
+        stem = stems.get(served_challenge.id)
+        value = _mint(stem) if stem else _generate_answer()
+        row = ChallengeInstanceAnswer(
+            instance_id=instance.id, challenge_id=served_challenge.id, value=value
+        )
+        db.add(row)
+        minted.append((served_challenge, row))
+    await db.flush()
+    return minted
+
+
 async def launch(
     db: AsyncSession,
     settings: Settings,
@@ -126,10 +230,15 @@ async def launch(
     await _lock_owner(db, team, owner_user)
     live = await _live_for_owner(db, team, owner_user)
 
-    # Idempotent for the same challenge: a second launch returns the one they have
-    # rather than a duplicate that also eats the cap.
+    # Idempotent for the same target: a second launch returns the one they have
+    # rather than a duplicate that also eats the cap. For a shared template the
+    # target is the *template*, so the second, third and fourth challenge in an
+    # area all arrive here and get the container that is already running.
     for existing in live:
-        if existing.challenge_id == challenge.id:
+        if template.shared_instance:
+            if existing.template_id == template.id:
+                return existing
+        elif existing.challenge_id == challenge.id:
             return existing
 
     if len(live) >= settings.instance_max_per_owner:
@@ -142,13 +251,13 @@ async def launch(
         owner_user_id=None if team is not None else owner_user.id,
         k8s_name=_dns_name(),
         status=InstanceStatus.PENDING,
-        generated_answer=_generate_answer() if template.injects_answer else None,
         expires_at=now + timedelta(seconds=template.ttl_seconds),
     )
     db.add(instance)
     await db.flush()
 
-    spec = _spec_for(settings, instance, template)
+    minted = await _mint_answers(db, instance, template, challenge, now)
+    spec = _spec_for(settings, instance, template, minted)
     host, authorise = _exposure(settings, instance)
     try:
         result = await orchestrator.launch(
@@ -233,8 +342,22 @@ async def extend(
 async def find_for_owner(
     db: AsyncSession, challenge_id: UUID, team: Team | None, user: User
 ) -> ChallengeInstance | None:
-    """The player's live instance for a challenge, if any — the GET/DELETE target."""
+    """The player's live instance for a challenge, if any — the GET/DELETE target.
+
+    For a shared template this finds the instance whichever of the template's
+    challenges it was launched from, which is what lets a team work four
+    challenges in one container (spec 046).
+    """
     live = await _live_for_owner(db, team, user)
+    if not live:
+        return None
+
+    challenge = await db.get(Challenge, challenge_id)
+    template_id = challenge.container_template_id if challenge else None
+    template = await db.get(ContainerTemplate, template_id) if template_id else None
+
+    if template is not None and template.shared_instance:
+        return next((i for i in live if i.template_id == template.id), None)
     return next((i for i in live if i.challenge_id == challenge_id), None)
 
 
@@ -259,11 +382,20 @@ def _exposure(settings: Settings, instance: ChallengeInstance) -> tuple[str | No
 
 
 def _spec_for(
-    settings: Settings, instance: ChallengeInstance, template: ContainerTemplate
+    settings: Settings,
+    instance: ChallengeInstance,
+    template: ContainerTemplate,
+    minted: list[tuple[Challenge, ChallengeInstanceAnswer]],
 ) -> InstanceSpec:
     env = dict(template.env)
-    if template.injects_answer and instance.generated_answer:
-        env[ANSWER_ENV] = instance.generated_answer
+    if len(minted) == 1:
+        # A single-challenge image keeps spec 009's variable and needs to know
+        # nothing about any of this.
+        env[ANSWER_ENV] = minted[0][1].value
+    if minted:
+        env[ANSWERS_ENV] = json.dumps(
+            {served.slug: answer.value for served, answer in minted}, sort_keys=True
+        )
 
     owner_kind = "team" if instance.owner_team_id else "user"
     owner_id = str(instance.owner_team_id or instance.owner_user_id)
@@ -315,16 +447,131 @@ async def _load_container_challenge(
 async def answer_matches(
     db: AsyncSession, challenge_id: UUID, team: Team | None, user: User, submitted: str
 ) -> bool:
-    """Whether a submission equals *this player's own* instance's answer.
+    """Whether a submission equals *this player's own* flag for this challenge.
 
-    The correct string is unique per instance, so one player cannot pass another
-    the answer (008 Decision 6). A player with no live instance simply cannot
-    match, which is right — there is nothing to have solved.
+    The correct string is unique per instance and per challenge, so one team
+    cannot pass another the answer, and solving one challenge in a shared
+    container does not hand over its siblings (008 Decision 6, spec 046). A
+    player with no live instance simply cannot match, which is right — there is
+    nothing to have solved.
     """
     instance = await find_for_owner(db, challenge_id, team, user)
-    if instance is None or not instance.generated_answer:
+    if instance is None:
         return False
-    return secrets.compare_digest(submitted.strip(), instance.generated_answer)
+
+    value = await db.scalar(
+        select(ChallengeInstanceAnswer.value).where(
+            ChallengeInstanceAnswer.instance_id == instance.id,
+            ChallengeInstanceAnswer.challenge_id == challenge_id,
+        )
+    )
+    if not value:
+        return False
+    # Casefolded, as every other flag in the event is: a player who types the
+    # tail in capitals has still solved it.
+    return secrets.compare_digest(submitted.strip().casefold(), value.casefold())
+
+
+async def shared_challenge_count(db: AsyncSession, challenge: Challenge) -> int:
+    """How many *other* published challenges share this one's container.
+
+    Zero for every ordinary template, so the player's panel is unchanged for
+    everything that existed before spec 046. Only published siblings are
+    counted — the number must never reveal a draft.
+    """
+    if challenge.container_template_id is None:
+        return 0
+    template = await db.get(ContainerTemplate, challenge.container_template_id)
+    if template is None or not template.shared_instance:
+        return 0
+
+    now = datetime.now(UTC)
+    siblings = (
+        (
+            await db.execute(
+                select(Challenge).where(
+                    Challenge.container_template_id == template.id,
+                    Challenge.id != challenge.id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return sum(1 for c in siblings if c.effective_state(now) == ChallengeState.PUBLISHED)
+
+
+async def note_solved(
+    db: AsyncSession,
+    settings: Settings,
+    challenge: Challenge,
+    team: Team | None,
+    user: User,
+    now: datetime | None = None,
+) -> None:
+    """Start the wind-down once an owner has solved everything their container serves.
+
+    Shortens the TTL to the grace window rather than destroying: the expiry loop
+    already tears down correctly under its advisory lock, so this needs no second
+    destruction path. It only ever shortens — an instance already expiring sooner
+    is left alone, and a player who wants longer can still press extend.
+    """
+    if challenge.container_template_id is None:
+        return
+    template = await db.get(ContainerTemplate, challenge.container_template_id)
+    if template is None or not template.shared_instance:
+        return
+
+    instance = await find_for_owner(db, challenge.id, team, user)
+    if instance is None or instance.status not in LIVE_STATUSES:
+        return
+
+    now = now or datetime.now(UTC)
+    served = await _served_challenges(db, template, challenge, now)
+
+    # Solves belong to players, never to parties (spec 003), but the container
+    # belongs to the party — and dividing the work is what a party is for (008
+    # Decision 4). So the owner is finished when every challenge has been solved
+    # by *someone currently in it*, not when one person has solved them all.
+    if team is not None:
+        solver_ids = list(
+            (
+                await db.execute(
+                    select(TeamMembership.user_id).where(
+                        TeamMembership.team_id == team.id,
+                        TeamMembership.removed_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    else:
+        solver_ids = [user.id]
+
+    solved = set(
+        (
+            await db.execute(
+                select(Solve.challenge_id).where(
+                    Solve.user_id.in_(solver_ids),
+                    Solve.challenge_id.in_([c.id for c in served]),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if any(c.id not in solved for c in served):
+        return
+
+    deadline = now + timedelta(seconds=settings.instance_completion_grace_seconds)
+    if deadline < instance.expires_at:
+        instance.expires_at = deadline
+        await db.flush()
+        logger.info(
+            "instance_completed",
+            extra={"instance": instance.k8s_name, "template": template.name},
+        )
 
 
 async def count_live(db: AsyncSession) -> int:

@@ -18,12 +18,18 @@ class InstanceResponse(BaseModel):
     #: Set when provisioning failed, so the UI can say what went wrong rather
     #: than spinning forever.
     error: str | None
+    #: How many *other* published challenges this container also serves (046).
+    #: Zero for an ordinary template, so the panel is unchanged for those.
+    shared_challenge_count: int = 0
 
 
 class AdminInstanceResponse(BaseModel):
     id: UUID
     challenge_id: UUID
     challenge_title: str
+    #: Which image this is, so one container owned by a party that has solved
+    #: three challenges reads as correct rather than as a leak (spec 046).
+    template_name: str | None
     status: InstanceStatus
     owner_label: str
     connection_url: str | None
@@ -40,6 +46,8 @@ class CreateTemplateRequest(BaseModel):
     protocol: str = "http"
     ttl_seconds: int = 3600
     injects_answer: bool = True
+    #: One container for every challenge bound to this template (spec 046).
+    shared_instance: bool = False
     readiness_path: str = "/"
     cpu_limit: str = "250m"
     memory_limit: str = "256Mi"
@@ -54,3 +62,4 @@ class TemplateResponse(BaseModel):
     protocol: str
     ttl_seconds: int
     injects_answer: bool
+    shared_instance: bool

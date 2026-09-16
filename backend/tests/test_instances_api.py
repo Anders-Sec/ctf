@@ -1,12 +1,14 @@
 """Launching, polling, the cap and teardown, end to end against the fake (spec 009)."""
 
+import json
+
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.instance import ChallengeInstance, InstanceStatus
+from app.models.instance import ChallengeInstance, ChallengeInstanceAnswer, InstanceStatus
 from app.models.user import UserStatus
 from app.services.instances.fake import FakeOrchestrator
 from tests.factories import make_container_challenge, make_template, make_user
@@ -70,7 +72,7 @@ class TestLaunch:
         rows = (await db_session.execute(select(ChallengeInstance))).scalars().all()
         assert len(rows) == 1
 
-    async def test_the_generated_answer_reaches_the_container_env(
+    async def test_the_minted_answer_reaches_the_container_env(
         self,
         app: FastAPI,
         client: AsyncClient,
@@ -86,9 +88,17 @@ class TestLaunch:
         await client.post(f"/api/challenges/{challenge.id}/instance")
 
         instance = (await db_session.execute(select(ChallengeInstance))).scalar_one()
+        minted = await db_session.scalar(
+            select(ChallengeInstanceAnswer.value).where(
+                ChallengeInstanceAnswer.instance_id == instance.id
+            )
+        )
         pod = orchestrator.pods[instance.k8s_name].manifests["pod"]
         env = {e["name"]: e["value"] for e in pod["spec"]["containers"][0]["env"]}
-        assert env["INSTANCE_ANSWER"] == instance.generated_answer
+        # A single-challenge template keeps spec 009's variable...
+        assert env["INSTANCE_ANSWER"] == minted
+        # ...and also gets the slug-keyed object every image can read.
+        assert json.loads(env["INSTANCE_ANSWERS"]) == {challenge.slug: minted}
 
     async def test_a_non_container_challenge_is_refused(
         self, app: FastAPI, client: AsyncClient, db_session: AsyncSession, sign_in

@@ -13,6 +13,7 @@ from fastapi import APIRouter, Request, Response
 
 from app.api.deps import AppSettings, DbSession, Player, RedisClient, get_orchestrator
 from app.errors import NotFoundError
+from app.models.challenge import Challenge
 from app.schemas.instances import InstanceResponse
 from app.services import achievements as achievement_service
 from app.services.cookies import ACCESS_COOKIE
@@ -27,7 +28,7 @@ def _orch(request: Request) -> InstanceOrchestrator:
     return get_orchestrator(request)
 
 
-def _response(instance) -> InstanceResponse:  # noqa: ANN001 - ChallengeInstance row
+def _response(instance, shared: int = 0) -> InstanceResponse:  # noqa: ANN001 - row
     return InstanceResponse(
         id=instance.id,
         challenge_id=instance.challenge_id,
@@ -35,7 +36,16 @@ def _response(instance) -> InstanceResponse:  # noqa: ANN001 - ChallengeInstance
         connection_url=instance.connection_url,
         expires_at=instance.expires_at,
         error=instance.last_error,
+        shared_challenge_count=shared,
     )
+
+
+async def _shared(db, challenge_id: UUID) -> int:  # noqa: ANN001 - AsyncSession
+    """How many other published challenges this one's container also serves."""
+    challenge = await db.get(Challenge, challenge_id)
+    if challenge is None:
+        return 0
+    return await launcher.shared_challenge_count(db, challenge)
 
 
 @router.post("/challenges/{challenge_id}/instance", status_code=201)
@@ -53,7 +63,7 @@ async def launch_instance(
     await achievement_service.evaluate(
         db, current.user.id, achievement_service.INSTANCE, redis=redis
     )
-    return _response(instance)
+    return _response(instance, await _shared(db, challenge_id))
 
 
 @router.get("/challenges/{challenge_id}/instance")
@@ -69,7 +79,7 @@ async def get_instance(
     if instance is None:
         raise NotFoundError("You have no instance for this challenge.")
     instance = await launcher.refresh(db, settings, _orch(request), instance)
-    return _response(instance)
+    return _response(instance, await _shared(db, challenge_id))
 
 
 @router.delete("/challenges/{challenge_id}/instance", status_code=204)
@@ -117,4 +127,4 @@ async def extend_instance(
     if instance is None:
         raise NotFoundError("You have no instance for this challenge.")
     instance = await launcher.extend(db, settings, instance)
-    return _response(instance)
+    return _response(instance, await _shared(db, challenge_id))
