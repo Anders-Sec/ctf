@@ -1,6 +1,6 @@
 # Spec Index & Sequencing
 
-Working index of Phase 1 feature specs. Each spec is written, signed off, and
+Working index of every feature spec. Each spec is written, signed off, and
 implemented one at a time (see `CLAUDE.md`). This file records the intended order
 and why — it is a plan, not a commitment; later specs may be resequenced as we
 learn things.
@@ -8,7 +8,7 @@ learn things.
 Status legend: `draft` (written, awaiting sign-off) · `approved` · `building` ·
 `done` · `not written`
 
-## Phase 1 status: complete
+## Status: Phase 1 and 2 complete; Phase 3 in progress
 
 **All Phase 1 specs (001–013) are done.** Every Definition-of-Done item in
 `Plan.md` is built and covered by tests, with two steps that are deliberately the
@@ -74,6 +74,46 @@ lore, art, a wider tone pass) is intentionally not started.
 | 045 | `045-web-apothecary-container.md` | Content — the `web-apothecary` challenge image: one hardened Flask/SQLite portal carrying four Web Attacks challenges (IDOR, SQLi auth bypass, single-pass-filtered path traversal, SSTI → RCE), with solve and hardening tests in CI | **draft** |
 | 046 | `046-shared-container-instances.md` | Platform — one container serving several challenges, each with a flag minted per team as an authored stem plus a hex tail; the `dynamic` match type 003 reserved; **amends 009, completes 008 Decision 6** | **done** |
 | 047 | `047-web-registry-container.md` | Content — the `web-registry` challenge image: a JSON API plus a loopback-only maintenance service in one container, carrying mass assignment, JWT forgery, SSRF to loopback, and the province boss (deserialization → RCE, no hints) | **done** |
+| 048 | `048-design-tokens-and-theming.md` | Phase 3 — semantic colour tokens, the migration off `bg-white`/literals, four curated presets, per-user and event-default theme | **draft** |
+| 049 | `049-admin-navigation.md` | Phase 3 — grouped persistent sidebar replacing the twelve-tab row, practical admin naming, badge counts, Live Instances split from Container Templates | **draft** |
+| 050 | `050-event-metrics.md` | Phase 3 — event-operations metrics: attempt-to-solve drift, near-miss detection, stalled players, progression and hint economy | **draft** |
+| 051 | `051-audit-log-and-admin-scoreboard.md` | Phase 3 — two read-only pages over endpoints that already exist and render nowhere; **closes two Phase 1 DoD gaps** | **draft** |
+| 052 | `052-user-management.md` | Phase 3 — the roster the approvals queue was standing in for; detail panel, enable/disable, roles, assistant block, resend magic link | **draft** |
+| 053 | `053-party-administration.md` | Phase 3 — admin control over parties: move a member, transfer leadership, rename, size cap, disband, stranded join requests | **draft** |
+| 054 | `054-announcements.md` | Phase 3 — announcements as a page with history, read counts and scheduling, off the bottom of the dashboard | **draft** |
+| 055 | `055-email-delivery-log.md` | Phase 3 — persist every outbound send so "the guest never got their link" is answerable; status band and test-send | **draft** |
+| 056 | `056-event-export.md` | Phase 3 — results out: standings, awards sheet, solves, submissions (redacted by default), full archive | **draft** |
+| 057 | `057-platform-health.md` | Phase 3 — one staff-facing screen for dependency, connection, build and load state; explicitly not observability | **draft** |
+
+## Phase 3 sequencing
+
+Phase 3's admin specs (048–057) were **written as a batch before any of them was
+implemented**, so the information architecture could be settled once rather than
+renegotiated per page. They are still implemented one at a time, in the order
+below; `CLAUDE.md` carries the amended rule.
+
+- **048 first, and it blocks everything.** The app cannot currently be themed —
+  ~100 raw `bg-white/xx` uses across 41 component files, plus colour literals and
+  a `torch` token doing duty as both brand accent and alert colour. Any page built
+  before that migration is a page built twice.
+- **049 second** because 050–057 all add sidebar entries, and adding eight items
+  to a twelve-tab row that is already overflowing would be building on the thing
+  being replaced.
+- **051 early among the rest** — it is the cheapest (two tables over finished
+  endpoints) and it closes two Phase 1 Definition-of-Done gaps, so it is the one
+  that pays back soonest.
+- **052 before 053**, since party administration links into the player detail
+  panel and reuses its drawer pattern.
+- **055 alongside or after 052**, because its most valuable placement is inside
+  the player detail panel rather than on its own page.
+- **050, 054, 056, 057 are independent** of each other and can be taken in any
+  order once 049 lands.
+
+The **quality-of-life workstream** (`Plan.md` §4) is specced *after* this batch,
+from the findings of a manual walkthrough of every surface. Two findings are
+already recorded there: System AI chat usability on mobile, and challenge
+navigation losing its place after a solve.
+
 
 ## Sequencing rationale
 
