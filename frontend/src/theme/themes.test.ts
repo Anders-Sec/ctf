@@ -237,3 +237,24 @@ describe("the anti-flash stamp in index.html", () => {
     expect(HTML).toContain(`"${THEME_STORAGE_KEY}"`);
   });
 });
+
+describe("themes do not disturb motion preferences", () => {
+  // Spec 023 budgeted the map's animations deliberately and turns every one of
+  // them off under reduced-motion. A theme changes colour; it must not be able
+  // to reintroduce movement behind that guard.
+  const INDEX_CSS = readFileSync(resolve(process.cwd(), "src/index.css"), "utf8");
+
+  it("keeps the reduced-motion guards in place", () => {
+    const guards = INDEX_CSS.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? [];
+    expect(guards.length).toBeGreaterThanOrEqual(2);
+    for (const name of ["dungeon-torch", "dungeon-fog", "dungeon-mote"]) {
+      expect(INDEX_CSS).toContain(name);
+    }
+  });
+
+  it("defines no animation or transition in any theme block", () => {
+    for (const id of THEME_IDS) {
+      expect(block(id)).not.toMatch(/animation|transition|@keyframes/);
+    }
+  });
+});
