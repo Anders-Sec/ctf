@@ -1,11 +1,13 @@
 """Request and response models for authentication and the current user."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
 from app.models.user import UserRole, UserSource, UserStatus
+from app.theme import FALLBACK_THEME
 
 
 class MagicLinkRequest(BaseModel):
@@ -18,6 +20,12 @@ class MagicLinkVerify(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     display_name: str = Field(min_length=2, max_length=64)
+
+
+class UpdateThemeRequest(BaseModel):
+    #: Null clears the choice, returning the user to the event default. That is
+    #: distinct from picking the default explicitly, which pins them to it.
+    theme: str | None = None
 
 
 class TeamSummary(BaseModel):
@@ -64,6 +72,12 @@ class MeResponse(BaseModel):
     #: means the panel opens on the terms rather than the transcript — known on
     #: load, so the first thing a player sees is not a failed send.
     assistant_terms_accepted: bool = False
+    #: The theme to render (spec 048) — already resolved, so the client never
+    #: re-implements the precedence rule.
+    theme: str = FALLBACK_THEME
+    #: Where that theme came from, so the picker can say "following the event
+    #: default" instead of pretending the user chose it.
+    theme_source: Literal["user", "event"] = "event"
 
 
 class EventSummary(BaseModel):

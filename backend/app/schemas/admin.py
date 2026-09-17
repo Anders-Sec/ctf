@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.user import UserRole, UserSource, UserStatus
+from app.theme import THEME_IDS
 
 
 class UserSummary(BaseModel):
@@ -52,6 +53,9 @@ class UpdateEventConfigRequest(BaseModel):
     #: the wrong tool at 11pm on day two.
     assistant_enabled: bool | None = None
     fog_of_war: bool | None = None
+    #: The theme served to everyone who has not chosen one (spec 048). Null
+    #: clears it back to the platform default.
+    default_theme: str | None = None
 
 
 class EventConfigResponse(BaseModel):
@@ -61,4 +65,8 @@ class EventConfigResponse(BaseModel):
     registration_open: bool
     assistant_enabled: bool
     fog_of_war: bool
+    default_theme: str | None
+    #: Every selectable theme, so the settings page renders the picker from the
+    #: server's roster rather than its own copy of the list.
+    themes: list[str] = list(THEME_IDS)
     server_time: datetime

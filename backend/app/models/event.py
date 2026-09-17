@@ -49,6 +49,11 @@ class EventConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Boolean, nullable=False, default=True, server_default="true"
     )
 
+    #: The theme served to everyone who has not chosen one (spec 048). Null
+    #: means the platform default, so an event that never sets this still
+    #: renders.
+    default_theme: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     updated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True
     )

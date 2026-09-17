@@ -37,6 +37,7 @@ async def make_user(
     status: UserStatus = UserStatus.ACTIVE,
     role: UserRole = UserRole.PLAYER,
     entra_object_id: uuid.UUID | None = None,
+    theme: str | None = None,
 ) -> User:
     user = User(
         email=email or f"player-{uuid.uuid4().hex[:12]}@example.com",
@@ -45,6 +46,7 @@ async def make_user(
         status=status,
         role=role,
         entra_object_id=entra_object_id,
+        theme=theme,
     )
     session.add(user)
     await session.flush()

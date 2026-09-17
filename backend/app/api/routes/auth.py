@@ -13,7 +13,7 @@ from app.api.deps import (
     RedisClient,
 )
 from app.config import Settings
-from app.errors import AppError
+from app.errors import AppError, ConflictError
 from app.logging import get_logger
 from app.models.user import User
 from app.schemas.auth import (
@@ -25,6 +25,7 @@ from app.schemas.auth import (
     MessageResponse,
     TeamSummary,
     UpdateProfileRequest,
+    UpdateThemeRequest,
     UserResponse,
 )
 from app.services import assistant_terms, identity, magic_link
@@ -43,6 +44,7 @@ from app.services.sessions import (
     rotate_session,
 )
 from app.services.user_cache import get_cached_membership, invalidate
+from app.theme import is_theme, resolve_theme
 
 logger = get_logger(__name__)
 
@@ -336,6 +338,10 @@ async def me(
             and (event is None or event.assistant_enabled)
         ),
         assistant_terms_accepted=terms_accepted,
+        # Resolved server-side so the client never re-implements the precedence
+        # rule, and so an unrecognised stored value cannot reach the browser.
+        theme=resolve_theme(current.user.theme, event.default_theme if event else None),
+        theme_source="user" if is_theme(current.user.theme) else "event",
         team=TeamSummary(**team) if team else None,
         capabilities=CapabilitiesResponse(**current.capabilities.to_dict()),
         event=(
@@ -364,6 +370,30 @@ def _user_response(user: User) -> UserResponse:
         has_avatar=user.avatar_blob is not None,
         created_at=user.created_at,
     )
+
+
+@router.patch("/me/theme")
+async def update_theme(
+    payload: UpdateThemeRequest,
+    # Authenticated, not ActiveUser: a guest waiting on approval is still
+    # looking at the site, and should be able to turn the lights down.
+    current: Authenticated,
+    db: DbSession,
+    redis: RedisClient,
+) -> MessageResponse:
+    """Set or clear this user's theme (spec 048).
+
+    A name we do not recognise is refused rather than stored. The read path
+    falls back safely, but accepting a value that will never render would be
+    storing a lie about what the user asked for.
+    """
+    if payload.theme is not None and not is_theme(payload.theme):
+        raise ConflictError(f"Unknown theme: {payload.theme}", code="unknown_theme")
+
+    current.user.theme = payload.theme
+    await db.flush()
+    await invalidate(redis, current.user.id)
+    return MessageResponse(message="Theme updated.")
 
 
 @router.patch("/me")

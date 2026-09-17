@@ -96,6 +96,16 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: every unlock evaluation.
     ai_ladder_leaked_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    #: The chosen theme (spec 048). Null means "follow the event default", which
+    #: is not the same as having chosen the default — it is what lets an admin
+    #: move everyone who has not expressed a preference.
+    #:
+    #: Held as a plain string rather than an enum: the roster lives in
+    #: ``app.theme`` and in the frontend's CSS, and a database enum would add a
+    #: migration to every preset added or removed. An unrecognised value falls
+    #: back rather than raising (see ``app.theme.resolve_theme``).
+    theme: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     approved_at: Mapped[datetime | None] = mapped_column(nullable=True)
     approved_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True

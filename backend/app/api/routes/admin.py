@@ -30,6 +30,7 @@ from app.services.identity import record_audit
 from app.services.mail import send_approval_notice
 from app.services.sessions import REVOKED_DISABLED, revoke_all_for_user
 from app.services.user_cache import invalidate
+from app.theme import is_theme
 
 logger = get_logger(__name__)
 
@@ -259,6 +260,10 @@ async def update_event_config(
     changes: dict[str, object] = {}
     fields = payload.model_dump(exclude_unset=True)
 
+    theme = fields.get("default_theme")
+    if theme is not None and not is_theme(theme):
+        raise ConflictError(f"Unknown theme: {theme}", code="unknown_theme")
+
     starts_at = fields.get("starts_at", config.starts_at)
     ends_at = fields.get("ends_at", config.ends_at)
     if starts_at and ends_at and ends_at <= starts_at:
@@ -293,6 +298,7 @@ def _event_response(config: EventConfig) -> EventConfigResponse:
         starts_at=config.starts_at,
         ends_at=config.ends_at,
         registration_open=config.registration_open,
+        default_theme=config.default_theme,
         server_time=datetime.now(UTC),
     )
 
