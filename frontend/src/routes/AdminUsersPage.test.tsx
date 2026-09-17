@@ -54,6 +54,10 @@ function render(users: AdminUser[], detailBody: UserDetail = detail()) {
         body: me({ capabilities: capabilities({ view_admin: true, administer: true }) }),
       };
     }
+    if (path.includes("/admin/email/deliveries")) {
+      // The drawer shows a guest's sign-in links (spec 055 §4).
+      return { status: 200, body: { total: 0, entries: [] } };
+    }
     if (/\/admin\/users\/[0-9a-f-]+$/.test(path)) {
       return { status: 200, body: detailBody };
     }

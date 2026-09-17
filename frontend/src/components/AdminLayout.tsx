@@ -87,7 +87,6 @@ const NOT_YET_BUILT = new Set([
   "/admin/metrics",
   "/admin/announcements",
   "/admin/health",
-  "/admin/email",
   "/admin/export",
 ]);
 

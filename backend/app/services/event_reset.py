@@ -33,6 +33,7 @@ from app.models.assistant import (
     TermsAcceptance,
 )
 from app.models.character_class import ClassPreference
+from app.models.email import EmailDelivery
 from app.models.guardrail import AssistantFinding
 from app.models.hint import HintUnlock
 from app.models.instance import ChallengeInstance
@@ -63,6 +64,7 @@ class ResetGroup(enum.StrEnum):
     AI_LADDER = "ai_ladder"
     CLASS_CHOICES = "class_choices"
     PUZZLE_SESSIONS = "puzzle_sessions"
+    EMAIL_DELIVERIES = "email_deliveries"
 
 
 #: Group -> (label, the tables it counts). The label is what the confirm dialog
@@ -100,6 +102,10 @@ GROUPS: dict[ResetGroup, tuple[str, list[type]]] = {
     #: failed, and a re-run event would open with players still locked out of
     #: days they lost the first time round.
     ResetGroup.PUZZLE_SESSIONS: ("Puzzle play", [PuzzleSession]),
+    #: Spec 055. Its own group so a reset between a rehearsal and the real event
+    #: clears the rehearsal's sends rather than leaving them to muddy the
+    #: failure rate on the Email Delivery page.
+    ResetGroup.EMAIL_DELIVERIES: ("Email delivery log", [EmailDelivery]),
 }
 
 

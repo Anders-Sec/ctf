@@ -10,6 +10,7 @@ import AdminChallengesPage from "./routes/AdminChallengesPage";
 import AdminClassesPage from "./routes/AdminClassesPage";
 import AdminDashboardPage from "./routes/AdminDashboardPage";
 import AdminDataPage from "./routes/AdminDataPage";
+import AdminEmailPage from "./routes/AdminEmailPage";
 import AdminEventPage from "./routes/AdminEventPage";
 import AdminInstancesPage from "./routes/AdminInstancesPage";
 import AdminMapPage from "./routes/AdminMapPage";
@@ -124,16 +125,7 @@ export default function App() {
           <Route path="event" element={<AdminEventPage />} />
           <Route path="theme" element={<AdminThemePage />} />
           <Route path="templates" element={<AdminTemplatesPage />} />
-          <Route
-            path="email"
-            element={
-              <AdminPlaceholderPage
-                title="Email Delivery"
-                spec="055-email-delivery-log.md"
-                summary="Whether a guest's sign-in link actually went out, and whether the relay is working at all."
-              />
-            }
-          />
+          <Route path="email" element={<AdminEmailPage />} />
           <Route
             path="export"
             element={

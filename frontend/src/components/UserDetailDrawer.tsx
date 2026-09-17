@@ -12,7 +12,9 @@ import {
   setUserRole,
 } from "../api/admin";
 import type { UserRole } from "../api/auth";
+import { listDeliveries } from "../api/adminEmail";
 import { useSession } from "../auth/session";
+import DeliveryTable from "./DeliveryTable";
 import ErrorMessage from "./ErrorMessage";
 import Spinner from "./Spinner";
 
@@ -43,6 +45,13 @@ export default function UserDetailDrawer({
   const detail = useQuery({
     queryKey: ["admin", "users", userId],
     queryFn: () => getUser(userId),
+  });
+
+  // Spec 055 §4: "I never got the link" is answered in the place you are
+  // already standing, rather than on a separate page.
+  const mail = useQuery({
+    queryKey: ["admin", "email", "deliveries", userId],
+    queryFn: () => listDeliveries({ user_id: userId, limit: 10 }),
   });
 
   const refresh = async () => {
@@ -196,6 +205,16 @@ export default function UserDetailDrawer({
                 </ul>
               )}
             </Section>
+
+            {user.source === "guest" && (
+              <Section title="Sign-in links">
+                {mail.data ? (
+                  <DeliveryTable rows={mail.data.entries} showRecipient={false} />
+                ) : (
+                  <p className="text-sm text-content-muted">Checking…</p>
+                )}
+              </Section>
+            )}
 
             {canWrite && (
               <Section title="Actions">

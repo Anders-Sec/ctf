@@ -32,6 +32,7 @@ from app.models.character_class import (
     ClassRequirement,
     Rarity,
 )
+from app.models.email import EmailDelivery, EmailKind, EmailStatus
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.guardrail import (
     AssistantFinding,
@@ -126,6 +127,9 @@ __all__ = [
     "Hint",
     "InstanceProtocol",
     "InstanceStatus",
+    "EmailDelivery",
+    "EmailKind",
+    "EmailStatus",
     "HintUnlock",
     "MagicLinkToken",
     "Team",
