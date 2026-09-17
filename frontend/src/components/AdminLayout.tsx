@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { getDashboard } from "../api/adminOps";
+import { getDashboard, type Dashboard } from "../api/adminOps";
+import { useAdminView } from "../auth/adminView";
 
 /**
  * The admin shell (spec 049).
@@ -95,6 +96,8 @@ const REFRESH_MS = 10_000;
 export default function AdminLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const [, setAdminView] = useAdminView();
 
   // The same payload the dashboard already polls, so the badges cost nothing
   // beyond what the console was fetching anyway.
@@ -104,6 +107,7 @@ export default function AdminLayout() {
     refetchInterval: REFRESH_MS,
   });
   const counts = dashboard.data?.nav_counts;
+  const event = dashboard.data?.event;
 
   // Navigating is the signal that you are done with the menu.
   useEffect(() => setDrawerOpen(false), [location.pathname]);
@@ -135,6 +139,22 @@ export default function AdminLayout() {
           </ul>
         </div>
       ))}
+
+      {/* Pinned to the bottom: standing context for every page above it, and the
+          one cross-over control. */}
+      <div className="mt-auto border-t border-border pt-3">
+        <EventClock event={event} />
+        <button
+          type="button"
+          onClick={() => {
+            setAdminView(false);
+            navigate("/");
+          }}
+          className="mt-2 w-full rounded border border-border px-2 py-1 text-xs hover:bg-surface-sunken"
+        >
+          Player view
+        </button>
+      </div>
     </nav>
   );
 
@@ -209,5 +229,33 @@ function SidebarLink({ item, count }: { item: Item; count: number | undefined })
         </span>
       )}
     </NavLink>
+  );
+}
+
+/**
+ * Whether the event is running, and the clock it is running against.
+ *
+ * Standing context for every page above it — "has the event started" changes
+ * how you read the dashboard, the metrics and the challenge states — and it
+ * costs nothing, because the dashboard payload is already being polled for the
+ * badges.
+ */
+function EventClock({ event }: { event: Dashboard["event"] | undefined }) {
+  if (!event) return null;
+
+  return (
+    <p className="px-2 text-xs text-content-muted">
+      <span className="block truncate font-medium text-content">
+        {event.name ?? "Unnamed event"}
+      </span>
+      <span className={event.running ? "text-success" : "text-content-muted"}>
+        {event.running ? "running" : "not running"}
+      </span>
+      {" · "}
+      {/* The server clock, because that is the one the gates use. */}
+      <span className="tabular-nums">
+        {new Date(event.server_time).toLocaleTimeString()}
+      </span>
+    </p>
   );
 }

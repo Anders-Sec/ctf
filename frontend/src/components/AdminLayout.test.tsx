@@ -35,7 +35,19 @@ function render(
       };
     }
     if (path.endsWith("/admin/dashboard")) {
-      return { status: 200, body: { nav_counts } };
+      return {
+        status: 200,
+        body: {
+          nav_counts,
+          event: {
+            name: "Autumn Crawl",
+            starts_at: "2026-09-06T09:00:00Z",
+            ends_at: "2026-09-08T17:00:00Z",
+            running: true,
+            server_time: "2026-09-06T12:00:00Z",
+          },
+        },
+      };
     }
     return { status: 200, body: {} };
   });
@@ -153,6 +165,22 @@ describe("AdminLayout", () => {
     expect(
       within(sidebar()).getByRole("link", { name: /Reports & Adjustments/ }),
     ).not.toHaveTextContent("0");
+  });
+
+  it("carries the event clock, because it changes how every page reads", async () => {
+    render();
+    await screen.findByText("dashboard");
+
+    const nav = within(sidebar());
+    expect(await nav.findByText("Autumn Crawl")).toBeInTheDocument();
+    expect(nav.getByText("running")).toBeInTheDocument();
+  });
+
+  it("offers the way back to the player view at the foot of the sidebar", async () => {
+    render();
+    await screen.findByText("dashboard");
+
+    expect(within(sidebar()).getByRole("button", { name: /player view/i })).toBeInTheDocument();
   });
 
   it("opens a drawer on narrow screens and closes it on Escape", async () => {

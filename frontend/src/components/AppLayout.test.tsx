@@ -58,37 +58,37 @@ describe("AppLayout navigation", () => {
 
   it("drops the player tabs when Admin view is clicked", async () => {
     // Since spec 049 the admin area navigates by the sidebar in AdminLayout,
-    // not by tabs here. All this bar does in admin view is get out of the way
-    // and offer the route back.
+    // not by tabs here. All this bar does in admin view is get out of the way.
+    // The route back out lives at the foot of that sidebar.
     render(true);
 
     await userEvent.click(await screen.findByRole("button", { name: /admin view/i }));
 
-    expect(await screen.findByRole("button", { name: /player view/i })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: /CTF/ })).toHaveAttribute("href", "/admin"),
+    );
     expect(screen.queryByRole("link", { name: "Challenges" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Scoreboard" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /CTF/ })).toHaveAttribute("href", "/admin");
-  });
-
-  it("goes back to the player tabs on Player view", async () => {
-    render(true);
-    await userEvent.click(await screen.findByRole("button", { name: /admin view/i }));
-    await userEvent.click(await screen.findByRole("button", { name: /player view/i }));
-
-    expect(await screen.findByRole("link", { name: "Challenges" })).toBeInTheDocument();
+    // Offering the way in twice would be the confusing half of a toggle.
+    expect(screen.queryByRole("button", { name: /admin view/i })).not.toBeInTheDocument();
   });
 
   it("remembers the admin-view choice across a remount", async () => {
     render(true);
     await userEvent.click(await screen.findByRole("button", { name: /admin view/i }));
-    await screen.findByRole("button", { name: /player view/i });
+    await waitFor(() =>
+      expect(screen.queryByRole("link", { name: "Challenges" })).not.toBeInTheDocument(),
+    );
 
-    // A fresh mount reads the persisted choice.
+    // A fresh mount reads the persisted choice. The first mount is still in
+    // the document — cleanup runs between tests, not within one — so this
+    // asserts on the newest brand link rather than assuming there is one.
     vi.unstubAllGlobals();
     render(true);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /player view/i })).toBeInTheDocument();
+      const brands = screen.getAllByRole("link", { name: /CTF/ });
+      expect(brands[brands.length - 1]).toHaveAttribute("href", "/admin");
     });
   });
 });

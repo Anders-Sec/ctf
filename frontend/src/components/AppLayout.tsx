@@ -34,10 +34,6 @@ export default function AppLayout() {
     setAdminView(true);
     navigate("/admin");
   };
-  const enterPlayerView = () => {
-    setAdminView(false);
-    navigate("/");
-  };
 
   return (
     <div className="min-h-screen">
@@ -83,14 +79,16 @@ export default function AppLayout() {
           <span className="ml-auto flex items-center gap-3">
             {me?.capabilities.play && <NotificationCentre />}
             <ThemePicker />
-            {isAdmin && (
-              // The one cross-over control. Player view is the default so an
-              // admin can see the event as a player does.
+            {isAdmin && !showingAdmin && (
+              // The way in. The way back out is at the foot of the admin
+              // sidebar (spec 049 §7), where it is beside the rest of the admin
+              // chrome rather than floating above it. Player view is the
+              // default so an admin sees the event as a player does.
               <button
-                onClick={showingAdmin ? enterPlayerView : enterAdminView}
+                onClick={enterAdminView}
                 className="rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised"
               >
-                {showingAdmin ? "Player view" : "Admin view"}
+                Admin view
               </button>
             )}
             {me && (
