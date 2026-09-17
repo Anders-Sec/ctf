@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
 import { SessionProvider } from "./auth/session";
+import "./theme/themes.css";
 import "./index.css";
 
 const queryClient = new QueryClient({
