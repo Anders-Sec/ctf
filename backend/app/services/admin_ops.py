@@ -4,18 +4,25 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from redis.asyncio import Redis
 from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings
 from app.errors import AppError, ConflictError, NotFoundError
+from app.logging import get_logger
 from app.models.challenge import Challenge, ChallengeAnswer, ChallengeState
 from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.instance import ChallengeInstance, InstanceStatus
 from app.models.play import ScoreAdjustment, Solve, Submission
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.team import Team
 from app.models.user import User, UserStatus
+from app.services import signals
 from app.services.identity import record_audit
+
+logger = get_logger(__name__)
 
 #: Below this, an attempt count says nothing — three wrong guesses on a hard
 #: challenge is a Tuesday, not a broken answer rule.
@@ -277,7 +284,69 @@ async def _count(db: AsyncSession, stmt: Select) -> int:
     return (await db.scalar(stmt)) or 0
 
 
-async def dashboard(db: AsyncSession) -> dict:
+#: How long a cached signal count is good for. Signals are six analyses over the
+#: whole submission history — far too expensive to recompute on the sidebar's
+#: 10-second poll, and a badge that is a minute stale is still a badge that gets
+#: you to look.
+SIGNAL_COUNT_TTL_SECONDS = 60
+_SIGNAL_COUNT_KEY = "admin:nav:open_signals"
+
+
+async def open_signal_count(db: AsyncSession, redis: Redis, settings: Settings) -> int:
+    """Undismissed anti-cheat findings, cached.
+
+    Falls back to reporting zero rather than failing the dashboard: a badge is
+    the least important thing on the page, and the console has to render when
+    Redis is unhappy.
+    """
+    try:
+        cached = await redis.get(_SIGNAL_COUNT_KEY)
+        if cached is not None:
+            return int(cached)
+    except Exception:
+        logger.warning("nav_signal_count_cache_read_failed")
+
+    results = await signals.compute(db, settings)
+    total = sum(len(findings) for findings in results.values())
+
+    try:
+        await redis.set(_SIGNAL_COUNT_KEY, total, ex=SIGNAL_COUNT_TTL_SECONDS)
+    except Exception:
+        logger.warning("nav_signal_count_cache_write_failed")
+    return total
+
+
+async def nav_counts(db: AsyncSession, redis: Redis, settings: Settings) -> dict:
+    """What the admin sidebar badges (spec 049 §5).
+
+    Lives on the dashboard payload rather than four endpoints of its own: the
+    shell already polls this one on a timer, and four more parallel polls from
+    every open console is a self-inflicted load test.
+    """
+    return {
+        "open_reports": await _count(
+            db,
+            select(func.count())
+            .select_from(ChallengeReport)
+            .where(ChallengeReport.status == ReportStatus.OPEN),
+        ),
+        "pending_approvals": await _count(
+            db,
+            select(func.count())
+            .select_from(User)
+            .where(User.status == UserStatus.PENDING_APPROVAL),
+        ),
+        "open_signals": await open_signal_count(db, redis, settings),
+        "failed_instances": await _count(
+            db,
+            select(func.count())
+            .select_from(ChallengeInstance)
+            .where(ChallengeInstance.status == InstanceStatus.FAILED),
+        ),
+    }
+
+
+async def dashboard(db: AsyncSession, redis: Redis, settings: Settings) -> dict:
     """The whole console in one response.
 
     One request rather than six: it refreshes on a timer, and six parallel polls
@@ -371,6 +440,7 @@ async def dashboard(db: AsyncSession) -> dict:
                 if c.suspected_broken
             ],
         },
+        "nav_counts": await nav_counts(db, redis, settings),
         # Filled in by spec 009. A visible empty slot beats pretending.
         "containers": {"available": False, "note": "Instances arrive with spec 009."},
     }

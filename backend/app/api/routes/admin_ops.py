@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Query, Request, status
 from sqlalchemy import select
 
-from app.api.deps import Admin, DbSession, Player, RedisClient, Staff
+from app.api.deps import Admin, AppSettings, DbSession, Player, RedisClient, Staff
 from app.models.audit import AuditLog
 from app.models.challenge import Challenge
 from app.models.play import ScoreAdjustment
@@ -272,8 +272,10 @@ async def triage_report(
 
 
 @router.get("/admin/dashboard")
-async def dashboard(db: DbSession, current: Staff) -> dict:
-    return await admin_ops.dashboard(db)
+async def dashboard(
+    db: DbSession, redis: RedisClient, settings: AppSettings, current: Staff
+) -> dict:
+    return await admin_ops.dashboard(db, redis, settings)
 
 
 @router.get("/admin/challenge-health")
