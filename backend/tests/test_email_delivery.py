@@ -2,7 +2,7 @@
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
@@ -10,6 +10,20 @@ from app.models.email import EmailDelivery, EmailKind, EmailStatus
 from app.models.user import UserRole, UserStatus
 from app.services import mail
 from tests.factories import make_user
+
+
+@pytest.fixture(autouse=True)
+async def _clear_deliveries(db_session: AsyncSession):
+    """Start each test with an empty log.
+
+    ``_record`` commits its own session — deliberately, since the senders run as
+    background tasks after the response — so these rows outlive the per-test
+    transaction and even the test run. Without this, sends from every other test
+    in the suite dilute the failure rate this file asserts on.
+    """
+    await db_session.execute(delete(EmailDelivery))
+    await db_session.commit()
+    yield
 
 
 async def admin(db_session: AsyncSession, client: AsyncClient, sign_in):
