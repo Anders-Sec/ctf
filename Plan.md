@@ -117,7 +117,7 @@ Also in this workstream: responsive behaviour on player-facing surfaces (a
 meaningful share of 200 people will be on phones), and consistent empty, loading
 and error states.
 
-### Missing admin surfaces to be built this phase
+### Missing admin surfaces to be built this phase — **all built (specs 050–057)**
 
 Identified by walking the current admin area against what a five-day event
 actually asks for. Three of these are gaps against Phase 1's own Definition of

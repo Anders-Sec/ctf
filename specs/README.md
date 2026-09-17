@@ -76,14 +76,14 @@ lore, art, a wider tone pass) is intentionally not started.
 | 047 | `047-web-registry-container.md` | Content — the `web-registry` challenge image: a JSON API plus a loopback-only maintenance service in one container, carrying mass assignment, JWT forgery, SSRF to loopback, and the province boss (deserialization → RCE, no hints) | **done** |
 | 048 | `048-design-tokens-and-theming.md` | Phase 3 — semantic colour tokens, the migration off `bg-white`/literals, four curated presets, per-user and event-default theme | **done** |
 | 049 | `049-admin-navigation.md` | Phase 3 — grouped persistent sidebar replacing the twelve-tab row, practical admin naming, badge counts, Live Instances split from Container Templates | **done** |
-| 050 | `050-event-metrics.md` | Phase 3 — event-operations metrics: attempt-to-solve drift, near-miss detection, stalled players, progression and hint economy | **draft** |
+| 050 | `050-event-metrics.md` | Phase 3 — event-operations metrics: attempt-to-solve drift, near-miss detection, stalled players, progression and hint economy | **done** |
 | 051 | `051-audit-log-and-admin-scoreboard.md` | Phase 3 — two read-only pages over endpoints that already exist and render nowhere; **closes two Phase 1 DoD gaps** | **done** |
-| 052 | `052-user-management.md` | Phase 3 — the roster the approvals queue was standing in for; detail panel, enable/disable, roles, assistant block, resend magic link | **draft** |
-| 053 | `053-party-administration.md` | Phase 3 — admin control over parties: move a member, transfer leadership, rename, size cap, disband, stranded join requests | **draft** |
-| 054 | `054-announcements.md` | Phase 3 — announcements as a page with history, read counts and scheduling, off the bottom of the dashboard | **draft** |
-| 055 | `055-email-delivery-log.md` | Phase 3 — persist every outbound send so "the guest never got their link" is answerable; status band and test-send | **draft** |
-| 056 | `056-event-export.md` | Phase 3 — results out: standings, awards sheet, solves, submissions (redacted by default), full archive | **draft** |
-| 057 | `057-platform-health.md` | Phase 3 — one staff-facing screen for dependency, connection, build and load state; explicitly not observability | **draft** |
+| 052 | `052-user-management.md` | Phase 3 — the roster the approvals queue was standing in for; detail panel, enable/disable, roles, assistant block, resend magic link | **done** |
+| 053 | `053-party-administration.md` | Phase 3 — admin control over parties: move a member, transfer leadership, rename, size cap, disband, stranded join requests | **done** |
+| 054 | `054-announcements.md` | Phase 3 — announcements as a page with history, read counts and scheduling, off the bottom of the dashboard | **done** |
+| 055 | `055-email-delivery-log.md` | Phase 3 — persist every outbound send so "the guest never got their link" is answerable; status band and test-send | **done** |
+| 056 | `056-event-export.md` | Phase 3 — results out: standings, awards sheet, solves, submissions (redacted by default), full archive | **done** |
+| 057 | `057-platform-health.md` | Phase 3 — one staff-facing screen for dependency, connection, build and load state; explicitly not observability | **done** |
 
 ## Phase 3 sequencing
 
@@ -109,10 +109,15 @@ below; `CLAUDE.md` carries the amended rule.
 - **050, 054, 056, 057 are independent** of each other and can be taken in any
   order once 049 lands.
 
-The **quality-of-life workstream** (`Plan.md` §4) is specced *after* this batch,
-from the findings of a manual walkthrough of every surface. Two findings are
-already recorded there: System AI chat usability on mobile, and challenge
-navigation losing its place after a solve.
+**All ten are built (048–057).** Every missing admin surface in `Plan.md`'s
+table now exists and is reachable from the sidebar, and the three that were gaps
+against Phase 1's own Definition of Done — the audit log, the admin scoreboard
+and real user management — are closed.
+
+The **quality-of-life workstream** (`Plan.md` §4) is next, and is specced from
+the findings of a manual walkthrough of every surface rather than up front. Two
+findings are already recorded there: System AI chat usability on mobile, and
+challenge navigation losing its place after a solve.
 
 
 ## Sequencing rationale
