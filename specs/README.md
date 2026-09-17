@@ -85,6 +85,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 056 | `056-event-export.md` | Phase 3 — results out: standings, awards sheet, solves, submissions (redacted by default), full archive | **done** |
 | 057 | `057-platform-health.md` | Phase 3 — one staff-facing screen for dependency, connection, build and load state; explicitly not observability | **done** |
 | 058 | `058-content-admin-consistency.md` | Phase 3 QoL — one shape for all four Content pages: New button, search and filters, grouped lists with a drawer, full CRUD and bulk actions; achievement rewards become editable, and **secret themes unlock by achievement** (resolves 048 §11.4) | **approved** (2026-09-17) |
+| 059 | `059-player-scoreboard.md` | Phase 3 QoL — the player and party boards rebuilt: no XP anywhere, boss stars deduplicated and coloured, loot titles and class surfaced, top-ten-plus-you framing, search, party panel and click-through to a character sheet | **draft** |
 
 ## Phase 3 sequencing
 
@@ -115,8 +116,12 @@ table now exists and is reachable from the sidebar, and the three that were gaps
 against Phase 1's own Definition of Done — the audit log, the admin scoreboard
 and real user management — are closed.
 
-The **quality-of-life workstream** (`Plan.md` §4) is next, and is specced from
-the findings of a manual walkthrough of every surface rather than up front. Two
+The **quality-of-life workstream** (`Plan.md` §4) is specced from the findings
+of a manual walkthrough of every surface rather than up front. In progress:
+
+- **058** — Content admin pages. Backend done; the four pages themselves are
+  **not yet built**.
+- **059** — The player and party scoreboards. Two
 findings are already recorded there: System AI chat usability on mobile, and
 challenge navigation losing its place after a solve.
 
