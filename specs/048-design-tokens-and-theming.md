@@ -208,7 +208,64 @@ are the places reality pushed back.
    the class matched nothing. The Wordle "not in the word" tile and a puzzle
    badge have had no background since spec 044. Both now use `puzzle-absent`.
 
-## 10. Open questions
+## 10. Amendment — the toggle, and the secret themes
+
+Requested after reviewing the built presets (2026-09-17). This replaces §4's
+four-preset picker and part of §5.
+
+**Torchlight is dropped.** It was meant to be the high-contrast dark, and next
+to Dark Dungeon it read as the same theme. Two values apart is not a preset.
+
+**The everyday control becomes a light/dark toggle, not a picker.** Two themes
+carry it — Parchment and Dark Dungeon — and a toggle is the right shape for a
+two-way choice: one click, no menu, no reading. A picker earns its place when
+there is something to choose between, and there no longer is.
+
+**High Contrast becomes its own switch**, on a new player settings page, not an
+entry in the theme list. It is an accessibility need rather than a taste, and
+mixing it into a list of looks asks people to browse for it. It **overrides**
+the light/dark choice while it is on, and turning it off returns the player to
+whichever side of the toggle they were on — so it is a second axis, not a third
+theme, and that is why it needs its own stored field.
+
+### 10.1 Secret themes
+
+Three themes that exist but are not offered in the toggle. How a player comes to
+have one is deliberately undecided — see §11.4 — so for now they are selectable
+by the admin (for the event default and for their own account) and by nobody
+else.
+
+| Theme | What it is |
+| --- | --- |
+| **Purple Squirrel** | The team's in-joke. Dark mode in purple, with squirrels across the background. A gag, and **exempt from the contrast rules** — that exemption is declared in the roster and asserted by the test, so it is a recorded decision rather than a theme that quietly fails. |
+| **DND** | Rustic and dungeon-like. Tavern candlelight rather than the parchment page. |
+| **The Mr. Anderson** | Green on black. Matrix terminal. |
+
+DND and Mr. Anderson are held to AA like every non-exempt theme. Green on black
+clears it comfortably; it is the gag theme that needed the exemption.
+
+### 10.2 What this changes in the model
+
+`user.theme` keeps holding a theme id, and gains a companion:
+
+- **`user.high_contrast`** — boolean. While true, High Contrast is served
+  whatever `theme` says. Storing it separately is what lets the switch be
+  reversible without the platform having to remember a "previous theme".
+- Resolution becomes: `high_contrast ? "high-contrast" : (user.theme ?? event.default_theme ?? "parchment")`.
+
+`event_config.default_theme` is unchanged, and the admin may set it to any theme
+including a secret one — an event themed as Mr. Anderson for a day is a thing
+someone will want.
+
+### 10.3 Surfaces
+
+- **The top bar** carries the light/dark toggle. It replaces the picker.
+- **A player settings page** (`/settings`) carries appearance, the High Contrast
+  switch, and — once §11.4 is decided — any secret theme the player holds.
+- **The admin theme page** lists every theme, secret ones included and marked as
+  such, for both the event default and the admin's own account.
+
+## 11. Open questions
 
 Signed off 2026-09-17. Each recommendation below was accepted as written
 unless a **Decision** line says otherwise.
@@ -220,6 +277,17 @@ unless a **Decision** line says otherwise.
 2. **Does High Contrast belong in the same picker as the flavour themes?** It is
    an accessibility setting, not a taste. Recommend keeping it in one list — a
    separate "accessibility" menu is a place people do not look.
+4. **How is a secret theme unlocked?** Deferred deliberately. The obvious
+   candidates are an achievement award (spec 028's substrate already exists), a
+   konami-style input, or a flag submitted against a challenge that awards
+   nothing else. Recommend hanging it off achievements when it is decided — the
+   roster, the award records and the notification are all already built, so it
+   would be a lookup rather than a mechanism.
+5. **Should High Contrast have a dark variant?** It is currently one
+   light-based palette, and a player who needs maximum contrast *and* a dark
+   screen is not served. Recommend leaving it as one until someone asks: two
+   high-contrast palettes is two more things to keep passing the contrast test,
+   for a combination nobody has yet requested.
 3. ~~**What happens to the illustrated map under a dark theme?**~~ **Resolved
    during implementation: the map is theme-invariant.** Its glow colours are
    defined once (§9.4) and `DungeonMap.tsx` is allow-listed in the colour linter
