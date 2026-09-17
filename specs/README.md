@@ -84,7 +84,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 055 | `055-email-delivery-log.md` | Phase 3 — persist every outbound send so "the guest never got their link" is answerable; status band and test-send | **done** |
 | 056 | `056-event-export.md` | Phase 3 — results out: standings, awards sheet, solves, submissions (redacted by default), full archive | **done** |
 | 057 | `057-platform-health.md` | Phase 3 — one staff-facing screen for dependency, connection, build and load state; explicitly not observability | **done** |
-| 058 | `058-content-admin-consistency.md` | Phase 3 QoL — one shape for all four Content pages: New button, search and filters, grouped lists with a drawer, full CRUD and bulk actions; achievement rewards become editable, and **secret themes unlock by achievement** (resolves 048 §11.4) | **approved** (2026-09-17) |
+| 058 | `058-content-admin-consistency.md` | Phase 3 QoL — one shape for all four Content pages: New button, search and filters, grouped lists with a drawer, full CRUD and bulk actions; achievement rewards become editable, and **secret themes unlock by achievement** (resolves 048 §11.4) | **done** |
 | 059 | `059-player-scoreboard.md` | Phase 3 QoL — the player and party boards rebuilt: no XP anywhere, boss stars deduplicated and coloured, loot titles and class surfaced, top-ten-plus-you framing, search, party panel and click-through to a character sheet | **approved** (2026-09-17) |
 
 ## Phase 3 sequencing
@@ -119,8 +119,8 @@ and real user management — are closed.
 The **quality-of-life workstream** (`Plan.md` §4) is specced from the findings
 of a manual walkthrough of every surface rather than up front. In progress:
 
-- **058** — Content admin pages. Backend done; the four pages themselves are
-  **not yet built**.
+- **058** — Content admin pages. **Done.** Challenges keeps its own table
+  rather than adopting the shared components; see 058 §10 for why.
 - **059** — The player and party scoreboards. Two
 findings are already recorded there: System AI chat usability on mobile, and
 challenge navigation losing its place after a solve.

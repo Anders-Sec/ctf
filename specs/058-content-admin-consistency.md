@@ -102,7 +102,8 @@ do not, the extraction changed behaviour and that is a bug, not a refactor.
 ### Classes
 
 - **Group by** rarity — it is the axis the roster is authored along, and
-  `common` through `mythic` is a natural six-group split of 48.
+  `common` through `mythic` is a natural split of 48. (Five groups, not six:
+  the `Rarity` enum is common/uncommon/rare/legendary/mythic.)
 - **Group summary**: `12 classes · 3 with no requirements`.
 - **Filters**: Rarity, Has requirements, Has preferences, *Needs copy* (the
   description is still null or placeholder).
@@ -273,3 +274,50 @@ Signed off 2026-09-17. All three decided as below.
 3. ~~**A direct admin grant?**~~ **Yes, in the Users page.** A per-theme toggle
    in the user detail drawer (spec 052), so a theme can be handed to one player
    without inventing an achievement for them. See §5.1.
+
+## 10. Deviations, as built
+
+### Challenges keeps its own table
+
+§2 said the five shared pieces would be *extracted* from Challenges, which
+implies Challenges then uses them. It does not. `ContentPage`,
+`ContentFilterBar`, `ContentGroupList`, `ContentDrawer` and `ContentBulkBar` are
+modelled on it and used by the other three pages; `ChallengeTable` is untouched.
+
+The reason is that its rows and headers are not the generic ones. A challenge row
+edits difficulty, XP and state **in place**, and a zone header carries that
+zone's XP budget against a target (`ZONE_XP_BUDGET`, `ZONE_EXPECTED_ROWS`) plus
+its boss status. Generalising those would have meant rewriting 410 lines of
+working, well-tested code so that it could arrive at the shape it already has,
+and §3's own constraint — *its tests must pass untouched* — is the constraint a
+rewrite is least likely to hold.
+
+The outcome §2 wanted is four pages that look and work alike, and that is met.
+What is not met is one implementation behind all four, so a change to the shared
+shape has to be made twice. That is the cost, and it is recorded here rather than
+discovered later.
+
+*Verified: no Challenges test was modified, and all of them pass.*
+
+### Two small additions
+
+- **`useSelection`**, a hook beside the components. The awkward part of a
+  selection is identical on all three pages — a filter that hides a selected row
+  must not widen what a bulk action does — so it is written once.
+- **`Field`, `SelectBox`, `RowFlag`, `inputClass`**, exported alongside. Not in
+  §2's table, but without them each drawer lays its fields out slightly
+  differently, which is the thing this spec exists to stop.
+
+### Found while building
+
+Two bugs, neither the subject of this spec:
+
+- **The Classes page's Affinity dropdown did nothing.** It sent
+  `affinity_skill_id`, a field `UpdateClassRequest` does not have; pydantic
+  ignores unknown keys, so every selection returned 200 and changed nothing.
+  Spec 024 replaced affinity with preferences and the control was never removed.
+  Its test asserted the *request body* rather than any effect, so it passed
+  throughout. Preferences editing replaces it.
+- **`Skill.challenge_count` was missing from the frontend type**, so the count
+  the list endpoint had been computing since this spec's backend pass was
+  discarded on arrival.
