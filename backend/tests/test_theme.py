@@ -5,8 +5,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import EVENT_CONFIG_ID, EventConfig
-from app.models.user import UserRole, UserStatus
 from app.models.theme_unlock import UnlockSource
+from app.models.user import UserRole, UserStatus
 from app.services import theme_unlocks
 from app.theme import (
     FALLBACK_THEME,

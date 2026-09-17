@@ -33,9 +33,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("theme", sa.String(length=32), nullable=False),
-        sa.Column(
-            "source", sa.Enum("achievement", "admin", name="unlock_source"), nullable=False
-        ),
+        sa.Column("source", sa.Enum("achievement", "admin", name="unlock_source"), nullable=False),
         sa.Column(
             "source_achievement_id",
             postgresql.UUID(as_uuid=True),
