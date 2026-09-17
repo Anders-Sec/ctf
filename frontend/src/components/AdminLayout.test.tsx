@@ -91,7 +91,9 @@ describe("AdminLayout", () => {
       "Metrics",
       "System AI",
       "Live Instances",
-      "Approvals",
+      "Users",
+      "Parties",
+      "Scoreboard",
       "Audit Log",
       "Announcements",
       "Platform Health",
@@ -154,7 +156,7 @@ describe("AdminLayout", () => {
     await waitFor(() =>
       expect(nav.getByRole("link", { name: /Reports & Adjustments/ })).toHaveTextContent("3"),
     );
-    expect(nav.getByRole("link", { name: /Approvals/ })).toHaveTextContent("7");
+    expect(nav.getByRole("link", { name: /Users/ })).toHaveTextContent("7");
   });
 
   it("shows no badge at zero", async () => {

@@ -15,6 +15,7 @@ import AdminEventPage from "./routes/AdminEventPage";
 import AdminInstancesPage from "./routes/AdminInstancesPage";
 import AdminMapPage from "./routes/AdminMapPage";
 import AdminOpsPage from "./routes/AdminOpsPage";
+import AdminPartiesPage from "./routes/AdminPartiesPage";
 import AdminPlaceholderPage from "./routes/AdminPlaceholderPage";
 import AdminScoreboardPage from "./routes/AdminScoreboardPage";
 import AdminSignalsPage from "./routes/AdminSignalsPage";
@@ -91,6 +92,7 @@ export default function App() {
           <Route path="assistant" element={<AdminAssistantPage />} />
           <Route path="instances" element={<AdminInstancesPage />} />
           <Route path="users" element={<AdminUsersPage />} />
+          <Route path="parties" element={<AdminPartiesPage />} />
           <Route path="audit" element={<AdminAuditPage />} />
           <Route path="scoreboard" element={<AdminScoreboardPage />} />
           <Route
