@@ -1,6 +1,6 @@
 # Spec 049 — Admin Navigation
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: 048 (tokens — the shell is new chrome and should not be built on raw colours)
 Blocks: 050–057, which all need somewhere to live
@@ -219,6 +219,9 @@ the renames in §3 are label changes, not route changes, except where marked.
   does.
 
 ## 11. Open questions
+
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
 
 1. **Does "Data & Reset" belong in Settings, or is it dangerous enough to want its
    own separated placement?** It holds the play-data reset from spec 043, which is

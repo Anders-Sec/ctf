@@ -1,6 +1,6 @@
 # Spec 051 — Audit Log & Admin Scoreboard
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: 049 (sidebar placement)
 Closes: two gaps against Phase 1's Definition of Done
@@ -150,6 +150,9 @@ public board gets. It needs, per entry:
 - CSV export contains one row per entry with the same numbers the table shows.
 
 ## 5. Open questions
+
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
 
 1. **Should the audit log expose `request_id`?** It ties an entry to the
    application logs, which is genuinely useful when debugging, but it is noise in

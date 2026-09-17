@@ -1,6 +1,6 @@
 # Spec 056 — Event Export
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: 049 (sidebar placement), 051 (the admin scoreboard's numbers)
 Related: 026/040 (challenge CSV — import/export of *content*, not results)
@@ -136,10 +136,15 @@ three downloads during one afternoon do not become `export (2).csv`.
 
 ## 8. Open questions
 
-1. **Is the awards list in §3 the right list?** It is my best guess at what gets
-   read out, and it is the one part of this spec that is a content decision rather
-   than a technical one. Worth a pass before building — adding an award afterwards
-   is cheap, but discovering on Friday that the one you wanted is not there is not.
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
+
+1. **Is the awards list in §3 the right list?** Still open, and deliberately not
+   blocking — this is about **end-of-event prizes read aloud at the closing**, not
+   the in-game achievement roster (spec 029, ~117 of them, which players earn
+   during play and which this export merely counts per player). The §3 list is a
+   best guess at what gets announced. Revisit when 056 comes up in the order;
+   adding an award later is cheap.
 2. **Should the export include AI assistant transcripts?** They exist (spec 036
    retains sessions) and are interesting for the write-up, particularly the
    prompt-injection ladder attempts. They also contain everything players said in

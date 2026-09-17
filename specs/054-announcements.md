@@ -1,6 +1,6 @@
 # Spec 054 — Announcements
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: 049 (sidebar placement), 032 (the broadcast fan-out this uses)
 
@@ -144,6 +144,9 @@ not a read-only action.
 - A non-admin staff account cannot send.
 
 ## 8. Open questions
+
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
 
 1. **Should announcements also be visible somewhere player-facing beyond the
    notification feed?** A player who joins on day three has no way to read what

@@ -1,6 +1,6 @@
 # Spec 057 — Platform Health
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: 049 (sidebar placement)
 Related: 034 (AI health, which this links to rather than duplicates)
@@ -144,6 +144,9 @@ already taken, and this spec inherits it.
 - Staff may read; a player gets 403.
 
 ## 8. Open questions
+
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
 
 1. **Should this page show anything about the cluster itself** — node pressure,
    pod restarts, the instances namespace's resource quota? It is genuinely useful

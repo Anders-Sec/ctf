@@ -1,6 +1,6 @@
 # Spec 053 — Party Administration
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: 049 (sidebar placement), 052 (the roster this links to and from)
 
@@ -121,11 +121,18 @@ audited:
 
 ### 5.2 `max_members` bounds
 
-`DEFAULT_MAX_MEMBERS` is 8 and the column is a `SmallInteger`. The admin override
-needs a ceiling — an unbounded party is a scoring problem, since party standing
-is a union of distinct solves and a party of 40 is just "everyone". Recommend a
-hard cap of **16** in the endpoint, refusing anything higher, with the reasoning
-recorded here so it is not re-argued.
+**Decided at sign-off: 8 stays the default, and the admin override is capped at
+16.**
+
+`DEFAULT_MAX_MEMBERS` is 8 and the column is a `SmallInteger`. Every party is
+created at 8 and nothing changes that; the override is a per-party exception an
+admin makes deliberately, which is the "might be fun" case — a group of nine who
+all want to be together.
+
+The ceiling exists because an unbounded party is a scoring problem: party
+standing is a union of distinct solves, so a party of 40 is just "everyone". 16
+is double the default, which is enough headroom for any real request and not
+enough to break the board. The endpoint refuses anything higher.
 
 ## 6. Testing
 
@@ -152,6 +159,9 @@ recorded here so it is not re-argued.
   endpoints keep their own leader-scoped rules unchanged.
 
 ## 7. Open questions
+
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
 
 1. **Merge as a first-class action?** Merging is "move every member of A into B,
    then disband A", which the move endpoint already composes. Recommend not

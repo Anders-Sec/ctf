@@ -1,6 +1,6 @@
 # Spec 050 — Event Metrics
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: 049 (a home in the sidebar under Operations)
 Related: 007 (anti-cheat signals — deliberately a different question), the dashboard in 006
@@ -199,6 +199,9 @@ near-miss computation in particular scans wrong answers per challenge.
 - **No historical retention or comparison across events.** There is one event.
 
 ## 10. Open questions
+
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
 
 1. **Is "attempt-to-solve ratio vs. difficulty band" meaningful with 242
    challenges spread over ~11 per zone?** The bands (very easy → hard) have enough

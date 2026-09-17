@@ -1,6 +1,6 @@
 # Spec 052 — User Management
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: 049 (sidebar placement), 051 (the audit log this links into)
 Supersedes: the approvals-only page from spec 002
@@ -150,6 +150,9 @@ Small, and all of them obvious once the page exists:
 - Staff may read the roster; only admins may act on it.
 
 ## 7. Open questions
+
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
 
 1. **Should there be a guest invite flow?** Today a guest self-serves from the
    login page and waits for approval. An admin-initiated "invite this address"

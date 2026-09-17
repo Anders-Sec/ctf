@@ -1,6 +1,6 @@
 # Spec 055 — Email Delivery Log
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: 049 (sidebar placement), 052 (the player detail panel this surfaces in)
 
@@ -157,12 +157,16 @@ them. No automatic expiry: five days of an event this size is a few thousand row
 
 ## 9. Open questions
 
-1. **Should a high failure rate raise a notification rather than waiting to be
-   looked at?** The notification substrate exists and this is arguably the one
-   condition worth interrupting an admin for, since it silently blocks all guest
-   logins. Recommend yes — a `system` notification to admins when the failure rate
-   crosses a threshold over a minimum volume — but it is the only alerting anywhere
-   in Phase 3, so it deserves an explicit decision rather than being slipped in.
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
+
+1. ~~**Should a high failure rate raise a notification?**~~ **Decision
+   (2026-09-17): no.** Delivery has been reliable, and the mail provider already
+   emails the admin directly when sends start failing — an in-app notification
+   would be a second alarm for a bell that already rings, built on a threshold
+   nobody has a baseline for. The §4 status band and failure banner stay; they are
+   read when you go looking, which is the point. **Phase 3 ships no alerting
+   anywhere.**
 2. **Is `Staff` the right level for reading the log?** It contains every guest's
    email address. With one admin the question is academic, but the principle
    (spec 052 keeps roles unextended) suggests reads stay `Staff` and only the

@@ -1,6 +1,6 @@
 # Spec 048 — Design Tokens & Theming
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability)
 Depends on: nothing — this is the foundation the rest of Phase 3 builds on
 Blocks: every other Phase 3 spec that renders anything
@@ -127,14 +127,19 @@ break a login.
 
 ## 6. Does this apply to the admin area?
 
-**Open question — see §9.1.** The recommendation here is that admin surfaces get
-*light and dark only*, not the flavour presets: an admin working at 11pm wants a
-dark screen, but the admin area is a tool and should not be restyleable into
-something unfamiliar. Player-facing surfaces get all four.
+**Yes, in full.** Decided at sign-off: the admin area gets the same colour
+presets as the player area. What stays out of the admin area is *word* theming —
+dungeon flavour in labels, headings and copy — which is the standing Phase 3
+naming decision in `CLAUDE.md` and is spec 049's business, not this one's.
 
-That is a small difference in implementation — the admin shell stamps a
-restricted theme set — but it needs deciding before the picker is built, because
-it decides whether the picker is one control or two.
+That split is the useful one. Colour is a working condition: an admin at 11pm
+wants a dark screen for the same reason a player does, and building a second
+restricted picker to deny them the other two presets would be effort spent making
+the tool worse. Vocabulary is different — "Live Instances" is faster to act on
+than "Dungeons" when something is broken.
+
+So: **one picker, one preset roster, applied everywhere.** The admin shell stamps
+`data-theme` exactly as the player shell does.
 
 ## 7. The migration
 
@@ -174,10 +179,13 @@ Step 5 is what makes steps 1–4 stay done.
 
 ## 9. Open questions
 
-1. **Does the admin area get themes?** (§6.) The instruction was that theming is
-   player-facing. Recommend: admin gets light/dark only, players get all four — a
-   dark admin screen is a practical need at 11pm, but the admin area should not be
-   restyleable. Needs confirming before the picker is built.
+Signed off 2026-09-17. Each recommendation below was accepted as written
+unless a **Decision** line says otherwise.
+
+1. ~~**Does the admin area get themes?**~~ **Decision (2026-09-17): yes, all four
+   presets, one picker, everywhere.** Colour theming applies to the admin area;
+   *word* theming does not — admin labels and copy stay practical per the standing
+   naming decision. See §6.
 2. **Does High Contrast belong in the same picker as the flavour themes?** It is
    an accessibility setting, not a taste. Recommend keeping it in one list — a
    separate "accessibility" menu is a place people do not look.
