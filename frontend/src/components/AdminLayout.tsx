@@ -91,6 +91,17 @@ const NOT_YET_BUILT = new Set([
   "/admin/export",
 ]);
 
+/**
+ * A thin colour flag per group, so the three sections can be told apart at a
+ * glance rather than by reading their headings. Decoration only — the heading
+ * text is always present, so nothing here is the sole carrier of meaning.
+ */
+const GROUP_ACCENT: Record<string, string> = {
+  Operations: "bg-nav-operations",
+  Content: "bg-nav-content",
+  Settings: "bg-nav-settings",
+};
+
 const REFRESH_MS = 10_000;
 
 export default function AdminLayout() {
@@ -122,27 +133,42 @@ export default function AdminLayout() {
   }, [drawerOpen]);
 
   const sidebar = (
-    <nav aria-label="Admin sections" className="flex h-full flex-col gap-4 overflow-y-auto p-3">
-      {GROUPS.map((group, index) => (
-        <div key={group.heading ?? `top-${index}`}>
-          {group.heading && (
-            <h2 className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-content-faint">
-              {group.heading}
-            </h2>
-          )}
-          <ul className="flex flex-col">
-            {group.items.map((item) => (
-              <li key={item.to}>
-                <SidebarLink item={item} count={item.badge ? counts?.[item.badge] : undefined} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+    <nav aria-label="Admin sections" className="flex h-full flex-col">
+      {/* Only the list scrolls. The footer below is pinned to the viewport, not
+          to the bottom of the document — on a long page (Skills, Challenges)
+          that meant scrolling the whole event to get back to the player view. */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        {GROUPS.map((group, index) => (
+          <div
+            key={group.heading ?? `top-${index}`}
+            // Groups are separated by space and a rule; items inside one are
+            // not separated at all. Equal spacing everywhere was what made the
+            // groups hard to pick out.
+            className={group.heading ? "mt-4 border-t border-border pt-3 first:mt-0" : ""}
+          >
+            {group.heading && (
+              <h2 className="mb-1 flex items-center gap-1.5 px-2 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-content-muted">
+                <span
+                  aria-hidden
+                  className={`h-2.5 w-0.5 rounded-full ${GROUP_ACCENT[group.heading] ?? "bg-border-strong"}`}
+                />
+                {group.heading}
+              </h2>
+            )}
+            <ul className="flex flex-col gap-px">
+              {group.items.map((item) => (
+                <li key={item.to}>
+                  <SidebarLink item={item} count={item.badge ? counts?.[item.badge] : undefined} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
 
-      {/* Pinned to the bottom: standing context for every page above it, and the
-          one cross-over control. */}
-      <div className="mt-auto border-t border-border pt-3">
+      {/* Standing context for every page above it, and the one cross-over
+          control. Outside the scroll container, so it is always reachable. */}
+      <div className="shrink-0 border-t border-border bg-surface-raised p-2">
         <EventClock event={event} />
         <button
           type="button"
@@ -159,7 +185,7 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)]">
+    <div className="flex">
       <button
         type="button"
         onClick={() => setDrawerOpen(true)}
@@ -170,9 +196,10 @@ export default function AdminLayout() {
         Sections
       </button>
 
-      {/* Desktop-first and unapologetically so: an event is not run from a
-          phone. The drawer exists so a tablet is not locked out. */}
-      <aside className="hidden w-60 shrink-0 border-r border-border bg-surface-raised lg:block">
+      {/* Sticky and a viewport tall, so navigation does not depend on where you
+          are in the page. Desktop-first and unapologetically so: an event is not
+          run from a phone. The drawer exists so a tablet is not locked out. */}
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 border-r border-border bg-surface-raised lg:block">
         {sidebar}
       </aside>
 
@@ -208,7 +235,7 @@ function SidebarLink({ item, count }: { item: Item; count: number | undefined })
       end={item.end}
       className={({ isActive }) =>
         [
-          "flex items-center justify-between gap-2 rounded px-2 py-1.5 text-sm",
+          "flex items-center justify-between gap-2 rounded px-2 py-1 text-[0.8125rem] leading-6",
           // Marked by fill and a left rule, never by colour alone.
           isActive
             ? "border-l-2 border-accent bg-surface-sunken font-medium"
