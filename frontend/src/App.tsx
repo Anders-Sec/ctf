@@ -28,6 +28,7 @@ import LoginPage from "./routes/LoginPage";
 import MagicLinkPage from "./routes/MagicLinkPage";
 import PartyPage from "./routes/PartyPage";
 import ScoreboardPage from "./routes/ScoreboardPage";
+import SettingsPage from "./routes/SettingsPage";
 import StatusPage from "./routes/StatusPage";
 
 export default function App() {
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/welcome" element={<FirstRunPage />} />
         <Route path="/party" element={<PartyPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/scoreboard" element={<ScoreboardPage />} />
         <Route path="/character" element={<CharacterSheetPage />} />
         <Route path="/character/:userId" element={<CharacterSheetPage />} />

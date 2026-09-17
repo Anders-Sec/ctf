@@ -76,6 +76,13 @@ export interface Me {
    * default" rather than implying the player chose it.
    */
   theme_source: "user" | "event";
+  /** Whether the accessibility switch is on (spec 048 §10). */
+  high_contrast: boolean;
+  /**
+   * What the light/dark toggle would return them to. Without it the settings
+   * page cannot show which side is selected while high contrast overrides it.
+   */
+  base_theme: ThemeId;
 }
 
 export const getMe = () => api.get<Me>("/auth/me");
@@ -94,6 +101,10 @@ export const updateDisplayName = (display_name: string) =>
 /** Null clears the choice, returning to the event default. */
 export const updateTheme = (theme: ThemeId | null) =>
   api.patch<{ message: string }>("/auth/me/theme", { theme });
+
+/** A second axis, not a theme — see spec 048 §10. */
+export const updateHighContrast = (high_contrast: boolean) =>
+  api.patch<{ message: string }>("/auth/me/high-contrast", { high_contrast });
 
 export const avatarUrl = (userId: string) => `/api/users/${userId}/avatar`;
 

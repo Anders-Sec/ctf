@@ -8,23 +8,33 @@
       /*
        * Stamp the theme before the bundle parses (spec 048 §3).
        *
-       * Without this every dark-theme user gets a full-brightness parchment
-       * flash on every cold load, because the real preference does not arrive
-       * until /auth/me resolves. localStorage is a cache of that answer, not
-       * the source of truth — the session reconciles it on arrival.
+       * Without this every dark-theme user gets a full-brightness flash on each
+       * cold load, because the real preference does not arrive until /auth/me
+       * resolves. localStorage is a cache of that answer, not the source of
+       * truth — the session reconciles it on arrival.
        *
-       * Deliberately inline, tiny, and wrapped: localStorage throws outright in
+       * It cannot import the roster, so it carries its own copy as a
+       * theme → colour-scheme map. `themes.test.ts` parses this file and fails
+       * if that copy drifts from themes.ts.
+       *
+       * Deliberately inline, tiny and wrapped: localStorage throws outright in
        * some privacy modes, and a theme we cannot read is not a reason to fail
        * to render the page.
        */
       (function () {
+        var MODES = {
+          "parchment": "light",
+          "dark-dungeon": "dark",
+          "high-contrast": "light",
+          "purple-squirrel": "dark",
+          "dnd": "dark",
+          "mr-anderson": "dark"
+        };
         try {
           var stored = window.localStorage.getItem("ctf.theme");
-          var known = ["parchment", "dark-dungeon", "torchlight", "high-contrast"];
-          if (known.indexOf(stored) === -1) return;
+          if (!MODES[stored]) return;
           document.documentElement.setAttribute("data-theme", stored);
-          document.documentElement.style.colorScheme =
-            stored === "dark-dungeon" || stored === "torchlight" ? "dark" : "light";
+          document.documentElement.style.colorScheme = MODES[stored];
         } catch (e) {
           /* No cached preference. The default theme paints correctly. */
         }

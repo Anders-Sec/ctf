@@ -51,6 +51,8 @@ export function me(overrides: Partial<Me> = {}): Me {
     team: null,
     theme: FALLBACK_THEME,
     theme_source: "event",
+    high_contrast: false,
+    base_theme: FALLBACK_THEME,
     capabilities: capabilities(),
     event: {
       name: "Autumn Crawl",

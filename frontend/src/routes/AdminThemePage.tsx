@@ -6,7 +6,7 @@ import { useSession } from "../auth/session";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 import { applyTheme, storeTheme } from "../theme/apply";
-import { FALLBACK_THEME, THEMES, themeById, type ThemeId } from "../theme/themes";
+import { FALLBACK_THEME, SELECTABLE_THEMES, themeById, type ThemeId } from "../theme/themes";
 
 /**
  * Theme settings (spec 048 §5).
@@ -72,7 +72,7 @@ export default function AdminThemePage() {
         </p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {THEMES.map((theme) => {
+          {SELECTABLE_THEMES.map((theme) => {
             const selected =
               theme.id === eventDefault || (eventDefault === null && theme.id === FALLBACK_THEME);
             return (
@@ -87,7 +87,16 @@ export default function AdminThemePage() {
                 }`}
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{theme.label}</span>
+                  <span className="font-medium">
+                    {theme.label}
+                    {/* Marked, because an admin picking an event default should
+                        know they are about to hand 200 people the gag theme. */}
+                    {theme.secret && (
+                      <span className="ml-2 rounded border border-border px-1.5 py-0.5 text-[0.65rem] font-normal uppercase tracking-wide text-content-muted">
+                        secret
+                      </span>
+                    )}
+                  </span>
                   {selected && <span aria-hidden>✓</span>}
                 </span>
                 <span className="mt-1 block text-xs text-content-muted">{theme.description}</span>
@@ -114,7 +123,7 @@ export default function AdminThemePage() {
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {THEMES.map((theme) => (
+          {SELECTABLE_THEMES.map((theme) => (
             <button
               key={theme.id}
               type="button"

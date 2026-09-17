@@ -8,7 +8,7 @@ import { useSession } from "../auth/session";
 import AssistantPanel from "./AssistantPanel";
 import Avatar from "./Avatar";
 import NotificationCentre from "./NotificationCentre";
-import ThemePicker from "./ThemePicker";
+import ThemeToggle from "./ThemeToggle";
 
 export default function AppLayout() {
   const { me } = useSession();
@@ -78,7 +78,7 @@ export default function AppLayout() {
 
           <span className="ml-auto flex items-center gap-3">
             {me?.capabilities.play && <NotificationCentre />}
-            <ThemePicker />
+            <ThemeToggle />
             {isAdmin && !showingAdmin && (
               // The way in. The way back out is at the foot of the admin
               // sidebar (spec 049 §7), where it is beside the rest of the admin
@@ -93,6 +93,9 @@ export default function AppLayout() {
             )}
             {me && (
               <>
+                <NavLink to="/settings" className="text-sm hover:underline">
+                  Settings
+                </NavLink>
                 <Avatar
                   userId={me.user.id}
                   displayName={me.user.display_name}
