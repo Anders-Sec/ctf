@@ -1,9 +1,9 @@
 # CLAUDE.md
 
 This project is built using **Spec-Driven Development (SDD)**. The phase roadmap
-and Phase 1 scope live in `plan.md` at the repo root — read it before starting any
-work, and treat it as the current source of truth for what's in scope right now
-(Phase 1 only, unless told otherwise).
+and the current phase scope live in `plan.md` at the repo root — read it before
+starting any work, and treat it as the current source of truth for what's in
+scope right now. **The current phase is Phase 3 — Polish & Operability.**
 
 ## Spec-Driven Development Workflow
 
@@ -18,8 +18,11 @@ work, and treat it as the current source of truth for what's in scope right now
 3. **Implement against the approved spec.** If reality forces a deviation from the
    spec mid-implementation, stop and call it out rather than silently diverging —
    update the spec afterward so it stays accurate.
-4. **One feature/spec at a time.** Don't bundle multiple `plan.md` sections into a
-   single spec-and-build pass; keep specs scoped enough to review quickly.
+4. **One feature/spec at a time when building.** Don't bundle multiple `plan.md`
+   sections into a single spec-and-build pass; keep specs scoped enough to review
+   quickly. Writing a *batch* of specs up front and then implementing them one at
+   a time is fine and is how Phase 3's admin work is being run — the rule is about
+   implementation passes, not about when specs get drafted.
 5. **Verify against the spec's stated scope when a feature is "done."** Definition
    of done for the phase overall is listed at the bottom of `plan.md`.
 
@@ -55,8 +58,14 @@ lands on.
 
 ## Notes
 
-- Stay inside the current phase's scope in `plan.md`. Later-phase features
-  (D&D mechanics, art/creative pass) are intentionally deferred — don't build
-  ahead of them, but don't design Phase 1 in a way that forecloses them either.
+- Stay inside the current phase's scope in `plan.md`. Phases 1 and 2 are
+  complete; their scope sections are kept as a historical record, not as a
+  to-do list.
+- **Two standing Phase 3 decisions**, so they don't get re-litigated per spec:
+  - **Admin surfaces get practical, non-themed names.** Dungeon flavour is for
+    player-facing content only.
+  - **Roles are not being extended.** `organizer` stays in the model but no new
+    logic is built around it; there is one admin. Branch on the existing
+    `administer` capability and nothing more.
 - Anything marked as an "Open Item" in `plan.md` needs a decision (from the user)
   before it's implemented — surface these rather than assuming an answer.
