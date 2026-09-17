@@ -35,6 +35,12 @@ function dashboard(overrides: Partial<Dashboard["attention"]> = {}): Dashboard {
       ...overrides,
     },
     containers: { available: false, note: "Instances arrive with spec 009." },
+    nav_counts: {
+      open_reports: 0,
+      pending_approvals: 0,
+      open_signals: 0,
+      failed_instances: 0,
+    },
   };
 }
 

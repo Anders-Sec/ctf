@@ -11,18 +11,23 @@ import {
   type Report,
 } from "../api/adminOps";
 import { useSession } from "../auth/session";
-import ResetPlayDataPanel from "../components/ResetPlayDataPanel";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 
-/** Score overrides and the broken-challenge queue. */
+/**
+ * Score overrides and the broken-challenge queue.
+ *
+ * Spec 049 moved the play-data reset off this page and onto Data & Reset: the
+ * most destructive control in the platform should not sit below the queue you
+ * scroll through while triaging.
+ */
 export default function AdminOpsPage() {
   const { me } = useSession();
   const canWrite = me?.capabilities.administer ?? false;
 
   return (
     <main className="mx-auto max-w-4xl p-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Operations</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Reports &amp; Adjustments</h1>
 
       {!canWrite && (
         <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
@@ -32,7 +37,6 @@ export default function AdminOpsPage() {
 
       <ReportsSection canWrite={canWrite} />
       <AdjustmentsSection canWrite={canWrite} />
-      <ResetPlayDataPanel canWrite={canWrite} />
     </main>
   );
 }

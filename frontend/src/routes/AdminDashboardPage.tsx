@@ -5,7 +5,6 @@ import { getChallengeHealth, getDashboard, type ChallengeHealth } from "../api/a
 import { useSession } from "../auth/session";
 import AnnouncementComposer from "../components/AnnouncementComposer";
 import ErrorMessage from "../components/ErrorMessage";
-import SampleDataPanel from "../components/SampleDataPanel";
 import Spinner from "../components/Spinner";
 
 /** Refreshed on a timer. An operations console does not need to be live to the second. */
@@ -42,7 +41,7 @@ export default function AdminDashboardPage() {
     <main className="mx-auto max-w-5xl p-6">
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Event console</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
           <p className="mt-1 text-content-muted">
             {data.event.name ?? "Unnamed event"} ·{" "}
             {data.event.running ? "running" : "not running"}
@@ -121,7 +120,8 @@ export default function AdminDashboardPage() {
         <strong className="text-content">Containers</strong> — {data.containers.note}
       </section>
 
-      <SampleDataPanel />
+      {/* Sample data moved to Data & Reset (spec 049). The composer stays until
+          spec 054 gives announcements a page of their own. */}
       {canAnnounce && <AnnouncementComposer />}
     </main>
   );
