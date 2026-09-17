@@ -139,12 +139,8 @@ three downloads during one afternoon do not become `export (2).csv`.
 Signed off 2026-09-17. Each recommendation below was accepted as written
 unless a **Decision** line says otherwise.
 
-1. **Is the awards list in §3 the right list?** Still open, and deliberately not
-   blocking — this is about **end-of-event prizes read aloud at the closing**, not
-   the in-game achievement roster (spec 029, ~117 of them, which players earn
-   during play and which this export merely counts per player). The §3 list is a
-   best guess at what gets announced. Revisit when 056 comes up in the order;
-   adding an award later is cheap.
+1. ~~**Is the awards list in §3 the right list?**~~ **Decision (2026-09-17):
+   the list in §3 is right as it stands.** No change.
 2. **Should the export include AI assistant transcripts?** They exist (spec 036
    retains sessions) and are interesting for the write-up, particularly the
    prompt-injection ladder attempts. They also contain everything players said in

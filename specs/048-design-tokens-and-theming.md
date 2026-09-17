@@ -277,12 +277,12 @@ unless a **Decision** line says otherwise.
 2. **Does High Contrast belong in the same picker as the flavour themes?** It is
    an accessibility setting, not a taste. Recommend keeping it in one list — a
    separate "accessibility" menu is a place people do not look.
-4. **How is a secret theme unlocked?** Deferred deliberately. The obvious
-   candidates are an achievement award (spec 028's substrate already exists), a
-   konami-style input, or a flag submitted against a challenge that awards
-   nothing else. Recommend hanging it off achievements when it is decided — the
-   roster, the award records and the notification are all already built, so it
-   would be a lookup rather than a mechanism.
+4. ~~**How is a secret theme unlocked?**~~ **Decision (2026-09-17): by
+   achievement.** An achievement gains an `unlocks_theme` field, and earning it
+   grants the theme. The roster, the award records and the notification were all
+   already built, so this is a lookup rather than a new mechanism. Specified in
+   **spec 058 §5**, which also makes the reward fields editable — they had been
+   on the model and reachable from no UI.
 5. **Should High Contrast have a dark variant?** It is currently one
    light-based palette, and a player who needs maximum contrast *and* a dark
    screen is not served. Recommend leaving it as one until someone asks: two
