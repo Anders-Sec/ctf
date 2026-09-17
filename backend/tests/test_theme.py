@@ -6,7 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.user import UserRole, UserStatus
-from app.theme import FALLBACK_THEME, THEME_IDS, is_theme, resolve_theme
+from app.theme import (
+    FALLBACK_THEME,
+    HIGH_CONTRAST_THEME,
+    THEME_IDS,
+    is_theme,
+    resolve_theme,
+)
 from tests.factories import make_user
 
 
@@ -21,7 +27,7 @@ class TestResolution:
     """The precedence rule, unit-level. The endpoint tests exercise it in place."""
 
     def test_a_users_choice_wins(self) -> None:
-        assert resolve_theme("torchlight", "dark-dungeon") == "torchlight"
+        assert resolve_theme("mr-anderson", "dark-dungeon") == "mr-anderson"
 
     def test_the_event_default_applies_when_the_user_has_not_chosen(self) -> None:
         assert resolve_theme(None, "dark-dungeon") == "dark-dungeon"
@@ -29,16 +35,29 @@ class TestResolution:
     def test_the_platform_default_applies_when_neither_is_set(self) -> None:
         assert resolve_theme(None, None) == FALLBACK_THEME
 
-    @pytest.mark.parametrize("stored", ["midnight-gala", "", "PARCHMENT"])
+    @pytest.mark.parametrize("stored", ["midnight-gala", "", "PARCHMENT", "torchlight"])
     def test_an_unrecognised_name_falls_back_rather_than_raising(self, stored: str) -> None:
         """A preset removed after somebody selected it must not break their login.
 
         This is read on every session load, so degrading is the only acceptable
-        behaviour — there is no request this could usefully fail.
+        behaviour — there is no request this could usefully fail. ``torchlight``
+        is in the list because it is exactly that case: dropped in spec 048 §10.
         """
         assert resolve_theme(stored, None) == FALLBACK_THEME
-        assert resolve_theme(stored, "torchlight") == "torchlight"
+        assert resolve_theme(stored, "dark-dungeon") == "dark-dungeon"
         assert is_theme(stored) is False
+
+    def test_high_contrast_overrides_whatever_is_selected(self) -> None:
+        assert resolve_theme("dnd", "parchment", True) == HIGH_CONTRAST_THEME
+        assert resolve_theme(None, None, True) == HIGH_CONTRAST_THEME
+
+    def test_turning_high_contrast_off_restores_the_underlying_choice(self) -> None:
+        """The whole reason it is a separate flag rather than a theme value."""
+        assert resolve_theme("dnd", "parchment", False) == "dnd"
+
+    def test_the_secret_themes_are_real_themes(self) -> None:
+        for secret in ("purple-squirrel", "dnd", "mr-anderson"):
+            assert is_theme(secret)
 
 
 class TestReadingTheTheme:
@@ -70,13 +89,13 @@ class TestReadingTheTheme:
     async def test_a_users_choice_outranks_the_event_default(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        user = await make_user(db_session, status=UserStatus.ACTIVE, theme="torchlight")
+        user = await make_user(db_session, status=UserStatus.ACTIVE, theme="mr-anderson")
         await sign_in(client, user)
         await set_event_default(db_session, "dark-dungeon")
 
         body = (await client.get("/api/auth/me")).json()
 
-        assert body["theme"] == "torchlight"
+        assert body["theme"] == "mr-anderson"
         assert body["theme_source"] == "user"
 
     async def test_a_stored_theme_that_no_longer_exists_does_not_break_the_session(
@@ -109,7 +128,7 @@ class TestSettingTheTheme:
     async def test_null_clears_the_choice_back_to_the_event_default(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        user = await make_user(db_session, status=UserStatus.ACTIVE, theme="torchlight")
+        user = await make_user(db_session, status=UserStatus.ACTIVE, theme="mr-anderson")
         await sign_in(client, user)
         await set_event_default(db_session, "dark-dungeon")
 
@@ -151,9 +170,9 @@ class TestSettingTheTheme:
         user = await make_user(db_session, status=UserStatus.ACTIVE)
         await sign_in(client, user)
 
-        await client.patch("/api/auth/me/theme", json={"theme": "torchlight"})
+        await client.patch("/api/auth/me/theme", json={"theme": "mr-anderson"})
 
-        assert (await client.get("/api/auth/me")).json()["theme"] == "torchlight"
+        assert (await client.get("/api/auth/me")).json()["theme"] == "mr-anderson"
 
 
 class TestTheEventDefault:
@@ -182,11 +201,11 @@ class TestTheEventDefault:
     async def test_it_leaves_alone_anyone_who_has_chosen(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        player = await make_user(db_session, status=UserStatus.ACTIVE, theme="torchlight")
+        player = await make_user(db_session, status=UserStatus.ACTIVE, theme="mr-anderson")
         await set_event_default(db_session, "dark-dungeon")
         await sign_in(client, player)
 
-        assert (await client.get("/api/auth/me")).json()["theme"] == "torchlight"
+        assert (await client.get("/api/auth/me")).json()["theme"] == "mr-anderson"
 
     async def test_an_unknown_theme_is_refused(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -224,3 +243,88 @@ class TestTheEventDefault:
         )
 
         assert response.status_code == 403
+
+
+class TestHighContrast:
+    """The accessibility switch (spec 048 §10)."""
+
+    async def test_it_overrides_the_selected_theme(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        user = await make_user(db_session, status=UserStatus.ACTIVE, theme="dnd")
+        await sign_in(client, user)
+
+        await client.patch("/api/auth/me/high-contrast", json={"high_contrast": True})
+
+        body = (await client.get("/api/auth/me")).json()
+        assert body["theme"] == HIGH_CONTRAST_THEME
+        assert body["high_contrast"] is True
+        # The choice underneath is untouched, which is what makes it reversible.
+        assert body["base_theme"] == "dnd"
+
+    async def test_turning_it_off_puts_back_the_selected_theme(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        user = await make_user(
+            db_session, status=UserStatus.ACTIVE, theme="dnd", high_contrast=True
+        )
+        await sign_in(client, user)
+
+        await client.patch("/api/auth/me/high-contrast", json={"high_contrast": False})
+
+        body = (await client.get("/api/auth/me")).json()
+        assert body["theme"] == "dnd"
+        assert body["high_contrast"] is False
+
+    async def test_it_survives_a_theme_change_underneath_it(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Switching light/dark while high contrast is on changes what you go
+        back to, not what you are looking at."""
+        user = await make_user(db_session, status=UserStatus.ACTIVE, high_contrast=True)
+        await sign_in(client, user)
+
+        await client.patch("/api/auth/me/theme", json={"theme": "dark-dungeon"})
+
+        body = (await client.get("/api/auth/me")).json()
+        assert body["theme"] == HIGH_CONTRAST_THEME
+        assert body["base_theme"] == "dark-dungeon"
+
+    async def test_a_guest_awaiting_approval_may_turn_it_on(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        user = await make_user(db_session, status=UserStatus.PENDING_APPROVAL)
+        await sign_in(client, user)
+
+        response = await client.patch("/api/auth/me/high-contrast", json={"high_contrast": True})
+
+        assert response.status_code == 200
+
+
+class TestSecretThemes:
+    """Not offered by the toggle; assignable by an admin (spec 048 §10.1)."""
+
+    @pytest.mark.parametrize("secret", ["purple-squirrel", "dnd", "mr-anderson"])
+    async def test_an_admin_may_set_one_as_the_event_default(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, secret: str
+    ) -> None:
+        admin = await make_user(db_session, role=UserRole.ADMIN, status=UserStatus.ACTIVE)
+        await sign_in(client, admin)
+
+        response = await client.patch("/api/admin/event-config", json={"default_theme": secret})
+
+        assert response.status_code == 200
+        assert response.json()["default_theme"] == secret
+
+    async def test_torchlight_is_gone(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        # It read as Dark Dungeon two values apart, so it was dropped rather
+        # than kept as a near-duplicate.
+        assert "torchlight" not in THEME_IDS
+
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        await sign_in(client, user)
+        response = await client.patch("/api/auth/me/theme", json={"theme": "torchlight"})
+
+        assert response.status_code >= 400

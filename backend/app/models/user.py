@@ -106,6 +106,14 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: back rather than raising (see ``app.theme.resolve_theme``).
     theme: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
+    #: The accessibility switch (spec 048 §10). Separate from ``theme`` rather
+    #: than a value of it, so turning it off returns the player to whichever
+    #: side of the light/dark toggle they were on, with nothing having to
+    #: remember a "previous theme".
+    high_contrast: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default="false"
+    )
+
     approved_at: Mapped[datetime | None] = mapped_column(nullable=True)
     approved_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True

@@ -24,6 +24,7 @@ from app.schemas.auth import (
     MeResponse,
     MessageResponse,
     TeamSummary,
+    UpdateHighContrastRequest,
     UpdateProfileRequest,
     UpdateThemeRequest,
     UserResponse,
@@ -340,8 +341,16 @@ async def me(
         assistant_terms_accepted=terms_accepted,
         # Resolved server-side so the client never re-implements the precedence
         # rule, and so an unrecognised stored value cannot reach the browser.
-        theme=resolve_theme(current.user.theme, event.default_theme if event else None),
+        theme=resolve_theme(
+            current.user.theme,
+            event.default_theme if event else None,
+            current.user.high_contrast,
+        ),
         theme_source="user" if is_theme(current.user.theme) else "event",
+        high_contrast=current.user.high_contrast,
+        # What the toggle would return them to, so the settings page can show
+        # which side of light/dark is selected while high contrast overrides it.
+        base_theme=resolve_theme(current.user.theme, event.default_theme if event else None),
         team=TeamSummary(**team) if team else None,
         capabilities=CapabilitiesResponse(**current.capabilities.to_dict()),
         event=(
@@ -394,6 +403,25 @@ async def update_theme(
     await db.flush()
     await invalidate(redis, current.user.id)
     return MessageResponse(message="Theme updated.")
+
+
+@router.patch("/me/high-contrast")
+async def update_high_contrast(
+    payload: UpdateHighContrastRequest,
+    current: Authenticated,
+    db: DbSession,
+    redis: RedisClient,
+) -> MessageResponse:
+    """Turn the accessibility switch on or off (spec 048 §10).
+
+    Kept off the theme endpoint on purpose: this is a second axis, and folding
+    it into the theme value would mean the platform had to remember what to
+    restore when it is turned back off.
+    """
+    current.user.high_contrast = payload.high_contrast
+    await db.flush()
+    await invalidate(redis, current.user.id)
+    return MessageResponse(message="Updated.")
 
 
 @router.patch("/me")

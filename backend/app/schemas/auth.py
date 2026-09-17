@@ -28,6 +28,10 @@ class UpdateThemeRequest(BaseModel):
     theme: str | None = None
 
 
+class UpdateHighContrastRequest(BaseModel):
+    high_contrast: bool
+
+
 class TeamSummary(BaseModel):
     id: UUID
     name: str
@@ -78,6 +82,14 @@ class MeResponse(BaseModel):
     #: Where that theme came from, so the picker can say "following the event
     #: default" instead of pretending the user chose it.
     theme_source: Literal["user", "event"] = "event"
+    #: Whether the accessibility switch is on. Reported alongside the resolved
+    #: theme so the settings page can show the switch's real state rather than
+    #: inferring it from the theme being served.
+    high_contrast: bool = False
+    #: What the toggle would return them to. Without this the settings page
+    #: cannot show which side of light/dark is selected while high contrast is
+    #: overriding it.
+    base_theme: str = FALLBACK_THEME
 
 
 class EventSummary(BaseModel):
