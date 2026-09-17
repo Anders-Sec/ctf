@@ -19,6 +19,63 @@ class UserSummary(BaseModel):
     created_at: datetime
     approved_at: datetime | None
     last_login_at: datetime | None
+    #: Enough to tell a real player from a dormant account at a glance (spec
+    #: 052). Aggregate subqueries on the list query, never an N+1 across 200.
+    party_name: str | None = None
+    solve_count: int = 0
+    xp: int = 0
+
+
+class EnableUserRequest(BaseModel):
+    #: Required for the same reason disabling is: an account whose access
+    #: changed without a recorded why is impossible to explain later.
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class AssistantBlockRequest(BaseModel):
+    blocked: bool
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class PartySpell(BaseModel):
+    """A membership, current or ended."""
+
+    team_id: UUID
+    team_name: str
+    role: str
+    joined_at: datetime
+    removed_at: datetime | None
+    removal_reason: str | None
+
+
+class ActivityEntry(BaseModel):
+    challenge_id: UUID
+    challenge_title: str | None
+    is_correct: bool
+    created_at: datetime
+
+
+class UserDetailResponse(BaseModel):
+    """Everything the detail drawer needs, in one call.
+
+    One endpoint rather than the panel fanning out to six, so opening a row
+    while working a queue costs one request.
+    """
+
+    user: UserSummary
+    entra_object_id: UUID | None
+    approved_by_name: str | None
+    disabled_reason: str | None
+    assistant_blocked: bool
+    level: int
+    hints_used: int
+    achievement_count: int
+    class_name: str | None
+    parties: list[PartySpell]
+    recent_activity: list[ActivityEntry]
+    #: The challenge they have most recently attempted without solving — the
+    #: single most useful field when someone is stuck (spec 050 §5).
+    current_wall: str | None
 
 
 class UserListResponse(BaseModel):

@@ -18,16 +18,20 @@ from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.user import User, UserRole, UserSource, UserStatus
 from app.schemas.admin import (
     ApproveUsersRequest,
+    AssistantBlockRequest,
     DisableUserRequest,
+    EnableUserRequest,
     EventConfigResponse,
     SetRoleRequest,
     UpdateEventConfigRequest,
+    UserDetailResponse,
     UserListResponse,
     UserSummary,
 )
 from app.schemas.auth import MessageResponse
+from app.services import admin_users, magic_link
 from app.services.identity import record_audit
-from app.services.mail import send_approval_notice
+from app.services.mail import send_approval_notice, send_magic_link
 from app.services.sessions import REVOKED_DISABLED, revoke_all_for_user
 from app.services.user_cache import invalidate
 from app.theme import is_theme
@@ -81,13 +85,29 @@ async def list_users(
         .all()
     )
 
+    parties, solves, xp = await admin_users.roster_extras(db, [user.id for user in rows])
+
     return UserListResponse(
         total=total,
-        users=[_summary(user) for user in rows],
+        users=[
+            _summary(
+                user,
+                party_name=parties.get(user.id),
+                solve_count=solves.get(user.id, 0),
+                xp=xp.get(user.id, 0),
+            )
+            for user in rows
+        ],
     )
 
 
-def _summary(user: User) -> UserSummary:
+def _summary(
+    user: User,
+    *,
+    party_name: str | None = None,
+    solve_count: int = 0,
+    xp: int = 0,
+) -> UserSummary:
     return UserSummary(
         id=user.id,
         email=user.email,
@@ -98,6 +118,30 @@ def _summary(user: User) -> UserSummary:
         created_at=user.created_at,
         approved_at=user.approved_at,
         last_login_at=user.last_login_at,
+        party_name=party_name,
+        solve_count=solve_count,
+        xp=xp,
+    )
+
+
+@router.get("/users/{user_id}")
+async def user_detail(user_id: UUID, db: DbSession, current: Staff) -> UserDetailResponse:
+    """Everything the detail drawer needs, in one call (spec 052 §3)."""
+    user = await db.get(User, user_id)
+    if user is None:
+        raise NotFoundError("No such user.")
+
+    parties, solves, xp = await admin_users.roster_extras(db, [user.id])
+    extras = await admin_users.detail(db, user)
+
+    return UserDetailResponse(
+        user=_summary(
+            user,
+            party_name=parties.get(user.id),
+            solve_count=solves.get(user.id, 0),
+            xp=xp.get(user.id, 0),
+        ),
+        **extras,
     )
 
 
@@ -304,3 +348,129 @@ def _event_response(config: EventConfig) -> EventConfigResponse:
 
 
 __all__ = ["MessageResponse", "router"]
+
+
+@router.post("/users/{user_id}/enable")
+async def enable_user(
+    user_id: UUID,
+    payload: EnableUserRequest,
+    request: Request,
+    db: DbSession,
+    redis: RedisClient,
+    current: Admin,
+) -> UserSummary:
+    """Undo a disable (spec 052 §5).
+
+    Disabling had no inverse, so a disable made in error was permanent short of
+    database access. Returns the account to ``active`` rather than to whatever
+    it was before: the only other state is pending approval, and re-enabling is
+    itself the approval.
+    """
+    user = await db.get(User, user_id)
+    if user is None:
+        raise NotFoundError("No such user.")
+
+    user.status = UserStatus.ACTIVE
+    user.disabled_reason = None
+    await invalidate(redis, user.id)
+
+    await record_audit(
+        db,
+        action="user.enable",
+        target_type="user",
+        target_id=user.id,
+        actor_user_id=current.user.id,
+        reason=payload.reason,
+        request_id=_request_id(request),
+    )
+    await db.flush()
+    logger.info("user_enabled", extra={"user_id": str(user.id)})
+    return _summary(user)
+
+
+@router.post("/users/{user_id}/assistant-block")
+async def set_assistant_block(
+    user_id: UUID,
+    payload: AssistantBlockRequest,
+    request: Request,
+    db: DbSession,
+    redis: RedisClient,
+    current: Admin,
+) -> UserSummary:
+    """Take the dungeon master away from one player, or give it back.
+
+    The column has existed since spec 011 for exactly this and has never been
+    settable. One player misbehaving should not cost the other 199 the feature,
+    which is what the event-wide switch would do.
+    """
+    user = await db.get(User, user_id)
+    if user is None:
+        raise NotFoundError("No such user.")
+
+    user.assistant_blocked = payload.blocked
+    await invalidate(redis, user.id)
+
+    await record_audit(
+        db,
+        action="user.assistant_block" if payload.blocked else "user.assistant_unblock",
+        target_type="user",
+        target_id=user.id,
+        actor_user_id=current.user.id,
+        reason=payload.reason,
+        request_id=_request_id(request),
+    )
+    await db.flush()
+    return _summary(user)
+
+
+@router.post("/users/{user_id}/resend-magic-link")
+async def resend_magic_link(
+    user_id: UUID,
+    request: Request,
+    background: BackgroundTasks,
+    db: DbSession,
+    redis: RedisClient,
+    settings: AppSettings,
+    current: Admin,
+) -> MessageResponse:
+    """Send a guest another sign-in link.
+
+    The most common support action for a guest, and until now impossible without
+    asking them to go back to the login page themselves. Rate-limited on the
+    same bucket as the public path so this does not become a way around it.
+    """
+    user = await db.get(User, user_id)
+    if user is None:
+        raise NotFoundError("No such user.")
+    if user.source != UserSource.GUEST:
+        raise ConflictError(
+            "That account signs in through Entra; there is no link to send.",
+            code="not_a_guest",
+        )
+
+    # Same bucket the public path uses, so this cannot become a way around it.
+    limit = await magic_link.check_request_limits(redis, user.email, None)
+    if not limit.allowed:
+        raise ConflictError(
+            "A link was sent to that address very recently. Try again shortly.",
+            code="rate_limited",
+        )
+    if not settings.smtp_configured:
+        raise ConflictError(
+            "Mail is not configured, so no link can be sent.", code="mail_unconfigured"
+        )
+
+    link = await magic_link.issue_magic_link(db, settings, user.email)
+    # After the response: a slow relay must not hold up the request.
+    background.add_task(send_magic_link, settings, user.email, link)
+
+    await record_audit(
+        db,
+        action="user.resend_magic_link",
+        target_type="user",
+        target_id=user.id,
+        actor_user_id=current.user.id,
+        request_id=_request_id(request),
+    )
+    await db.flush()
+    return MessageResponse(message="A new link is on its way.")
