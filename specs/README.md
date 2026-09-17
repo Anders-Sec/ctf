@@ -77,7 +77,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 048 | `048-design-tokens-and-theming.md` | Phase 3 — semantic colour tokens, the migration off `bg-white`/literals, four curated presets, per-user and event-default theme | **done** |
 | 049 | `049-admin-navigation.md` | Phase 3 — grouped persistent sidebar replacing the twelve-tab row, practical admin naming, badge counts, Live Instances split from Container Templates | **done** |
 | 050 | `050-event-metrics.md` | Phase 3 — event-operations metrics: attempt-to-solve drift, near-miss detection, stalled players, progression and hint economy | **draft** |
-| 051 | `051-audit-log-and-admin-scoreboard.md` | Phase 3 — two read-only pages over endpoints that already exist and render nowhere; **closes two Phase 1 DoD gaps** | **draft** |
+| 051 | `051-audit-log-and-admin-scoreboard.md` | Phase 3 — two read-only pages over endpoints that already exist and render nowhere; **closes two Phase 1 DoD gaps** | **done** |
 | 052 | `052-user-management.md` | Phase 3 — the roster the approvals queue was standing in for; detail panel, enable/disable, roles, assistant block, resend magic link | **draft** |
 | 053 | `053-party-administration.md` | Phase 3 — admin control over parties: move a member, transfer leadership, rename, size cap, disband, stranded join requests | **draft** |
 | 054 | `054-announcements.md` | Phase 3 — announcements as a page with history, read counts and scheduling, off the bottom of the dashboard | **draft** |

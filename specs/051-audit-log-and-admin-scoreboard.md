@@ -149,7 +149,32 @@ public board gets. It needs, per entry:
   a test for each.
 - CSV export contains one row per entry with the same numbers the table shows.
 
-## 5. Open questions
+## 5. What implementation changed
+
+Recorded per `CLAUDE.md`.
+
+1. **Spec 049's sidebar had no entry for this scoreboard.** Its §3 table lists
+   every admin page and omitted this one, so the page would have existed with no
+   way to reach it. Added to Operations, below Anti-Cheat Signals.
+2. **Unranked accounts are a separate section, not marked rows inside the
+   ranking.** §3.3 said disabled and staff accounts are "shown, marked as such",
+   which read as inline. Inline is not possible without breaking the property
+   §3's opening paragraph depends on: ranks here must equal the public board's,
+   and weaving an unranked account in shifts every position below it. They are
+   listed underneath with their reason instead, and an account that never played
+   is left out entirely — otherwise every staff account and pending signup would
+   bury the one disabled player the section exists for.
+3. **The solve/adjustment split is derived by subtraction**, not recomputed.
+   `score` comes from the public board's computation and `solve_points` is
+   `score - adjustment_points`, so the two halves cannot drift from the total.
+4. **`GET /api/admin/audit-log` now returns an envelope**, not a bare list. The
+   two existing tests asserting on a list were updated.
+5. **Search covers reason and action, not resolved target names.** §2.1 asked
+   for target names too; they live across half a dozen tables and resolving them
+   in SQL would mean a union over all of them for a box that is used on reasons.
+   Target names are still resolved for display.
+
+## 6. Open questions
 
 Signed off 2026-09-17. Each recommendation below was accepted as written
 unless a **Decision** line says otherwise.
