@@ -130,6 +130,12 @@ jobs:
 
       - run: npm ci
 
+      # Spec 048: no component may name a colour. The token layer was designed
+      # for theming from the start and still decayed to ~100 violations, because
+      # nothing enforced it. First, so the cheapest failure reports first.
+      - name: Colours
+        run: npm run lint:colours
+
       - name: Typecheck
         run: npm run typecheck
 
