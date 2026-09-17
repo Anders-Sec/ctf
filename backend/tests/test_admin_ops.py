@@ -668,10 +668,12 @@ class TestAuditReading:
             json={"user_id": str(player.id), "points": 10, "reason": "Nice work"},
         )
 
-        rows = (await client.get("/api/admin/audit-log")).json()
+        body = (await client.get("/api/admin/audit-log")).json()
 
-        assert rows[0]["actor_name"] == "Dungeon Master"
-        assert rows[0]["reason"] == "Nice work"
+        # Paginated since spec 051: the log grows unbounded across the event.
+        assert body["total"] >= 1
+        assert body["entries"][0]["actor_name"] == "Dungeon Master"
+        assert body["entries"][0]["reason"] == "Nice work"
 
     async def test_entries_can_be_filtered_by_action(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -683,10 +685,12 @@ class TestAuditReading:
             json={"user_id": str(player.id), "points": 10, "reason": "One"},
         )
 
-        rows = (await client.get("/api/admin/audit-log?action=score.")).json()
+        body = (await client.get("/api/admin/audit-log?action=score.")).json()
 
-        assert rows
-        assert all(row["action"].startswith("score.") for row in rows)
+        assert body["entries"]
+        assert all(row["action"].startswith("score.") for row in body["entries"])
+        # The count is of everything matching, not of the page returned.
+        assert body["total"] == len(body["entries"])
 
     async def test_a_player_cannot_read_it(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

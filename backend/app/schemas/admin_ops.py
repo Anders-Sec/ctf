@@ -97,6 +97,19 @@ class AuditEntryResponse(BaseModel):
     created_at: datetime
 
 
+class AuditPageResponse(BaseModel):
+    """One page of the log, with the size of the whole result set.
+
+    Paginated where spec 041 deliberately refused to paginate the challenge
+    list: that is 242 rows with a known ceiling, while the log grows unbounded
+    across five days of approvals, kicks and edits, and has no natural grouping
+    to collapse under.
+    """
+
+    total: int
+    entries: list[AuditEntryResponse]
+
+
 class PlayDataGroup(BaseModel):
     """What one clearable group currently holds (spec 043)."""
 

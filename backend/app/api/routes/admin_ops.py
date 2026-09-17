@@ -4,10 +4,11 @@ Reads are open to organizers so event staff can watch without being able to
 change anything; every write requires admin.
 """
 
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import Admin, AppSettings, DbSession, Player, RedisClient, Staff
 from app.models.audit import AuditLog
@@ -19,6 +20,7 @@ from app.models.user import User
 from app.schemas.admin_ops import (
     AdjustmentResponse,
     AuditEntryResponse,
+    AuditPageResponse,
     BulkReleaseRequest,
     ChallengeHealthResponse,
     CreateAdjustmentRequest,
@@ -301,21 +303,51 @@ async def bulk_release(
     return MessageResponse(message=f"{count} challenges scheduled.")
 
 
+@router.get("/admin/audit-log/actions")
+async def audit_actions(db: DbSession, current: Staff) -> list[str]:
+    """The distinct actions actually present, for the filter select.
+
+    Read from the data rather than from a hardcoded list: there are around
+    thirty dotted verbs across the codebase and a second copy of them would
+    drift the first time one was added.
+    """
+    stmt = select(AuditLog.action).distinct().order_by(AuditLog.action)
+    return list((await db.execute(stmt)).scalars())
+
+
 @router.get("/admin/audit-log")
 async def read_audit(
     db: DbSession,
     current: Staff,
     action: str | None = None,
     actor_user_id: UUID | None = None,
+    target_type: str | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    search: str | None = Query(default=None, max_length=200),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
-) -> list[AuditEntryResponse]:
+) -> AuditPageResponse:
     """The audit log with names resolved, rather than a wall of uuids."""
     conditions = []
     if action:
         conditions.append(AuditLog.action.startswith(action))
     if actor_user_id:
         conditions.append(AuditLog.actor_user_id == actor_user_id)
+    if target_type:
+        conditions.append(AuditLog.target_type == target_type)
+    if since:
+        conditions.append(AuditLog.created_at >= since)
+    if until:
+        conditions.append(AuditLog.created_at <= until)
+    if search:
+        # Reason text and the action verb. Target *names* are resolved after the
+        # query — they live in half a dozen tables — so searching them would mean
+        # a union across all of them for a box that is mostly used on reasons.
+        pattern = f"%{search}%"
+        conditions.append(AuditLog.reason.ilike(pattern) | AuditLog.action.ilike(pattern))
+
+    total = await db.scalar(select(func.count()).select_from(AuditLog).where(*conditions)) or 0
 
     rows = (
         (
@@ -344,21 +376,24 @@ async def read_audit(
         else {}
     )
 
-    return [
-        AuditEntryResponse(
-            id=row.id,
-            action=row.action,
-            actor_user_id=row.actor_user_id,
-            actor_name=names.get(row.actor_user_id),
-            target_type=row.target_type,
-            target_id=row.target_id,
-            reason=row.reason,
-            metadata=row.meta,
-            request_id=row.request_id,
-            created_at=row.created_at,
-        )
-        for row in rows
-    ]
+    return AuditPageResponse(
+        total=total,
+        entries=[
+            AuditEntryResponse(
+                id=row.id,
+                action=row.action,
+                actor_user_id=row.actor_user_id,
+                actor_name=names.get(row.actor_user_id),
+                target_type=row.target_type,
+                target_id=row.target_id,
+                reason=row.reason,
+                metadata=row.meta,
+                request_id=row.request_id,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ],
+    )
 
 
 @router.get("/admin/event/play-data")

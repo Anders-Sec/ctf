@@ -14,7 +14,7 @@ from app.schemas.scoreboard import (
     PlayerBoardResponse,
     TeamBoardResponse,
 )
-from app.services import scoreboard_cache
+from app.services import admin_scoreboard, scoreboard_cache
 from app.services.capabilities import resolve_capabilities
 from app.services.cookies import ACCESS_COOKIE
 from app.services.security import TokenError, access_token_subject
@@ -93,8 +93,13 @@ async def my_standing(
 
 @router.get("/admin/scoreboard")
 async def admin_board(db: DbSession, redis: RedisClient, current: Staff) -> dict:
-    """Both boards in full, with the tie-break timestamps visible."""
-    return await _payload(db, redis)
+    """Both boards in full (spec 051 §3).
+
+    Not gated on the event running, unlike the public board: settling a
+    placement happens after the doors close, which is exactly when that gate
+    would shut.
+    """
+    return await admin_scoreboard.board(db, redis)
 
 
 @router.websocket("/ws/scoreboard")
