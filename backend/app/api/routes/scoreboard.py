@@ -1,6 +1,7 @@
 """Scoreboard endpoints, REST and WebSocket."""
 
 from datetime import UTC, datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
@@ -11,10 +12,11 @@ from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.redis import get_redis
 from app.schemas.scoreboard import (
     MyStandingResponse,
+    PartyPanelResponse,
     PlayerBoardResponse,
     TeamBoardResponse,
 )
-from app.services import admin_scoreboard, scoreboard_cache
+from app.services import admin_scoreboard, party_panel, scoreboard_cache
 from app.services.capabilities import resolve_capabilities
 from app.services.cookies import ACCESS_COOKIE
 from app.services.security import TokenError, access_token_subject
@@ -26,7 +28,8 @@ router = APIRouter(tags=["scoreboard"])
 
 
 async def _payload(db: DbSession, redis: RedisClient) -> dict:
-    return await scoreboard_cache.refresh(db, redis)
+    """The boards as a player may see them — no XP on either (spec 059 §2)."""
+    return scoreboard_cache.public_view(await scoreboard_cache.refresh(db, redis))
 
 
 @router.get("/scoreboard/players")
@@ -81,14 +84,25 @@ async def my_standing(
 
     return MyStandingResponse(
         rank=mine["rank"] if mine else None,
-        score=mine["score"] if mine else 0,
         level=mine["level"] if mine else 1,
         player_count=len(payload["players"]),
         team_rank=party["rank"] if party else None,
-        team_score=party["score"] if party else None,
         team_level=party["level"] if party else None,
         team_count=len(payload["teams"]),
     )
+
+
+@router.get("/scoreboard/teams/{team_id}")
+async def party_panel_detail(
+    team_id: UUID, db: DbSession, redis: RedisClient, current: ScoreboardViewer
+) -> PartyPanelResponse:
+    """Who a party is (spec 059 §5).
+
+    Opened from either board. A party has no page of its own and does not need
+    one — and duplicating a fraction of the character sheet in a panel would be a
+    second thing to keep true, which is why a *player* row links through instead.
+    """
+    return PartyPanelResponse(**await party_panel.detail(db, redis, team_id))
 
 
 @router.get("/admin/scoreboard")
@@ -137,7 +151,10 @@ async def scoreboard_socket(websocket: WebSocket) -> None:
             await websocket.close(code=4403, reason="scoreboard unavailable")
             return
 
-        initial = await scoreboard_cache.refresh(session, redis)
+        # The public view, same as the REST boards: the socket is a board
+        # surface too, and every later push already arrives stripped because the
+        # channel carries the public payload.
+        initial = scoreboard_cache.public_view(await scoreboard_cache.refresh(session, redis))
 
     await websocket.accept()
     queue = scoreboard_cache.broadcaster.subscribe()

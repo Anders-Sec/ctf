@@ -1,4 +1,14 @@
-"""Response models for the scoreboard."""
+"""Response models for the scoreboard.
+
+Entries stay loosely typed (`dict[str, Any]`) because both boards are computed
+once, cached whole, and served from that projection — re-validating every row
+through a model on the way out would buy nothing and would mean two places to
+change when a column is added.
+
+What *is* enforced is the exclusion: `scoreboard_cache.public_view` strips
+`score` before either board is served, and a test asserts no public response
+carries it (spec 059 §2).
+"""
 
 from typing import Any
 
@@ -18,13 +28,53 @@ class TeamBoardResponse(BaseModel):
 
 
 class MyStandingResponse(BaseModel):
-    """A compact header: where you stand, and where your party stands."""
+    """A compact header: where you stand, and where your party stands.
+
+    No XP, for §2's reason — this is a board surface, and a party's total sitting
+    on an endpoint nobody currently renders is exactly the field that gets
+    rendered by accident later. Level is the public shape of the same thing.
+    """
 
     rank: int | None
-    score: int
     level: int
     player_count: int
     team_rank: int | None
-    team_score: int | None
     team_level: int | None
     team_count: int
+
+
+class BossStarResponse(BaseModel):
+    """One boss kill, identified by the challenge's slug (spec 059 §3)."""
+
+    slug: str
+    tier: str
+    #: 1 (Neighborhood) to 6 (Floor), so a client orders without the names.
+    level: int
+    #: For the hover. Colour carries the tier; this carries which boss.
+    title: str
+
+
+class PartyMemberResponse(BaseModel):
+    user_id: str
+    display_name: str
+    has_avatar: bool
+    level: int
+    class_name: str | None
+    class_rarity: str | None
+
+
+class PartyPanelResponse(BaseModel):
+    """Who a party is (spec 059 §5). Deliberately no XP, member XP included."""
+
+    team_id: str
+    name: str
+    rank: int
+    level: int
+    member_count: int
+    #: Distinct challenges solved by any current member.
+    solve_count: int
+    #: Distinct achievements held by current members.
+    achievement_count: int
+    stars: list[BossStarResponse]
+    founded_at: str
+    members: list[PartyMemberResponse]

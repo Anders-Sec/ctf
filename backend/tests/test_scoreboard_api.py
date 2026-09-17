@@ -107,7 +107,8 @@ class TestBoards:
 
         assert entries[0]["display_name"] == "Leader"
         assert entries[0]["rank"] == 1
-        assert entries[0]["score"] == 300
+        # XP still orders the board; it is simply not published (spec 059 §2).
+        assert "score" not in entries[0]
 
     async def test_the_party_board_uses_the_union_rule(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -132,12 +133,14 @@ class TestBoards:
 
         await player(db_session, client, sign_in)
         entries = {
-            e["name"]: e["score"]
-            for e in (await client.get("/api/scoreboard/teams")).json()["entries"]
+            e["name"]: e for e in (await client.get("/api/scoreboard/teams")).json()["entries"]
         }
 
-        assert entries["Alone"] == 200
-        assert entries["Pair"] == 200
+        # Equal totals, which the board now expresses as a shared place and an
+        # equal level rather than a number (spec 059 §2, §4.1).
+        assert entries["Alone"]["rank"] == 1
+        assert entries["Pair"]["rank"] == 1
+        assert entries["Alone"]["level"] == entries["Pair"]["level"]
 
     async def test_my_standing_reports_both_ranks(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -150,9 +153,11 @@ class TestBoards:
         body = (await client.get("/api/scoreboard/me")).json()
 
         assert body["rank"] == 1
-        assert body["score"] == 250
         assert body["team_rank"] == 1
-        assert body["team_score"] == 250
+        # Level, not XP — this is a board surface (spec 059 §2).
+        assert body["level"] >= 1
+        assert "score" not in body
+        assert "team_score" not in body
 
     async def test_a_partyless_player_has_no_party_rank(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -162,7 +167,7 @@ class TestBoards:
         body = (await client.get("/api/scoreboard/me")).json()
 
         assert body["team_rank"] is None
-        assert body["team_score"] is None
+        assert body["team_level"] is None
 
 
 class TestCaching:

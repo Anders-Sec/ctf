@@ -50,6 +50,35 @@ def serialise(boards: scoreboard.Boards) -> dict:
     }
 
 
+#: Never published on a public board (spec 059 §2). XP is the player's own
+#: business and belongs on their character sheet; it still *orders* both boards,
+#: it simply is not sent. Removed rather than left unread, because a field that
+#: arrives and is ignored is a field somebody renders by accident later.
+PRIVATE_FIELDS = ("score",)
+
+
+def public_view(payload: dict) -> dict:
+    """The payload as a player may see it.
+
+    Applied in three places, all of them an exit: the two REST boards, the
+    socket's opening message, and what gets published to the Redis channel. The
+    cache itself keeps the full rows, because the admin board (spec 051) exists
+    to settle placements and needs the arithmetic.
+
+    Stripping at publish rather than at fan-out means this runs once per
+    recompute instead of once per connected client.
+    """
+    return {
+        **payload,
+        "players": [_without_private(row) for row in payload.get("players", [])],
+        "teams": [_without_private(row) for row in payload.get("teams", [])],
+    }
+
+
+def _without_private(row: dict) -> dict:
+    return {key: value for key, value in row.items() if key not in PRIVATE_FIELDS}
+
+
 def _entry(row: dict) -> dict:
     return {
         key: (
@@ -110,7 +139,9 @@ async def refresh(db: AsyncSession, redis: Redis, *, force: bool = False) -> dic
 
             await redis.set(CACHE_KEY, json.dumps(payload), ex=CACHE_TTL_SECONDS)
             await redis.delete(DIRTY_KEY)
-            await redis.publish(CHANNEL, json.dumps(payload))
+            # The channel carries the public view; the cache above keeps the
+            # full rows for the admin board.
+            await redis.publish(CHANNEL, json.dumps(public_view(payload)))
             return payload
         finally:
             # Released as soon as the work is done. The lock exists to stop two
