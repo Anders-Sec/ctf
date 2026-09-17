@@ -65,6 +65,18 @@ export interface Dashboard {
     suspected_broken: { challenge_id: string; title: string; attempts: number }[];
   };
   containers: { available: boolean; note: string };
+  /**
+   * The admin sidebar's badges (spec 049 §5). Carried on this payload rather
+   * than four endpoints of its own: the shell already polls this one on a
+   * timer, and four more parallel polls from every open console is a
+   * self-inflicted load test.
+   */
+  nav_counts: {
+    open_reports: number;
+    pending_approvals: number;
+    open_signals: number;
+    failed_instances: number;
+  };
 }
 
 export interface AuditEntry {

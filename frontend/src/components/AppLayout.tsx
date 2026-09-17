@@ -42,63 +42,24 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen">
       <nav className="relative border-b border-border bg-surface-raised">
-        <div className="mx-auto flex max-w-3xl items-center gap-4 p-4">
-          <NavLink to="/" className="font-semibold">
-            CTF
+        <div
+          className={`flex items-center gap-4 p-4 ${
+            // Full width in the admin area, where the content below is a
+            // sidebar plus tables; a reading column for the player side.
+            showingAdmin ? "" : "mx-auto max-w-3xl"
+          }`}
+        >
+          <NavLink to={showingAdmin ? "/admin" : "/"} className="font-semibold">
+            {showingAdmin ? "CTF · Admin" : "CTF"}
           </NavLink>
 
-          {showingAdmin ? (
-            <>
-              <NavLink to="/admin" end className="text-sm hover:underline">
-                Console
-              </NavLink>
-              <NavLink to="/admin/ops" className="text-sm hover:underline">
-                Ops
-              </NavLink>
-              <NavLink to="/admin/signals" className="text-sm hover:underline">
-                Signals
-              </NavLink>
-              <NavLink
-                to="/admin/assistant"
-                className="text-sm hover:underline"
-              >
-                System AI
-              </NavLink>
-              <NavLink
-                to="/admin/instances"
-                className="text-sm hover:underline"
-              >
-                Dungeons
-              </NavLink>
-              <NavLink
-                to="/admin/challenges"
-                className="text-sm hover:underline"
-              >
-                Manage
-              </NavLink>
-              <NavLink to="/admin/map" className="text-sm hover:underline">
-                Map
-              </NavLink>
-              <NavLink to="/admin/skills" className="text-sm hover:underline">
-                Skills
-              </NavLink>
-              <NavLink to="/admin/classes" className="text-sm hover:underline">
-                Classes
-              </NavLink>
-              <NavLink to="/admin/achievements" className="text-sm hover:underline">
-                Achievements
-              </NavLink>
-              <NavLink to="/admin/users" className="text-sm hover:underline">
-                Approvals
-              </NavLink>
-              <NavLink to="/admin/event" className="text-sm hover:underline">
-                Event
-              </NavLink>
-              <NavLink to="/admin/theme" className="text-sm hover:underline">
-                Theme
-              </NavLink>
-            </>
-          ) : (
+          {/*
+           * Admin navigation is the grouped sidebar in AdminLayout (spec 049),
+           * not a row of tabs here. The player nav is deliberately untouched —
+           * its own pass belongs to the quality-of-life workstream, and
+           * rebuilding it twice would be the only thing worse than leaving it.
+           */}
+          {!showingAdmin && (
             <>
               {me?.capabilities.play && (
                 <NavLink to="/challenges" className="text-sm hover:underline">

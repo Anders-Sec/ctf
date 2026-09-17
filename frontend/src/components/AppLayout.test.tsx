@@ -45,28 +45,29 @@ describe("AppLayout navigation", () => {
     expect(await screen.findByRole("link", { name: "Challenges" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Scoreboard" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /admin view/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Manage" })).not.toBeInTheDocument();
   });
 
   it("defaults an admin to the player view with an Admin view button", async () => {
     render(true);
 
     expect(await screen.findByRole("button", { name: /admin view/i })).toBeInTheDocument();
-    // Player tabs, and NOT the admin tabs, by default.
+    // The player view is the default, so an admin sees the event as a player
+    // does until they ask not to.
     expect(screen.getByRole("link", { name: "Challenges" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Manage" })).not.toBeInTheDocument();
   });
 
-  it("swaps to admin-only tabs when Admin view is clicked", async () => {
+  it("drops the player tabs when Admin view is clicked", async () => {
+    // Since spec 049 the admin area navigates by the sidebar in AdminLayout,
+    // not by tabs here. All this bar does in admin view is get out of the way
+    // and offer the route back.
     render(true);
 
     await userEvent.click(await screen.findByRole("button", { name: /admin view/i }));
 
-    expect(await screen.findByRole("link", { name: "Manage" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Approvals" })).toBeInTheDocument();
-    // Player tabs are gone in admin view.
+    expect(await screen.findByRole("button", { name: /player view/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Challenges" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /player view/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Scoreboard" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /CTF/ })).toHaveAttribute("href", "/admin");
   });
 
   it("goes back to the player tabs on Player view", async () => {
@@ -75,20 +76,19 @@ describe("AppLayout navigation", () => {
     await userEvent.click(await screen.findByRole("button", { name: /player view/i }));
 
     expect(await screen.findByRole("link", { name: "Challenges" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Manage" })).not.toBeInTheDocument();
   });
 
   it("remembers the admin-view choice across a remount", async () => {
     render(true);
     await userEvent.click(await screen.findByRole("button", { name: /admin view/i }));
-    await screen.findByRole("link", { name: "Manage" });
+    await screen.findByRole("button", { name: /player view/i });
 
     // A fresh mount reads the persisted choice.
     vi.unstubAllGlobals();
     render(true);
 
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: "Manage" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /player view/i })).toBeInTheDocument();
     });
   });
 });
