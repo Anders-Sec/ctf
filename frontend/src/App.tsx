@@ -13,6 +13,7 @@ import AdminDashboardPage from "./routes/AdminDashboardPage";
 import AdminDataPage from "./routes/AdminDataPage";
 import AdminEmailPage from "./routes/AdminEmailPage";
 import AdminEventPage from "./routes/AdminEventPage";
+import AdminHealthPage from "./routes/AdminHealthPage";
 import AdminInstancesPage from "./routes/AdminInstancesPage";
 import AdminMapPage from "./routes/AdminMapPage";
 import AdminOpsPage from "./routes/AdminOpsPage";
@@ -97,16 +98,7 @@ export default function App() {
           <Route path="audit" element={<AdminAuditPage />} />
           <Route path="scoreboard" element={<AdminScoreboardPage />} />
           <Route path="announcements" element={<AdminAnnouncementsPage />} />
-          <Route
-            path="health"
-            element={
-              <AdminPlaceholderPage
-                title="Platform Health"
-                spec="057-platform-health.md"
-                summary="Datastores, the model host, the orchestrator and the mail relay, on one screen."
-              />
-            }
-          />
+          <Route path="health" element={<AdminHealthPage />} />
 
           {/* Content */}
           <Route path="challenges" element={<AdminChallengesPage />} />

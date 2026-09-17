@@ -8,6 +8,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from app.logging import get_logger, request_id_var
+from app.services.platform_health import counters
 
 logger = get_logger(__name__)
 
@@ -37,24 +38,31 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             except Exception:
                 # The exception handler produces the response; log the timing here
                 # so failed requests are as measurable as successful ones.
+                duration_ms = round((time.perf_counter() - started) * 1000, 2)
+                # Counted as a 500 (spec 057): the exception handler produces the
+                # response, so without this the staff health page would show a
+                # clean error count through a crash.
+                counters.record(duration_ms=duration_ms, status_code=500)
                 logger.exception(
                     "request_failed",
                     extra={
                         "method": request.method,
                         "path": request.url.path,
-                        "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                        "duration_ms": duration_ms,
                     },
                 )
                 raise
 
             response.headers[REQUEST_ID_HEADER] = request_id
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            counters.record(duration_ms=duration_ms, status_code=response.status_code)
             logger.info(
                 "request_completed",
                 extra={
                     "method": request.method,
                     "path": request.url.path,
                     "status_code": response.status_code,
-                    "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                    "duration_ms": duration_ms,
                 },
             )
             return response
