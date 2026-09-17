@@ -21,7 +21,8 @@ from app.config import Settings
 from app.logging import get_logger
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.instance import LIVE_STATUSES, ChallengeInstance, InstanceStatus
-from app.models.team import Team
+from app.models.team import Team, TeamMembership
+from app.models.user import User, UserRole
 from app.services.instances import launcher
 from app.services.instances.orchestrator import InstanceOrchestrator
 
@@ -54,13 +55,32 @@ async def reconcile_expiry(
     disbanded = select(Team.id).where(Team.disbanded_at.is_not(None))
 
     condition = ChallengeInstance.status.in_(LIVE_STATUSES)
+    past_or_disbanded = (ChallengeInstance.expires_at < now) | (
+        ChallengeInstance.owner_team_id.in_(disbanded)
+    )
+
     if event_over:
-        # The crawl is over; nothing should still be running.
-        filters = condition
-    else:
-        filters = condition & (
-            (ChallengeInstance.expires_at < now) | (ChallengeInstance.owner_team_id.in_(disbanded))
+        # The crawl is over; nothing a *player* started should still be running.
+        #
+        # Staff are exempt, because `resolve_capabilities` already lets them play
+        # outside the event window in order to check the dungeon. Without this
+        # the two rules contradict each other: the launch succeeds and the next
+        # 30-second tick destroys the instance, which looks from the outside
+        # exactly like a container that cannot stay up. It is not — and telling
+        # those apart cost days.
+        #
+        # Staff instances still expire on their TTL like anybody else's, so
+        # nothing lingers indefinitely after the event.
+        staff = select(User.id).where(User.role.in_((UserRole.ORGANIZER, UserRole.ADMIN)))
+        staff_teams = select(TeamMembership.team_id).where(
+            TeamMembership.user_id.in_(staff), TeamMembership.removed_at.is_(None)
         )
+        staff_owned = ChallengeInstance.owner_user_id.in_(staff) | (
+            ChallengeInstance.owner_team_id.in_(staff_teams)
+        )
+        filters = condition & (past_or_disbanded | ~staff_owned)
+    else:
+        filters = condition & past_or_disbanded
 
     expired = (await db.execute(select(ChallengeInstance).where(filters))).scalars().all()
     for instance in expired:

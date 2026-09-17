@@ -11,7 +11,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.models.instance import ContainerTemplate, InstanceStatus
+from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.instance import LIVE_STATUSES, ContainerTemplate, InstanceStatus
 from app.models.user import UserRole, UserStatus
 from app.services.instances import launcher, reconciler
 from app.services.instances.fake import FakeOrchestrator
@@ -488,3 +489,74 @@ class TestExpiryExplainsItself:
         assert record.ttl_seconds == 7200
         assert record.template == "web-registry"
         assert record.expires_at
+
+
+class TestStaffMayTestAfterTheEvent:
+    """`resolve_capabilities` lets staff play outside the event window.
+
+    The expiry sweep did not know that: with the event ended it destroyed every
+    live instance, so a staff launch succeeded and was reaped on the next
+    30-second tick. From outside that is indistinguishable from a container
+    that will not stay up, and telling the two apart cost days of an event
+    setup. The two rules now agree.
+    """
+
+    async def _ended_event(self, db_session: AsyncSession) -> None:
+        event = await db_session.get(EventConfig, EVENT_CONFIG_ID)
+        event.starts_at = datetime.now(UTC) - timedelta(days=2)
+        event.ends_at = datetime.now(UTC) - timedelta(hours=1)
+        await db_session.flush()
+
+    async def test_a_staff_instance_survives_the_event_ending(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        settings = settings.model_copy(update={"instances_enabled": True})
+        staff = await make_user(db_session, status=UserStatus.ACTIVE, role=UserRole.ADMIN)
+        template = await make_template(db_session)
+        challenge = await make_container_challenge(db_session, template)
+        orchestrator = FakeOrchestrator()
+        instance = await launcher.launch(db_session, settings, orchestrator, challenge.id, staff)
+        await self._ended_event(db_session)
+
+        reaped = await reconciler.reconcile_expiry(db_session, settings, orchestrator)
+
+        assert reaped == 0
+        await db_session.refresh(instance)
+        assert instance.status in LIVE_STATUSES
+
+    async def test_a_players_instance_still_goes_when_the_event_ends(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        """The guarantee that sweep exists for is untouched."""
+        settings = settings.model_copy(update={"instances_enabled": True})
+        player_user = await make_user(db_session, status=UserStatus.ACTIVE)
+        template = await make_template(db_session)
+        challenge = await make_container_challenge(db_session, template)
+        orchestrator = FakeOrchestrator()
+        instance = await launcher.launch(
+            db_session, settings, orchestrator, challenge.id, player_user
+        )
+        await self._ended_event(db_session)
+
+        reaped = await reconciler.reconcile_expiry(db_session, settings, orchestrator)
+
+        assert reaped == 1
+        await db_session.refresh(instance)
+        assert instance.status == InstanceStatus.EXPIRED
+
+    async def test_a_staff_instance_past_its_ttl_still_goes(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        """Exempt from the event sweep is not exempt from the clock."""
+        settings = settings.model_copy(update={"instances_enabled": True})
+        staff = await make_user(db_session, status=UserStatus.ACTIVE, role=UserRole.ORGANIZER)
+        template = await make_template(db_session)
+        challenge = await make_container_challenge(db_session, template)
+        orchestrator = FakeOrchestrator()
+        instance = await launcher.launch(db_session, settings, orchestrator, challenge.id, staff)
+        instance.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        await self._ended_event(db_session)
+
+        reaped = await reconciler.reconcile_expiry(db_session, settings, orchestrator)
+
+        assert reaped == 1
