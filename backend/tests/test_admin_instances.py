@@ -1,5 +1,7 @@
 """Admin template CRUD, the instance list, force-teardown, and lifecycle (spec 009)."""
 
+import contextlib
+import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -378,3 +380,111 @@ class TestTemplateEditing:
         )
 
         assert refused.status_code in (401, 403)
+
+
+class _Collector(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+@contextlib.contextmanager
+def capture(logger_name: str):
+    """Collect records from one logger.
+
+    Not `caplog`: `configure_logging` replaces the root handlers, which removes
+    pytest's capture handler, so anything hung off root sees nothing.
+    """
+    collector = _Collector()
+    logger = logging.getLogger(logger_name)
+    logger.addHandler(collector)
+    previous_level, previously_disabled = logger.level, logger.disabled
+    logger.setLevel(logging.INFO)
+    # Something in the app's logging setup leaves these loggers `disabled`, which
+    # makes `logger.info` a silent no-op no matter what handlers are attached.
+    # Production is unaffected — the JSON logs plainly work — but a test that
+    # asserts on a log line has to clear it or it asserts on nothing.
+    logger.disabled = False
+    try:
+        yield collector
+    finally:
+        logger.removeHandler(collector)
+        logger.setLevel(previous_level)
+        logger.disabled = previously_disabled
+
+
+def only(records: list[logging.LogRecord], message: str) -> logging.LogRecord:
+    matching = [r for r in records if r.msg == message]
+    assert matching, f"nothing logged {message!r}"
+    return matching[0]
+
+
+class TestExpiryExplainsItself:
+    """A bare count says an instance died and nothing about why.
+
+    Chasing one of these took days, cycling through container crashes,
+    misconfigured templates and a dead event, because the only evidence was
+    `instances_expired count: 1`. Each expiry now names the instance, the clause
+    that caught it, and how long it lived.
+    """
+
+    async def test_a_past_ttl_expiry_says_so(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        settings = settings.model_copy(update={"instances_enabled": True})
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        template = await make_template(db_session)
+        challenge = await make_container_challenge(db_session, template)
+        orchestrator = FakeOrchestrator()
+        instance = await launcher.launch(db_session, settings, orchestrator, challenge.id, user)
+        instance.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        await db_session.flush()
+
+        with capture("app.services.instances.reconciler") as logs:
+            count = await reconciler.reconcile_expiry(db_session, settings, orchestrator)
+
+        assert count == 1, "the expiry did not pick up the instance at all"
+        record = only(logs.records, "instance_expired")
+        assert record.reason == "past_ttl"
+        assert record.instance == instance.k8s_name
+        assert record.lived_seconds >= 0
+
+    async def test_a_disbanded_owner_is_not_reported_as_a_ttl_expiry(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        """The three clauses look identical from outside, and are not."""
+        settings = settings.model_copy(update={"instances_enabled": True})
+        leader = await make_user(db_session, status=UserStatus.ACTIVE)
+        team = await make_team(db_session, leader)
+        template = await make_template(db_session)
+        challenge = await make_container_challenge(db_session, template)
+        orchestrator = FakeOrchestrator()
+        instance = await launcher.launch(db_session, settings, orchestrator, challenge.id, leader)
+        assert instance.owner_team_id == team.id
+        # Still inside its TTL: only the disband should catch it.
+        team.disbanded_at = datetime.now(UTC)
+        await db_session.flush()
+
+        with capture("app.services.instances.reconciler") as logs:
+            await reconciler.reconcile_expiry(db_session, settings, orchestrator)
+
+        assert only(logs.records, "instance_expired").reason == "owner_disbanded"
+
+    async def test_a_launch_records_the_lifetime_it_got(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        settings = settings.model_copy(update={"instances_enabled": True})
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        template = await make_template(db_session, name="web-registry", ttl_seconds=7200)
+        challenge = await make_container_challenge(db_session, template)
+
+        with capture("app.services.instances.launcher") as logs:
+            await launcher.launch(db_session, settings, FakeOrchestrator(), challenge.id, user)
+
+        record = only(logs.records, "instance_launched")
+        assert record.ttl_seconds == 7200
+        assert record.template == "web-registry"
+        assert record.expires_at

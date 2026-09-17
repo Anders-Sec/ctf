@@ -297,7 +297,16 @@ async def launch(
 
     logger.info(
         "instance_launched",
-        extra={"instance": instance.k8s_name, "challenge_id": str(challenge.id)},
+        extra={
+            "instance": instance.k8s_name,
+            "challenge_id": str(challenge.id),
+            # The lifetime this instance actually got, and from which template.
+            # Without these, an instance vanishing early is indistinguishable
+            # from a container crashing, and the difference took days to find.
+            "template": template.name,
+            "ttl_seconds": ttl_seconds,
+            "expires_at": instance.expires_at.isoformat(),
+        },
     )
     return instance
 

@@ -64,12 +64,34 @@ async def reconcile_expiry(
 
     expired = (await db.execute(select(ChallengeInstance).where(filters))).scalars().all()
     for instance in expired:
+        # Logged one line per instance, with the clause that actually caught it.
+        # A bare count says an instance died and nothing about why, which cost
+        # a long evening of guessing at whether a container was crashing, a
+        # template was misconfigured, or the event had ended.
+        logger.info(
+            "instance_expired",
+            extra={
+                "instance": instance.k8s_name,
+                "reason": _expiry_reason(instance, now, event_over=event_over),
+                "expires_at": instance.expires_at.isoformat(),
+                "lived_seconds": round((now - instance.created_at).total_seconds()),
+            },
+        )
         await launcher.destroy(
             db, settings, orchestrator, instance, status=InstanceStatus.EXPIRED, now=now
         )
     if expired:
         logger.info("instances_expired", extra={"count": len(expired)})
     return len(expired)
+
+
+def _expiry_reason(instance: ChallengeInstance, now: datetime, *, event_over: bool) -> str:
+    """Which of the three clauses took this instance."""
+    if event_over:
+        return "event_ended"
+    if instance.expires_at < now:
+        return "past_ttl"
+    return "owner_disbanded"
 
 
 async def reconcile_orphans(
