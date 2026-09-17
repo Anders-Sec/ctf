@@ -27,6 +27,4 @@ async def platform_report(
     current: Staff,
 ) -> HealthReportResponse:
     orchestrator = getattr(request.app.state, "orchestrator", None)
-    return HealthReportResponse(
-        **await platform_health.report(db, redis, settings, orchestrator)
-    )
+    return HealthReportResponse(**await platform_health.report(db, redis, settings, orchestrator))

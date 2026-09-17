@@ -84,7 +84,7 @@ const GROUPS: Group[] = [
  * instead of renegotiating it one page at a time. Each renders a placeholder
  * naming its spec, so a click is answered rather than bounced.
  */
-const NOT_YET_BUILT = new Set(["/admin/metrics", "/admin/export"]);
+const NOT_YET_BUILT = new Set(["/admin/metrics"]);
 
 /**
  * A thin colour flag per group, so the three sections can be told apart at a

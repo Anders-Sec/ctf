@@ -13,6 +13,7 @@ import AdminDashboardPage from "./routes/AdminDashboardPage";
 import AdminDataPage from "./routes/AdminDataPage";
 import AdminEmailPage from "./routes/AdminEmailPage";
 import AdminEventPage from "./routes/AdminEventPage";
+import AdminExportPage from "./routes/AdminExportPage";
 import AdminHealthPage from "./routes/AdminHealthPage";
 import AdminInstancesPage from "./routes/AdminInstancesPage";
 import AdminMapPage from "./routes/AdminMapPage";
@@ -112,16 +113,7 @@ export default function App() {
           <Route path="theme" element={<AdminThemePage />} />
           <Route path="templates" element={<AdminTemplatesPage />} />
           <Route path="email" element={<AdminEmailPage />} />
-          <Route
-            path="export"
-            element={
-              <AdminPlaceholderPage
-                title="Export"
-                spec="056-event-export.md"
-                summary="Standings, the awards sheet, solves and submissions — for the closing afternoon and the write-up after."
-              />
-            }
-          />
+          <Route path="export" element={<AdminExportPage />} />
           <Route path="data" element={<AdminDataPage />} />
         </Route>
       </Route>
