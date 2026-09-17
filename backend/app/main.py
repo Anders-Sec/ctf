@@ -18,6 +18,7 @@ from app.api.routes import (
     admin_health,
     admin_hints,
     admin_instances,
+    admin_metrics,
     admin_ops,
     admin_parties,
     admin_sample_data,
@@ -166,6 +167,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(admin_email.router)
     api.include_router(admin_export.router)
     api.include_router(admin_health.router)
+    api.include_router(admin_metrics.router)
     api.include_router(admin_ops.router)
     api.include_router(admin_parties.router)
     api.include_router(admin_sample_data.router)

@@ -17,9 +17,9 @@ import AdminExportPage from "./routes/AdminExportPage";
 import AdminHealthPage from "./routes/AdminHealthPage";
 import AdminInstancesPage from "./routes/AdminInstancesPage";
 import AdminMapPage from "./routes/AdminMapPage";
+import AdminMetricsPage from "./routes/AdminMetricsPage";
 import AdminOpsPage from "./routes/AdminOpsPage";
 import AdminPartiesPage from "./routes/AdminPartiesPage";
-import AdminPlaceholderPage from "./routes/AdminPlaceholderPage";
 import AdminScoreboardPage from "./routes/AdminScoreboardPage";
 import AdminSignalsPage from "./routes/AdminSignalsPage";
 import AdminSkillsPage from "./routes/AdminSkillsPage";
@@ -82,16 +82,7 @@ export default function App() {
           {/* Operations */}
           <Route path="ops" element={<AdminOpsPage />} />
           <Route path="signals" element={<AdminSignalsPage />} />
-          <Route
-            path="metrics"
-            element={
-              <AdminPlaceholderPage
-                title="Metrics"
-                spec="050-event-metrics.md"
-                summary="Attempt-to-solve drift, near-miss detection, stalled players and the hint economy — aimed at catching a problem early enough to fix it mid-event."
-              />
-            }
-          />
+          <Route path="metrics" element={<AdminMetricsPage />} />
           <Route path="assistant" element={<AdminAssistantPage />} />
           <Route path="instances" element={<AdminInstancesPage />} />
           <Route path="users" element={<AdminUsersPage />} />

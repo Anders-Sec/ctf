@@ -56,9 +56,7 @@ def upgrade() -> None:
             nullable=True,
         ),
     )
-    op.create_index(
-        "ix_notification_announcement", "notification", ["announcement_id"]
-    )
+    op.create_index("ix_notification_announcement", "notification", ["announcement_id"])
 
 
 def downgrade() -> None:

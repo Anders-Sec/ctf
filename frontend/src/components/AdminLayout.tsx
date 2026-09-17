@@ -78,15 +78,6 @@ const GROUPS: Group[] = [
 ];
 
 /**
- * Specced but not yet built. Listed here rather than hidden, because the
- * information architecture is the point of this spec — the shape of the admin
- * area should be visible now, so later specs drop into a settled structure
- * instead of renegotiating it one page at a time. Each renders a placeholder
- * naming its spec, so a click is answered rather than bounced.
- */
-const NOT_YET_BUILT = new Set(["/admin/metrics"]);
-
-/**
  * A thin colour flag per group, so the three sections can be told apart at a
  * glance rather than by reading their headings. Decoration only — the heading
  * text is always present, so nothing here is the sole carrier of meaning.
@@ -222,8 +213,6 @@ export default function AdminLayout() {
 }
 
 function SidebarLink({ item, count }: { item: Item; count: number | undefined }) {
-  const unbuilt = NOT_YET_BUILT.has(item.to);
-
   return (
     <NavLink
       to={item.to}
@@ -235,7 +224,6 @@ function SidebarLink({ item, count }: { item: Item; count: number | undefined })
           isActive
             ? "border-l-2 border-accent bg-surface-sunken font-medium"
             : "border-l-2 border-transparent hover:bg-surface-sunken",
-          unbuilt ? "text-content-faint" : "",
         ].join(" ")
       }
     >
