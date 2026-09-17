@@ -13,29 +13,50 @@ trusted.
 
 from typing import Final
 
-#: Every selectable theme. Order is the picker's order.
+#: Every theme. Order is display order.
+#:
+#: The last three are secret (spec 048 §10.1): the everyday light/dark toggle
+#: does not offer them, and how a player comes to hold one is deliberately
+#: undecided. An admin may assign any of them today.
 THEME_IDS: Final[tuple[str, ...]] = (
     "parchment",
     "dark-dungeon",
-    "torchlight",
     "high-contrast",
+    "purple-squirrel",
+    "dnd",
+    "mr-anderson",
 )
 
 #: Applied when the user has expressed no preference and the event sets none.
 FALLBACK_THEME: Final[str] = "parchment"
+
+#: The accessibility switch. Not an entry in any list of looks — it overrides
+#: whatever theme is selected while it is on, which is why it is stored as its
+#: own flag rather than as a theme choice.
+HIGH_CONTRAST_THEME: Final[str] = "high-contrast"
 
 
 def is_theme(value: str | None) -> bool:
     return value in THEME_IDS
 
 
-def resolve_theme(user_theme: str | None, event_default: str | None) -> str:
+def resolve_theme(
+    user_theme: str | None,
+    event_default: str | None,
+    high_contrast: bool = False,
+) -> str:
     """The theme a session should be served.
+
+    High contrast is a second axis rather than a third theme: while it is on it
+    wins outright, and the underlying choice is left untouched so that turning
+    it off returns the player to the side of the toggle they were on.
 
     Falls back rather than raising on an unrecognised name. A preset removed
     after somebody selected it must not be able to break their login, so a
     stored value that is no longer real is treated as no value at all.
     """
+    if high_contrast:
+        return HIGH_CONTRAST_THEME
     if is_theme(user_theme):
         return user_theme  # type: ignore[return-value]
     if is_theme(event_default):

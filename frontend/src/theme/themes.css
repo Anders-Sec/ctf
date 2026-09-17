@@ -1,5 +1,5 @@
 /*
- * Theme presets (spec 048).
+ * Theme presets (spec 048, amended §10).
  *
  * THIS FILE IS THE SOURCE OF TRUTH FOR COLOUR. Values live here and nowhere
  * else — `themes.ts` carries only the roster (ids and labels for the picker),
@@ -60,6 +60,15 @@
   --info: 40 96 166;
 
   --focus-ring: 176 92 32;
+
+  /* Admin sidebar group flags (spec 049). Decoration: the group heading is
+     always present as text, so colour is never the only thing carrying it. */
+  --nav-operations: 176 92 32;
+  --nav-content: 40 96 166;
+  --nav-settings: 101 95 87;
+
+  /* Decorative page wash. `none` everywhere except the gag theme. */
+  --surface-pattern: none;
 }
 
 :root[data-theme="dark-dungeon"] {
@@ -87,36 +96,22 @@
   --info: 130 178 244;
 
   --focus-ring: 255 202 122;
+
+  --nav-operations: 224 146 72;
+  --nav-content: 130 178 244;
+  --nav-settings: 150 144 136;
+
+  --surface-pattern: none;
 }
 
-:root[data-theme="torchlight"] {
-  --surface: 10 10 12;
-  --surface-raised: 26 25 29;
-  --surface-sunken: 5 5 7;
-  --surface-overlay: 34 32 38;
-
-  --border: 74 70 80;
-  --border-strong: 140 134 148;
-
-  --content: 248 246 242;
-  --content-muted: 196 190 182;
-  --content-faint: 148 142 136;
-
-  --accent: 255 166 84;
-  --accent-strong: 255 182 110;
-  --accent-content: 32 18 4;
-
-  --danger: 255 140 130;
-  --warning: 255 198 104;
-  --success: 140 224 156;
-  --info: 150 194 255;
-
-  --focus-ring: 255 214 150;
-}
 
 :root[data-theme="high-contrast"] {
-  /* Not a stylistic choice. Maximum separation, no translucency anywhere, and
-     borders heavy enough to define a region without relying on a fill. */
+  /* Not a stylistic choice, and not an entry in the theme list either — it is
+     its own switch (spec 048 §10), because an accessibility need should not
+     have to be found by browsing a menu of looks.
+
+     Maximum separation, no translucency anywhere, and borders heavy enough to
+     define a region without relying on a fill. */
   --surface: 255 255 255;
   --surface-raised: 255 255 255;
   --surface-sunken: 238 238 238;
@@ -139,6 +134,121 @@
   --info: 0 45 136;
 
   --focus-ring: 0 0 0;
+
+  --nav-operations: 0 0 0;
+  --nav-content: 0 0 0;
+  --nav-settings: 0 0 0;
+
+  --surface-pattern: none;
+}
+
+/* === Secret themes ========================================================
+   Not offered by the light/dark toggle. How a player comes to hold one is
+   deliberately undecided (spec 048 §11.4); for now the admin can select any of
+   them, for the event default or for their own account. */
+
+:root[data-theme="purple-squirrel"] {
+  /* The team's in-joke, and the one theme exempt from the contrast rules — see
+     `exemptFromContrast` in themes.ts. The exemption is declared and asserted
+     rather than tolerated, so it stays a decision instead of becoming a theme
+     that quietly fails its tests. */
+  --surface: 26 16 38;
+  --surface-raised: 42 26 60;
+  --surface-sunken: 18 10 28;
+  --surface-overlay: 52 32 74;
+
+  --border: 84 54 116;
+  --border-strong: 150 106 200;
+
+  --content: 240 228 255;
+  --content-muted: 196 172 226;
+  --content-faint: 150 128 180;
+
+  --accent: 186 122 240;
+  --accent-strong: 200 146 248;
+  --accent-content: 26 10 40;
+
+  --danger: 255 132 168;
+  --warning: 246 190 110;
+  --success: 148 226 168;
+  --info: 158 178 255;
+
+  --focus-ring: 214 168 255;
+
+  --nav-operations: 200 146 248;
+  --nav-content: 158 178 255;
+  --nav-settings: 196 172 226;
+
+  /* Squirrels, everywhere, faintly. Inline SVG rather than an asset, so the
+     whole theme stays one block in one file. */
+  --surface-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Ctext x='16' y='48' font-size='34' opacity='0.07'%3E%F0%9F%90%BF%3C/text%3E%3Ctext x='86' y='116' font-size='26' opacity='0.05' transform='rotate(18 86 116)'%3E%F0%9F%90%BF%3C/text%3E%3C/svg%3E");
+}
+
+:root[data-theme="dnd"] {
+  /* Tavern candlelight rather than the parchment page: warm, dim, leather
+     instead of paper. */
+  --surface: 30 24 18;
+  --surface-raised: 45 36 27;
+  --surface-sunken: 22 17 12;
+  --surface-overlay: 54 43 32;
+
+  --border: 82 66 48;
+  --border-strong: 146 120 88;
+
+  --content: 240 228 206;
+  --content-muted: 190 172 144;
+  --content-faint: 142 126 102;
+
+  --accent: 198 154 74;
+  --accent-strong: 214 172 96;
+  --accent-content: 28 20 10;
+
+  --danger: 232 126 102;
+  --warning: 224 178 96;
+  --success: 140 190 128;
+  --info: 150 178 214;
+
+  --focus-ring: 224 186 116;
+
+  --nav-operations: 214 172 96;
+  --nav-content: 150 178 214;
+  --nav-settings: 190 172 144;
+
+  --surface-pattern: none;
+}
+
+:root[data-theme="mr-anderson"] {
+  /* Green on black. A phosphor terminal, so body text and accent are the same
+     family — which is the look, and is why `content` sits a step below
+     `accent-strong` rather than beside it. */
+  --surface: 4 8 5;
+  --surface-raised: 10 20 12;
+  --surface-sunken: 2 5 3;
+  --surface-overlay: 14 28 17;
+
+  --border: 26 62 32;
+  --border-strong: 60 140 74;
+
+  --content: 156 240 168;
+  --content-muted: 108 196 124;
+  --content-faint: 74 148 88;
+
+  --accent: 64 220 96;
+  --accent-strong: 96 240 128;
+  --accent-content: 2 12 4;
+
+  --danger: 255 110 96;
+  --warning: 228 208 96;
+  --success: 96 240 128;
+  --info: 120 220 200;
+
+  --focus-ring: 120 255 150;
+
+  --nav-operations: 96 240 128;
+  --nav-content: 120 220 200;
+  --nav-settings: 108 196 124;
+
+  --surface-pattern: none;
 }
 
 /*

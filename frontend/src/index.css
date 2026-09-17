@@ -10,6 +10,8 @@
 
 body {
   @apply bg-surface text-content antialiased;
+  /* `none` in every theme but the gag one, which strews squirrels across it. */
+  background-image: var(--surface-pattern);
 }
 
 /* --- Dungeon map ambience (spec 020) --------------------------------------

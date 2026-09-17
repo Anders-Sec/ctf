@@ -36,6 +36,13 @@ export default {
         success: "rgb(var(--success) / <alpha-value>)",
         info: "rgb(var(--info) / <alpha-value>)",
 
+        // Admin sidebar group flags (spec 049). Decoration only.
+        nav: {
+          operations: "rgb(var(--nav-operations) / <alpha-value>)",
+          content: "rgb(var(--nav-content) / <alpha-value>)",
+          settings: "rgb(var(--nav-settings) / <alpha-value>)",
+        },
+
         // Text on a saturated fill — a puzzle tile, a generated avatar.
         "on-fill": "rgb(var(--on-fill) / <alpha-value>)",
 

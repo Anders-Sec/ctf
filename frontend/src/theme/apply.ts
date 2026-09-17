@@ -11,7 +11,13 @@
  *     only to win the race against the network.
  */
 
-import { FALLBACK_THEME, isThemeId, themeById, type ThemeId } from "./themes";
+import {
+  FALLBACK_THEME,
+  HIGH_CONTRAST_THEME,
+  isThemeId,
+  themeById,
+  type ThemeId,
+} from "./themes";
 
 export const THEME_STORAGE_KEY = "ctf.theme";
 
@@ -53,6 +59,10 @@ export function storeTheme(id: ThemeId): void {
 /**
  * Resolve what a session should actually be showing.
  *
+ * High contrast is a second axis, not a third theme: while it is on it wins
+ * outright, and the underlying choice is left untouched so turning it off
+ * returns the player to the side of the toggle they were on.
+ *
  * An unrecognised name — a preset removed after somebody selected it — falls
  * back rather than throwing. A stored preference must never be able to break a
  * login.
@@ -60,7 +70,9 @@ export function storeTheme(id: ThemeId): void {
 export function resolveTheme(
   userTheme: string | null | undefined,
   eventDefault: string | null | undefined,
+  highContrast = false,
 ): ThemeId {
+  if (highContrast) return HIGH_CONTRAST_THEME;
   if (isThemeId(userTheme)) return userTheme;
   if (isThemeId(eventDefault)) return eventDefault;
   return FALLBACK_THEME;

@@ -3,7 +3,17 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { resolveTheme, THEME_STORAGE_KEY } from "./apply";
-import { FALLBACK_THEME, isThemeId, THEME_IDS, THEMES } from "./themes";
+import {
+  DARK_THEME,
+  FALLBACK_THEME,
+  HIGH_CONTRAST_THEME,
+  isThemeId,
+  LIGHT_THEME,
+  THEME_IDS,
+  THEMES,
+  TOGGLE_THEMES,
+  themeById,
+} from "./themes";
 
 /**
  * These tests parse `themes.css` rather than importing values from TypeScript,
@@ -98,6 +108,38 @@ describe("theme roster", () => {
     expect(THEMES.map((theme) => theme.id)).toEqual([...THEME_IDS]);
   });
 
+  it("offers exactly light and dark on the everyday toggle", () => {
+    // Spec 048 §10: four presets turned out to be two. A toggle is the right
+    // shape for a two-way choice, and everything else moved to settings or
+    // behind an unlock.
+    expect(TOGGLE_THEMES.map((theme) => theme.id)).toEqual([LIGHT_THEME, DARK_THEME]);
+    expect(themeById(LIGHT_THEME).mode).toBe("light");
+    expect(themeById(DARK_THEME).mode).toBe("dark");
+  });
+
+  it("keeps high contrast and the secret themes off the toggle", () => {
+    const offered = new Set(TOGGLE_THEMES.map((theme) => theme.id));
+    expect(offered.has(HIGH_CONTRAST_THEME)).toBe(false);
+    for (const theme of THEMES.filter((t) => t.secret)) {
+      expect(offered.has(theme.id)).toBe(false);
+    }
+  });
+
+  it("carries the three secret themes", () => {
+    expect(THEMES.filter((theme) => theme.secret).map((theme) => theme.id)).toEqual([
+      "purple-squirrel",
+      "dnd",
+      "mr-anderson",
+    ]);
+  });
+
+  it("no longer carries torchlight", () => {
+    // It was meant to be the high-contrast dark and read as Dark Dungeon two
+    // values apart.
+    expect(isThemeId("torchlight")).toBe(false);
+    expect(CSS).not.toContain("torchlight");
+  });
+
   it("agrees with the backend roster", () => {
     // A theme present on one side and not the other renders as nothing, or is
     // refused on save. Two lists are the cost of not sharing a build context
@@ -117,7 +159,18 @@ describe("contrast", () => {
   const BODY = 4.5;
   const UI = 3;
 
-  for (const id of THEME_IDS) {
+  // Exactly one theme opts out, and it declares the exemption in the roster
+  // rather than the test naming it — so adding a second exempt theme is a
+  // visible edit to the roster, not a quiet edit to a test.
+  const asserted = THEMES.filter((theme) => !theme.exemptFromContrast).map((t) => t.id);
+
+  it("exempts only what the roster declares exempt", () => {
+    expect(THEMES.filter((theme) => theme.exemptFromContrast).map((t) => t.label)).toEqual([
+      "Purple Squirrel",
+    ]);
+  });
+
+  for (const id of asserted) {
     describe(id, () => {
       const token = (name: string): Rgb => {
         const value = tokens(id).get(name);
@@ -189,7 +242,17 @@ describe("contrast", () => {
 
 describe("resolving a preference", () => {
   it("prefers the user's choice", () => {
-    expect(resolveTheme("torchlight", "dark-dungeon")).toBe("torchlight");
+    expect(resolveTheme("mr-anderson", "dark-dungeon")).toBe("mr-anderson");
+  });
+
+  it("lets high contrast override whatever is selected", () => {
+    expect(resolveTheme("dnd", "parchment", true)).toBe(HIGH_CONTRAST_THEME);
+    expect(resolveTheme(null, null, true)).toBe(HIGH_CONTRAST_THEME);
+  });
+
+  it("puts back the underlying choice when high contrast goes off", () => {
+    // The whole reason it is a separate flag rather than a theme value.
+    expect(resolveTheme("dnd", "parchment", false)).toBe("dnd");
   });
 
   it("falls back to the event default when the user has no choice", () => {
@@ -204,7 +267,7 @@ describe("resolving a preference", () => {
     // A preset removed after somebody selected it. This must degrade, not throw
     // — it is read on every session load.
     expect(resolveTheme("midnight-gala", null)).toBe(FALLBACK_THEME);
-    expect(resolveTheme("midnight-gala", "torchlight")).toBe("torchlight");
+    expect(resolveTheme("midnight-gala", "dark-dungeon")).toBe("dark-dungeon");
     expect(isThemeId("midnight-gala")).toBe(false);
   });
 });
@@ -215,22 +278,28 @@ describe("the anti-flash stamp in index.html", () => {
   // this is what keeps it honest.
   const HTML = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
 
+  /** The snippet's own copy of the roster, as a theme → mode map. */
+  function snippetModes(): Record<string, string> {
+    const body = /var MODES = \{([^}]*)\}/.exec(HTML)?.[1];
+    expect(body, "no MODES map found in the inline snippet").toBeTruthy();
+    const modes: Record<string, string> = {};
+    for (const [, id, mode] of (body ?? "").matchAll(/"([a-z-]+)":\s*"(light|dark)"/g)) {
+      modes[id!] = mode!;
+    }
+    return modes;
+  }
+
   it("knows exactly the themes the roster knows", () => {
-    const listed = /var known = \[([^\]]*)\]/.exec(HTML)?.[1];
-    expect(listed, "no theme list found in the inline snippet").toBeTruthy();
-    const names = [...(listed ?? "").matchAll(/"([a-z-]+)"/g)].map((m) => m[1]);
-    expect(names.sort()).toEqual([...THEME_IDS].sort());
+    expect(Object.keys(snippetModes()).sort()).toEqual([...THEME_IDS].sort());
   });
 
   it("agrees with the roster about which themes are dark", () => {
-    const dark = THEMES.filter((theme) => theme.mode === "dark").map((theme) => theme.id);
-    for (const id of dark) {
-      expect(HTML, `${id} is dark but the snippet does not say so`).toContain(`"${id}"`);
+    const modes = snippetModes();
+    for (const theme of THEMES) {
+      expect(modes[theme.id], `${theme.id} should be ${theme.mode} in the snippet`).toBe(
+        theme.mode,
+      );
     }
-    // The snippet's dark test is a literal comparison; assert its shape so a
-    // new dark preset cannot be silently left out of it.
-    const test = /stored === "([a-z-]+)" \|\| stored === "([a-z-]+)"/.exec(HTML);
-    expect(test?.slice(1, 3).sort()).toEqual(dark.sort());
   });
 
   it("reads the same storage key the app writes", () => {
