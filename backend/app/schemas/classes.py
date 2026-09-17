@@ -8,11 +8,31 @@ from app.models.challenge import Ability
 from app.models.character_class import Rarity
 
 
+class ClassPreferenceResponse(BaseModel):
+    ability: Ability | None
+    skill_id: UUID | None
+
+
+class ClassRequirementResponse(BaseModel):
+    skill_id: UUID
+    min_level: int
+
+
 class ClassResponse(BaseModel):
     id: UUID
     name: str
     display_order: int
     description: str | None
+    #: Presentation only, and invisible to the admin UI before spec 058.
+    rarity: Rarity = Rarity.COMMON
+    preferences: list[ClassPreferenceResponse] = []
+    requirements: list[ClassRequirementResponse] = []
+    #: Counts for the list row (spec 058 §3). Wearers is why a delete can be
+    #: refused: the FK is SET NULL, so deleting would silently return players to
+    #: Classless.
+    preference_count: int = 0
+    requirement_count: int = 0
+    wearers: int = 0
 
 
 class CreateClassRequest(BaseModel):

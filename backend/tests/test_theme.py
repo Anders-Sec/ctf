@@ -92,13 +92,13 @@ class TestReadingTheTheme:
     async def test_a_users_choice_outranks_the_event_default(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        user = await make_user(db_session, status=UserStatus.ACTIVE, theme="mr-anderson")
+        user = await make_user(db_session, status=UserStatus.ACTIVE, theme="high-contrast")
         await sign_in(client, user)
         await set_event_default(db_session, "dark-dungeon")
 
         body = (await client.get("/api/auth/me")).json()
 
-        assert body["theme"] == "mr-anderson"
+        assert body["theme"] == "high-contrast"
         assert body["theme_source"] == "user"
 
     async def test_a_stored_theme_that_no_longer_exists_does_not_break_the_session(
@@ -233,11 +233,11 @@ class TestTheEventDefault:
     async def test_it_leaves_alone_anyone_who_has_chosen(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        player = await make_user(db_session, status=UserStatus.ACTIVE, theme="mr-anderson")
+        player = await make_user(db_session, status=UserStatus.ACTIVE, theme="high-contrast")
         await set_event_default(db_session, "dark-dungeon")
         await sign_in(client, player)
 
-        assert (await client.get("/api/auth/me")).json()["theme"] == "mr-anderson"
+        assert (await client.get("/api/auth/me")).json()["theme"] == "high-contrast"
 
     async def test_an_unknown_theme_is_refused(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -285,6 +285,9 @@ class TestHighContrast:
     ) -> None:
         user = await make_user(db_session, status=UserStatus.ACTIVE, theme="dnd")
         await sign_in(client, user)
+        # Held, or the new unheld-secret fallback would move them off it and
+        # this test would be measuring that instead (spec 058 §5.1).
+        await theme_unlocks.grant(db_session, user.id, "dnd", source=UnlockSource.ADMIN)
 
         await client.patch("/api/auth/me/high-contrast", json={"high_contrast": True})
 
@@ -301,6 +304,7 @@ class TestHighContrast:
             db_session, status=UserStatus.ACTIVE, theme="dnd", high_contrast=True
         )
         await sign_in(client, user)
+        await theme_unlocks.grant(db_session, user.id, "dnd", source=UnlockSource.ADMIN)
 
         await client.patch("/api/auth/me/high-contrast", json={"high_contrast": False})
 

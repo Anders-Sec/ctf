@@ -330,6 +330,10 @@ async def me(
     except assistant_terms.TermsUnavailable:
         pass
 
+    # What they hold, so a secret theme they no longer have falls back rather
+    # than being served (spec 058 §5.1).
+    held = await theme_unlocks.held_by(db, current.user.id)
+
     return MeResponse(
         user=_user_response(current.user),
         assistant_available=(
@@ -345,13 +349,16 @@ async def me(
             current.user.theme,
             event.default_theme if event else None,
             current.user.high_contrast,
+            unlocked=set(held),
         ),
         theme_source="user" if is_theme(current.user.theme) else "event",
         high_contrast=current.user.high_contrast,
         # What the toggle would return them to, so the settings page can show
         # which side of light/dark is selected while high contrast overrides it.
-        base_theme=resolve_theme(current.user.theme, event.default_theme if event else None),
-        unlocked_themes=await theme_unlocks.held_by(db, current.user.id),
+        base_theme=resolve_theme(
+            current.user.theme, event.default_theme if event else None, unlocked=set(held)
+        ),
+        unlocked_themes=held,
         team=TeamSummary(**team) if team else None,
         capabilities=CapabilitiesResponse(**current.capabilities.to_dict()),
         event=(

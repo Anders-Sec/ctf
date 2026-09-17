@@ -15,8 +15,10 @@ from app.schemas.admin_achievements import (
     TriggerCodesResponse,
     UpdateAchievementRequest,
 )
+from app.schemas.admin_content import BulkRequest, BulkResultResponse
 from app.schemas.auth import MessageResponse
 from app.services import admin_achievements as service
+from app.services import admin_content
 from app.services.identity import record_audit
 
 router = APIRouter(prefix="/admin/achievements", tags=["admin-achievements"])
@@ -93,3 +95,26 @@ async def delete_achievement(
         request_id=_request_id(request),
     )
     return MessageResponse(message="Achievement removed.")
+
+
+@router.post("/bulk")
+async def bulk_achievements(
+    payload: BulkRequest, request: Request, db: DbSession, current: Admin
+) -> BulkResultResponse:
+    """One action over a selection, with per-item results (spec 058 §4).
+
+    A delete refuses any achievement somebody holds, and says which — spec 030's
+    rule applied in bulk, where silently skipping rows would be worse than one
+    at a time.
+    """
+    outcome = await admin_content.bulk_achievements(db, payload.ids, payload.action, payload.value)
+    await record_audit(
+        db,
+        action="achievement.bulk",
+        target_type="achievement",
+        target_id=None,
+        actor_user_id=current.user.id,
+        meta={"action": payload.action, "changed": outcome.changed, "asked": len(payload.ids)},
+        request_id=_request_id(request),
+    )
+    return BulkResultResponse(**outcome.as_dict())

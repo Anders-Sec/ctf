@@ -193,9 +193,14 @@ means the player holds it, off means they do not.
 
 Granting and revoking are both `Admin` and both audited, and a revoke that takes
 away the theme a player is currently wearing falls them back to the event
-default rather than leaving them on something they no longer hold — which is
-exactly what spec 048 §5's unknown-theme fallback already does, now reached by a
-second route.
+default rather than leaving them on something they no longer hold.
+
+**That fallback had to be built, not reused.** The draft of this spec claimed
+spec 048 §5's existing behaviour covered it; it does not. That one falls back on
+a theme id that is *no longer a theme*, and a revoked theme is still perfectly
+real — so `resolve_theme` now takes what the player holds and declines to honour
+a secret theme missing from it. Passing nothing still means "unknown", so the
+callers that cannot cheaply look holdings up do not silently downgrade anybody.
 
 Rows carry their source: `achievement` or `admin`. An admin grant for a theme
 the player later earns legitimately is not a conflict — the row already exists

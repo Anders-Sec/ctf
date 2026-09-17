@@ -9,14 +9,18 @@ from uuid import UUID
 from fastapi import APIRouter, Request, status
 
 from app.api.deps import Admin, DbSession, Staff
+from app.schemas.admin_content import BulkRequest, BulkResultResponse
 from app.schemas.auth import MessageResponse
 from app.schemas.classes import (
+    ClassPreferenceResponse,
+    ClassRequirementResponse,
     ClassResponse,
     CreateClassRequest,
     SetPreferencesRequest,
     SetRequirementsRequest,
     UpdateClassRequest,
 )
+from app.services import admin_content
 from app.services import classes as class_service
 from app.services.identity import record_audit
 
@@ -27,10 +31,43 @@ def _request_id(request: Request) -> str | None:
     return getattr(request.state, "request_id", None)
 
 
+def _response(character_class, tally: dict | None = None) -> ClassResponse:
+    """Built field by field, not by `model_validate`.
+
+    `preferences` and `requirements` are relationships, and letting pydantic
+    reach for them triggers lazy IO in an async context — which on a
+    freshly-created class is a MissingGreenlet rather than an empty list.
+    Reading the already-loaded collections explicitly keeps that impossible.
+    """
+    tally = tally or {}
+    loaded = "preferences" in character_class.__dict__
+    preferences = character_class.preferences if loaded else []
+    requirements = character_class.requirements if loaded else []
+
+    return ClassResponse(
+        id=character_class.id,
+        name=character_class.name,
+        display_order=character_class.display_order,
+        description=character_class.description,
+        rarity=character_class.rarity,
+        preferences=[
+            ClassPreferenceResponse(ability=p.ability, skill_id=p.skill_id) for p in preferences
+        ],
+        requirements=[
+            ClassRequirementResponse(skill_id=r.skill_id, min_level=r.min_level)
+            for r in requirements
+        ],
+        preference_count=tally.get("preferences", len(preferences)),
+        requirement_count=tally.get("requirements", len(requirements)),
+        wearers=tally.get("wearers", 0),
+    )
+
+
 @router.get("/classes")
 async def list_classes(db: DbSession, current: Staff) -> list[ClassResponse]:
+    counts = await admin_content.class_counts(db)
     return [
-        ClassResponse.model_validate(character_class, from_attributes=True)
+        _response(character_class, counts.get(character_class.id, {}))
         for character_class in await class_service.list_classes(db)
     ]
 
@@ -55,7 +92,7 @@ async def create_class(
         meta={"name": character_class.name},
         request_id=_request_id(request),
     )
-    return ClassResponse.model_validate(character_class, from_attributes=True)
+    return _response(character_class)
 
 
 @router.patch("/classes/{class_id}")
@@ -77,7 +114,7 @@ async def update_class(
         meta={"fields": sorted(changes)},
         request_id=_request_id(request),
     )
-    return ClassResponse.model_validate(character_class, from_attributes=True)
+    return _response(character_class)
 
 
 @router.delete("/classes/{class_id}")
@@ -122,7 +159,7 @@ async def set_class_preferences(
         meta={"count": len(payload.preferences)},
         request_id=_request_id(request),
     )
-    return ClassResponse.model_validate(character_class, from_attributes=True)
+    return _response(character_class)
 
 
 @router.put("/classes/{class_id}/requirements")
@@ -146,4 +183,22 @@ async def set_class_requirements(
         meta={"count": len(payload.requirements)},
         request_id=_request_id(request),
     )
-    return ClassResponse.model_validate(character_class, from_attributes=True)
+    return _response(character_class)
+
+
+@router.post("/classes/bulk")
+async def bulk_classes(
+    payload: BulkRequest, request: Request, db: DbSession, current: Admin
+) -> BulkResultResponse:
+    """One action over a selection, with per-item results (spec 058 §4)."""
+    outcome = await admin_content.bulk_classes(db, payload.ids, payload.action, payload.value)
+    await record_audit(
+        db,
+        action="class.bulk",
+        target_type="class",
+        target_id=None,
+        actor_user_id=current.user.id,
+        meta={"action": payload.action, "changed": outcome.changed, "asked": len(payload.ids)},
+        request_id=_request_id(request),
+    )
+    return BulkResultResponse(**outcome.as_dict())

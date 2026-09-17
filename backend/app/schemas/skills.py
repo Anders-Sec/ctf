@@ -16,6 +16,9 @@ class SkillResponse(BaseModel):
     #: Sorts the challenge editor's picker; it does not constrain which
     #: challenges may carry the skill.
     category_id: UUID | None
+    #: Challenges feeding this skill (spec 058). Zero is the signal: XP that
+    #: lands nowhere on anybody's sheet.
+    challenge_count: int = 0
 
 
 class CreateSkillRequest(BaseModel):

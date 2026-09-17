@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from app.api.deps import Admin, DbSession, Staff
 from app.models.challenge import Category
+from app.schemas.admin_content import BulkRequest, BulkResultResponse
 from app.schemas.auth import MessageResponse
 from app.schemas.skills import (
     AdminCategoryResponse,
@@ -21,6 +22,7 @@ from app.schemas.skills import (
     SkillResponse,
     UpdateSkillRequest,
 )
+from app.services import admin_content
 from app.services import skills as skill_service
 from app.services.identity import record_audit
 
@@ -33,8 +35,14 @@ def _request_id(request: Request) -> str | None:
 
 @router.get("/skills")
 async def list_skills(db: DbSession, current: Staff) -> list[SkillResponse]:
+    usage = await admin_content.skill_usage(db)
     return [
-        SkillResponse.model_validate(skill, from_attributes=True)
+        SkillResponse(
+            **{
+                **SkillResponse.model_validate(skill, from_attributes=True).model_dump(),
+                "challenge_count": usage.get(skill.id, 0),
+            }
+        )
         for skill in await skill_service.list_skills(db)
     ]
 
@@ -164,3 +172,21 @@ async def set_challenge_skills(
         request_id=_request_id(request),
     )
     return assigned
+
+
+@router.post("/skills/bulk")
+async def bulk_skills(
+    payload: BulkRequest, request: Request, db: DbSession, current: Admin
+) -> BulkResultResponse:
+    """One action over a selection, with per-item results (spec 058 §4)."""
+    outcome = await admin_content.bulk_skills(db, payload.ids, payload.action, payload.value)
+    await record_audit(
+        db,
+        action="skill.bulk",
+        target_type="skill",
+        target_id=None,
+        actor_user_id=current.user.id,
+        meta={"action": payload.action, "changed": outcome.changed, "asked": len(payload.ids)},
+        request_id=_request_id(request),
+    )
+    return BulkResultResponse(**outcome.as_dict())

@@ -72,6 +72,7 @@ def resolve_theme(
     user_theme: str | None,
     event_default: str | None,
     high_contrast: bool = False,
+    unlocked: set[str] | frozenset[str] | list[str] | None = None,
 ) -> str:
     """The theme a session should be served.
 
@@ -79,13 +80,25 @@ def resolve_theme(
     wins outright, and the underlying choice is left untouched so that turning
     it off returns the player to the side of the toggle they were on.
 
-    Falls back rather than raising on an unrecognised name. A preset removed
-    after somebody selected it must not be able to break their login, so a
-    stored value that is no longer real is treated as no value at all.
+    Falls back rather than raising in two cases, both of which have to degrade
+    because this is read on every session load:
+
+    - a name that is **no longer a theme** — a preset removed after somebody
+      selected it;
+    - a secret theme the player **no longer holds** (spec 058 §5.1). An admin
+      revoking a grant needs no cleanup on ``user.theme`` because of this: the
+      next load simply stops honouring it.
+
+    ``unlocked`` is what the player holds. Passing nothing means "unknown", and
+    a secret theme is then honoured — the callers that cannot cheaply look it up
+    should not silently downgrade somebody.
     """
     if high_contrast:
         return HIGH_CONTRAST_THEME
-    if is_theme(user_theme):
+
+    if is_theme(user_theme) and not (
+        unlocked is not None and is_secret(user_theme) and user_theme not in unlocked
+    ):
         return user_theme  # type: ignore[return-value]
     if is_theme(event_default):
         return event_default  # type: ignore[return-value]
