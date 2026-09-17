@@ -82,6 +82,10 @@ export interface UserDetail {
   recent_activity: ActivityEntry[];
   /** The challenge most recently attempted without solving. */
   current_wall: string | null;
+  /** Secret themes this player holds (spec 058 §5.1). */
+  unlocked_themes: string[];
+  /** Which ones an admin may hand over — the secret ones, and only those. */
+  grantable_themes: string[];
 }
 
 export const getUser = (userId: string) => api.get<UserDetail>(`/admin/users/${userId}`);
@@ -100,3 +104,21 @@ export const setAssistantBlock = (userId: string, blocked: boolean, reason?: str
 
 export const resendMagicLink = (userId: string) =>
   api.post<{ message: string }>(`/admin/users/${userId}/resend-magic-link`, {});
+
+/**
+ * Hand a secret theme to one player, or take it back (spec 058 §5.1).
+ *
+ * The escape hatch for the case §5 refuses to handle automatically: attaching a
+ * theme to an existing achievement grants nothing retroactively.
+ */
+export const setThemeGrant = (
+  userId: string,
+  theme: string,
+  granted: boolean,
+  reason?: string,
+) =>
+  api.post<{ message: string }>(`/admin/users/${userId}/theme-grant`, {
+    theme,
+    granted,
+    reason: reason ?? null,
+  });

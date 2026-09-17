@@ -53,6 +53,7 @@ export function me(overrides: Partial<Me> = {}): Me {
     theme_source: "event",
     high_contrast: false,
     base_theme: FALLBACK_THEME,
+    unlocked_themes: [],
     capabilities: capabilities(),
     event: {
       name: "Autumn Crawl",

@@ -5,10 +5,10 @@ import { useSession } from "../auth/session";
 import Spinner from "../components/Spinner";
 import { applyTheme, storeTheme } from "../theme/apply";
 import {
+  GRANTABLE_THEMES,
   HIGH_CONTRAST_THEME,
   TOGGLE_THEMES,
   themeById,
-  THEMES,
   type ThemeId,
 } from "../theme/themes";
 
@@ -16,9 +16,10 @@ import {
  * Player settings (spec 048 §10.3).
  *
  * Appearance, and the accessibility switch that did not belong in a list of
- * looks. A secret theme appears here only once the player holds one — how that
- * happens is still open (§11.4), so today the section is simply absent for
- * everyone.
+ * looks. A secret theme appears here only once the player holds one, which
+ * spec 058 §5 settled: an achievement hands it over, or an admin does. The
+ * section is absent until they hold one, so it is a discovery rather than a
+ * list of things they cannot have.
  */
 export default function SettingsPage() {
   const { me } = useSession();
@@ -52,9 +53,9 @@ export default function SettingsPage() {
   if (!me) return <Spinner />;
 
   const base = me.base_theme;
-  // Secret themes are not offered until the player holds one; wearing one is
-  // the only way it shows up here today.
-  const secretHeld = THEMES.find((theme) => theme.secret && theme.id === base);
+  // Held, not merely worn: the server sends the unlock rows, so a player who
+  // earned a theme and then toggled back to daylight can still find it.
+  const held = GRANTABLE_THEMES.filter((theme) => me.unlocked_themes.includes(theme.id));
 
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -78,17 +79,38 @@ export default function SettingsPage() {
               {theme.label}
             </button>
           ))}
-          {secretHeld && (
-            <button
-              type="button"
-              aria-pressed
-              className="rounded border border-accent bg-accent/10 px-3 py-1.5 text-sm font-medium"
-            >
-              {secretHeld.label}
-            </button>
-          )}
         </div>
         <p className="mt-2 text-xs text-content-muted">{themeById(base).description}</p>
+
+        {held.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-medium">Found</h3>
+            <p className="mt-1 text-xs text-content-muted">
+              {held.length === 1 ? "A theme you" : "Themes you"} unearthed. Nobody
+              was ever told these were here.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {held.map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => setTheme.mutate(theme.id)}
+                  aria-pressed={base === theme.id}
+                  className={`rounded border px-3 py-1.5 text-left text-sm ${
+                    base === theme.id
+                      ? "border-accent bg-accent/10 font-medium"
+                      : "border-border"
+                  }`}
+                >
+                  {theme.label}
+                  <span className="mt-0.5 block text-xs font-normal text-content-muted">
+                    {theme.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="mt-10 border-t border-border pt-6">

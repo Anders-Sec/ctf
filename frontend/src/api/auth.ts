@@ -83,6 +83,12 @@ export interface Me {
    * page cannot show which side is selected while high contrast overrides it.
    */
   base_theme: ThemeId;
+  /**
+   * The secret themes this player holds (spec 058 §5) — earned through an
+   * achievement or handed over by an admin. The settings page offers exactly
+   * these beyond the everyday two; selecting anything else falls back.
+   */
+  unlocked_themes: ThemeId[];
 }
 
 export const getMe = () => api.get<Me>("/auth/me");

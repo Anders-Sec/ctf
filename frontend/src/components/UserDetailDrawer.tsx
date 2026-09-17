@@ -9,11 +9,13 @@ import {
   getUser,
   resendMagicLink,
   setAssistantBlock,
+  setThemeGrant,
   setUserRole,
 } from "../api/admin";
 import type { UserRole } from "../api/auth";
 import { listDeliveries } from "../api/adminEmail";
 import { useSession } from "../auth/session";
+import { themeById } from "../theme/themes";
 import DeliveryTable from "./DeliveryTable";
 import ErrorMessage from "./ErrorMessage";
 import Spinner from "./Spinner";
@@ -84,6 +86,11 @@ export default function UserDetailDrawer({
   });
   const resend = useMutation({
     mutationFn: (id: string) => resendMagicLink(id),
+    onSuccess: refresh,
+  });
+  const grantTheme = useMutation({
+    mutationFn: (input: { theme: string; granted: boolean }) =>
+      setThemeGrant(userId, input.theme, input.granted, reason || undefined),
     onSuccess: refresh,
   });
 
@@ -278,6 +285,34 @@ export default function UserDetailDrawer({
                     </span>
                   )}
                 </label>
+
+                {data.grantable_themes.length > 0 && (
+                  <fieldset className="mt-4 border-t border-border pt-3">
+                    <legend className="text-sm font-medium text-content-muted">
+                      Secret themes
+                    </legend>
+                    <p className="mb-2 text-xs text-content-faint">
+                      Normally earned through an achievement (spec 058 §5).
+                      Handing one over here is for the player who already did the
+                      work the achievement was written for — attaching a theme to
+                      an existing achievement grants nothing retroactively.
+                    </p>
+                    {data.grantable_themes.map((theme) => (
+                      <label key={theme} className="flex items-center gap-2 py-0.5 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={data.unlocked_themes.includes(theme)}
+                          disabled={grantTheme.isPending}
+                          onChange={(event) =>
+                            grantTheme.mutate({ theme, granted: event.target.checked })
+                          }
+                        />
+                        {themeById(theme).label}
+                      </label>
+                    ))}
+                    <ErrorMessage error={grantTheme.error} />
+                  </fieldset>
+                )}
 
                 <p className="mt-4 text-xs text-content-muted">
                   <Link

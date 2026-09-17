@@ -78,11 +78,27 @@ describe("SettingsPage", () => {
     }
   });
 
-  it("shows a secret theme once the player is wearing one", async () => {
-    signedIn({ theme: "mr-anderson", base_theme: "mr-anderson", theme_source: "user" });
+  it("shows a secret theme once the player holds it, worn or not", async () => {
+    // Held, not merely worn (spec 058 §5): a player who earned a theme and
+    // toggled back to daylight can still find it.
+    signedIn({ base_theme: "parchment", unlocked_themes: ["mr-anderson"] });
     renderApp(<SettingsPage />);
 
-    expect(await screen.findByRole("button", { name: "The Mr. Anderson" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /The Mr. Anderson/ }),
+    ).toBeInTheDocument();
+    // Only the one they hold.
+    expect(screen.queryByRole("button", { name: /Purple Squirrel/ })).not.toBeInTheDocument();
+  });
+
+  it("selects a held secret theme", async () => {
+    signedIn({ base_theme: "parchment", unlocked_themes: ["dnd"] });
+    const update = vi.spyOn(authApi, "updateTheme").mockResolvedValue({ message: "ok" });
+    renderApp(<SettingsPage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /DND/ }));
+
+    expect(update).toHaveBeenCalledWith("dnd");
   });
 
   it("turns high contrast on, overriding the appearance choice", async () => {

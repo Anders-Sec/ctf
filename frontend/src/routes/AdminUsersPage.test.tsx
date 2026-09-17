@@ -42,6 +42,8 @@ function detail(overrides: Partial<UserDetail> = {}): UserDetail {
     parties: [],
     recent_activity: [],
     current_wall: "Sealed Vault",
+    unlocked_themes: [],
+    grantable_themes: [],
     ...overrides,
   };
 }
@@ -207,5 +209,63 @@ describe("AdminUsersPage", () => {
     render([]);
 
     expect(await screen.findByText(/nobody matches that/i)).toBeInTheDocument();
+  });
+
+  it("toggles a secret theme grant, and offers only the grantable ones", async () => {
+    const fetchMock = render(
+      [user()],
+      detail({ grantable_themes: ["dnd", "mr-anderson"], unlocked_themes: ["dnd"] }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Rin" }));
+    const drawer = await screen.findByRole("dialog", { name: "User detail" });
+
+    // Held shows as on; the everyday themes are not offered at all, because
+    // "granting" Parchment would be a control that does nothing (spec 058 §5.1).
+    expect(within(drawer).getByRole("checkbox", { name: "DND" })).toBeChecked();
+    expect(within(drawer).queryByRole("checkbox", { name: "Parchment" })).toBeNull();
+
+    await userEvent.click(
+      within(drawer).getByRole("checkbox", { name: "The Mr. Anderson" }),
+    );
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([path]) =>
+        String(path).includes("/theme-grant"),
+      );
+      expect(call).toBeTruthy();
+      expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({
+        theme: "mr-anderson",
+        granted: true,
+      });
+    });
+  });
+
+  it("takes a granted theme back", async () => {
+    const fetchMock = render(
+      [user()],
+      detail({ grantable_themes: ["dnd"], unlocked_themes: ["dnd"] }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Rin" }));
+    const drawer = await screen.findByRole("dialog", { name: "User detail" });
+
+    await userEvent.click(within(drawer).getByRole("checkbox", { name: "DND" }));
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([path]) =>
+        String(path).includes("/theme-grant"),
+      );
+      expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({
+        theme: "dnd",
+        granted: false,
+      });
+    });
+  });
+
+  it("shows no theme section when nothing is grantable", async () => {
+    render([user()]);
+    await userEvent.click(await screen.findByRole("button", { name: "Rin" }));
+    const drawer = await screen.findByRole("dialog", { name: "User detail" });
+
+    expect(within(drawer).queryByText("Secret themes")).not.toBeInTheDocument();
   });
 });

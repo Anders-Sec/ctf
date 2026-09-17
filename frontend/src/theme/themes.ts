@@ -114,6 +114,16 @@ export const TOGGLE_THEMES: Theme[] = THEMES.filter(
 /** Every theme an admin may assign, which is all of them. */
 export const SELECTABLE_THEMES: Theme[] = THEMES;
 
+/**
+ * The themes that can be granted — as an achievement's reward or by hand
+ * (spec 058 §5).
+ *
+ * Secret ones only, deliberately: granting somebody Parchment is not a reward,
+ * and the two everyday themes are already available to everyone. Mirrors
+ * `theme_unlocks.grantable()` on the backend.
+ */
+export const GRANTABLE_THEMES: Theme[] = THEMES.filter((theme) => theme.secret);
+
 export function isThemeId(value: unknown): value is ThemeId {
   return typeof value === "string" && (THEME_IDS as readonly string[]).includes(value);
 }
