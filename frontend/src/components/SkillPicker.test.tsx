@@ -6,7 +6,15 @@ import SkillPicker from "./SkillPicker";
 import type { Skill } from "../api/adminSkills";
 
 function skill(id: string, name: string, kind: "useful" | "funny", category: string | null): Skill {
-  return { id, name, kind, category_id: category, display_order: 0, description: null };
+  return {
+    id,
+    name,
+    kind,
+    category_id: category,
+    display_order: 0,
+    description: null,
+    challenge_count: 0,
+  };
 }
 
 const SKILLS: Skill[] = [

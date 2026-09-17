@@ -10,6 +10,8 @@ export interface Skill {
   kind: SkillKind;
   /** Sorts the challenge editor's picker; it does not restrict what may carry it. */
   category_id: string | null;
+  /** Challenges feeding this skill (spec 058). Zero is XP that lands nowhere. */
+  challenge_count: number;
 }
 
 export type Ability = "str" | "dex" | "con" | "int" | "wis" | "cha";
@@ -23,26 +25,21 @@ export interface AdminCategory {
   ability: Ability;
 }
 
-export const listSkills = () => api.get<Skill[]>("/admin/skills");
-
-export const createSkill = (input: {
-  name: string;
+export interface SkillInput {
+  name?: string;
   display_order?: number;
   description?: string | null;
   kind?: SkillKind;
   category_id?: string | null;
-}) => api.post<Skill>("/admin/skills", input);
+}
 
-export const updateSkill = (
-  skillId: string,
-  input: {
-    name?: string;
-    display_order?: number;
-    description?: string | null;
-    kind?: SkillKind;
-    category_id?: string | null;
-  },
-) => api.patch<Skill>(`/admin/skills/${skillId}`, input);
+export const listSkills = () => api.get<Skill[]>("/admin/skills");
+
+export const createSkill = (input: SkillInput & { name: string }) =>
+  api.post<Skill>("/admin/skills", input);
+
+export const updateSkill = (skillId: string, input: SkillInput) =>
+  api.patch<Skill>(`/admin/skills/${skillId}`, input);
 
 export const deleteSkill = (skillId: string) =>
   api.delete<{ message: string }>(`/admin/skills/${skillId}`);
@@ -59,3 +56,13 @@ export const setChallengeSkills = (challengeId: string, skillIds: string[]) =>
   api.put<string[]>(`/admin/challenges/${challengeId}/skills`, {
     skill_ids: skillIds,
   });
+
+/** One action over a selection, with per-item results (spec 058 §4). */
+export interface BulkResult {
+  changed: number;
+  /** id → why it was refused. */
+  refused: Record<string, string>;
+}
+
+export const bulkSkills = (ids: string[], action: string, value: unknown = null) =>
+  api.post<BulkResult>("/admin/skills/bulk", { ids, action, value });
