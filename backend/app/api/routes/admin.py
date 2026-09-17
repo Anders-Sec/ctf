@@ -15,6 +15,7 @@ from app.api.deps import Admin, AppSettings, DbSession, RedisClient, Staff
 from app.errors import ConflictError, NotFoundError
 from app.logging import get_logger
 from app.models.event import EVENT_CONFIG_ID, EventConfig
+from app.models.theme_unlock import UnlockSource
 from app.models.user import User, UserRole, UserSource, UserStatus
 from app.schemas.admin import (
     ApproveUsersRequest,
@@ -23,18 +24,19 @@ from app.schemas.admin import (
     EnableUserRequest,
     EventConfigResponse,
     SetRoleRequest,
+    ThemeGrantRequest,
     UpdateEventConfigRequest,
     UserDetailResponse,
     UserListResponse,
     UserSummary,
 )
 from app.schemas.auth import MessageResponse
-from app.services import admin_users, magic_link
+from app.services import admin_users, magic_link, theme_unlocks
 from app.services.identity import record_audit
 from app.services.mail import send_approval_notice, send_magic_link
 from app.services.sessions import REVOKED_DISABLED, revoke_all_for_user
 from app.services.user_cache import invalidate
-from app.theme import is_theme
+from app.theme import is_secret, is_theme
 
 logger = get_logger(__name__)
 
@@ -474,3 +476,53 @@ async def resend_magic_link(
     )
     await db.flush()
     return MessageResponse(message="A new link is on its way.")
+
+
+@router.post("/users/{user_id}/theme-grant")
+async def set_theme_grant(
+    user_id: UUID,
+    payload: ThemeGrantRequest,
+    request: Request,
+    db: DbSession,
+    redis: RedisClient,
+    current: Admin,
+) -> MessageResponse:
+    """Hand a secret theme to one player, or take it back (spec 058 §5.1).
+
+    The escape hatch for the case §5 deliberately refuses to handle
+    automatically: attaching a theme to an existing achievement grants nothing
+    retroactively, so somebody who already earned it needs handing it on purpose.
+
+    Only secret themes. The everyday ones are already everyone's, and "granting"
+    Parchment would be a control that does nothing.
+    """
+    user = await db.get(User, user_id)
+    if user is None:
+        raise NotFoundError("No such user.")
+
+    if not is_secret(payload.theme):
+        raise ConflictError(
+            "That theme is not one that has to be granted.", code="theme_not_grantable"
+        )
+
+    if payload.granted:
+        await theme_unlocks.grant(db, user.id, payload.theme, source=UnlockSource.ADMIN)
+    else:
+        await theme_unlocks.revoke(db, user.id, payload.theme)
+        # No need to clear `user.theme`: spec 048's fallback moves them off a
+        # theme they no longer hold on their next load, which is the same path a
+        # removed preset takes.
+
+    await invalidate(redis, user.id)
+    await record_audit(
+        db,
+        action="user.theme_grant" if payload.granted else "user.theme_revoke",
+        target_type="user",
+        target_id=user.id,
+        actor_user_id=current.user.id,
+        reason=payload.reason,
+        meta={"theme": payload.theme},
+        request_id=_request_id(request),
+    )
+    await db.flush()
+    return MessageResponse(message="Updated.")

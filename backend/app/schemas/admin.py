@@ -37,6 +37,14 @@ class AssistantBlockRequest(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class ThemeGrantRequest(BaseModel):
+    """Hand a secret theme over, or take it back (spec 058 §5.1)."""
+
+    theme: str
+    granted: bool
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class PartySpell(BaseModel):
     """A membership, current or ended."""
 
@@ -71,6 +79,9 @@ class UserDetailResponse(BaseModel):
     hints_used: int
     achievement_count: int
     class_name: str | None
+    #: Secret themes this player holds, and which ones an admin may hand over.
+    unlocked_themes: list[str]
+    grantable_themes: list[str]
     parties: list[PartySpell]
     recent_activity: list[ActivityEntry]
     #: The challenge they have most recently attempted without solving — the

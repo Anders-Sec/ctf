@@ -147,6 +147,14 @@ class Achievement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     secret: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    #: A secret theme this achievement hands over (spec 058 §5), answering
+    #: 048's open question on how one is unlocked. Independent of the loot box:
+    #: an achievement may grant a box, a theme, both, or neither.
+    #:
+    #: A plain string for the same reason ``user.theme`` is — the roster lives
+    #: in ``app.theme`` and in the frontend's CSS, and a database enum would
+    #: add a migration to every preset added or removed.
+    unlocks_theme: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class BroadcastLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):

@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.notification import LootBoxType, LootRarity
+
 
 class AdminAchievementResponse(BaseModel):
     id: UUID
@@ -19,6 +21,14 @@ class AdminAchievementResponse(BaseModel):
     #: True while the description is still the seeded placeholder.
     needs_copy: bool
     held_by: int
+    #: The reward. On the model since spec 038 and editable from nowhere until
+    #: spec 058 — which is why an achievement's payout used to be whatever the
+    #: seed said, permanently.
+    loot_box_type: str | None = None
+    loot_rarity: str | None = None
+    no_loot_line: str | None = None
+    #: The secret theme this hands over (spec 058 §5).
+    unlocks_theme: str | None = None
 
 
 class CreateAchievementRequest(BaseModel):
@@ -28,6 +38,10 @@ class CreateAchievementRequest(BaseModel):
     earned_by: str = ""
     display_order: int = 0
     secret: bool = False
+    loot_box_type: LootBoxType | None = None
+    loot_rarity: LootRarity | None = None
+    no_loot_line: str | None = None
+    unlocks_theme: str | None = None
 
 
 class UpdateAchievementRequest(BaseModel):
@@ -38,6 +52,15 @@ class UpdateAchievementRequest(BaseModel):
     earned_by: str | None = None
     display_order: int | None = None
     secret: bool | None = None
+    #: The reward, editable at last (spec 058 §4). `None` in a PATCH means "not
+    #: sent"; clearing a reward is done with the explicit flags below, because
+    #: null is the cleared value and PATCH cannot tell the two apart.
+    loot_box_type: LootBoxType | None = None
+    loot_rarity: LootRarity | None = None
+    no_loot_line: str | None = None
+    unlocks_theme: str | None = None
+    clear_loot: bool = False
+    clear_theme: bool = False
 
 
 class TriggerCodesResponse(BaseModel):

@@ -90,6 +90,9 @@ class MeResponse(BaseModel):
     #: cannot show which side of light/dark is selected while high contrast is
     #: overriding it.
     base_theme: str = FALLBACK_THEME
+    #: Secret themes this player has unlocked (spec 058 §5). Empty for almost
+    #: everyone; the settings page offers exactly these and nothing else.
+    unlocked_themes: list[str] = []
 
 
 class EventSummary(BaseModel):

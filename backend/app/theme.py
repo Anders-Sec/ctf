@@ -11,6 +11,7 @@ is the failure mode that keeping two lists creates, so it is tested rather than
 trusted.
 """
 
+from dataclasses import dataclass
 from typing import Final
 
 #: Every theme. Order is display order.
@@ -34,6 +35,33 @@ FALLBACK_THEME: Final[str] = "parchment"
 #: whatever theme is selected while it is on, which is why it is stored as its
 #: own flag rather than as a theme choice.
 HIGH_CONTRAST_THEME: Final[str] = "high-contrast"
+
+
+@dataclass(frozen=True)
+class Theme:
+    id: str
+    #: Not offered by the light/dark toggle, and grantable (spec 058 §5). The
+    #: everyday themes are already everyone's, so handing one over is not a
+    #: reward.
+    secret: bool = False
+
+
+#: The roster with the one property the backend needs to reason about. Labels
+#: and colours stay on the frontend; ``themes.test.ts`` asserts the two lists
+#: agree, secret flags included.
+THEMES_BY_ID: Final[dict[str, Theme]] = {
+    "parchment": Theme("parchment"),
+    "dark-dungeon": Theme("dark-dungeon"),
+    "high-contrast": Theme("high-contrast"),
+    "purple-squirrel": Theme("purple-squirrel", secret=True),
+    "dnd": Theme("dnd", secret=True),
+    "mr-anderson": Theme("mr-anderson", secret=True),
+}
+
+
+def is_secret(theme: str | None) -> bool:
+    entry = THEMES_BY_ID.get(theme or "")
+    return bool(entry and entry.secret)
 
 
 def is_theme(value: str | None) -> bool:

@@ -29,7 +29,7 @@ from app.schemas.auth import (
     UpdateThemeRequest,
     UserResponse,
 )
-from app.services import assistant_terms, identity, magic_link
+from app.services import assistant_terms, identity, magic_link, theme_unlocks
 from app.services import entra as entra_service
 from app.services.cookies import (
     ACCESS_COOKIE,
@@ -45,7 +45,7 @@ from app.services.sessions import (
     rotate_session,
 )
 from app.services.user_cache import get_cached_membership, invalidate
-from app.theme import is_theme, resolve_theme
+from app.theme import is_secret, is_theme, resolve_theme
 
 logger = get_logger(__name__)
 
@@ -351,6 +351,7 @@ async def me(
         # What the toggle would return them to, so the settings page can show
         # which side of light/dark is selected while high contrast overrides it.
         base_theme=resolve_theme(current.user.theme, event.default_theme if event else None),
+        unlocked_themes=await theme_unlocks.held_by(db, current.user.id),
         team=TeamSummary(**team) if team else None,
         capabilities=CapabilitiesResponse(**current.capabilities.to_dict()),
         event=(
@@ -398,6 +399,14 @@ async def update_theme(
     """
     if payload.theme is not None and not is_theme(payload.theme):
         raise ConflictError(f"Unknown theme: {payload.theme}", code="unknown_theme")
+
+    # A secret theme has to be held. The read path already falls back on one
+    # that is not, so this is about not *storing* a choice the player was never
+    # given — the difference between degrading and lying.
+    if is_secret(payload.theme) and not await theme_unlocks.holds(
+        db, current.user.id, payload.theme or ""
+    ):
+        raise ConflictError("That theme is not yours to wear.", code="theme_not_unlocked")
 
     current.user.theme = payload.theme
     await db.flush()

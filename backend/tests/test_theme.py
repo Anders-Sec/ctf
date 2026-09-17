@@ -6,10 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.user import UserRole, UserStatus
+from app.models.theme_unlock import UnlockSource
+from app.services import theme_unlocks
 from app.theme import (
     FALLBACK_THEME,
     HIGH_CONTRAST_THEME,
     THEME_IDS,
+    is_secret,
     is_theme,
     resolve_theme,
 )
@@ -112,12 +115,41 @@ class TestReadingTheTheme:
 
 
 class TestSettingTheTheme:
-    @pytest.mark.parametrize("theme", THEME_IDS)
-    async def test_every_preset_in_the_roster_can_be_selected(
+    @pytest.mark.parametrize("theme", [t for t in THEME_IDS if not is_secret(t)])
+    async def test_every_everyday_preset_can_be_selected(
         self, client: AsyncClient, db_session: AsyncSession, sign_in, theme: str
     ) -> None:
         user = await make_user(db_session, status=UserStatus.ACTIVE)
         await sign_in(client, user)
+
+        response = await client.patch("/api/auth/me/theme", json={"theme": theme})
+
+        assert response.status_code == 200
+        await db_session.refresh(user)
+        assert user.theme == theme
+
+    @pytest.mark.parametrize("theme", [t for t in THEME_IDS if is_secret(t)])
+    async def test_a_secret_theme_is_refused_until_it_is_held(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, theme: str
+    ) -> None:
+        """Spec 058 §5. The read path falls back on a theme somebody does not
+        hold; refusing the *write* is the difference between degrading and
+        storing a choice they were never given."""
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        await sign_in(client, user)
+
+        response = await client.patch("/api/auth/me/theme", json={"theme": theme})
+
+        assert response.status_code >= 400
+        assert response.json()["error"]["code"] == "theme_not_unlocked"
+
+    @pytest.mark.parametrize("theme", [t for t in THEME_IDS if is_secret(t)])
+    async def test_a_secret_theme_can_be_selected_once_granted(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, theme: str
+    ) -> None:
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        await sign_in(client, user)
+        await theme_unlocks.grant(db_session, user.id, theme, source=UnlockSource.ADMIN)
 
         response = await client.patch("/api/auth/me/theme", json={"theme": theme})
 
@@ -170,9 +202,9 @@ class TestSettingTheTheme:
         user = await make_user(db_session, status=UserStatus.ACTIVE)
         await sign_in(client, user)
 
-        await client.patch("/api/auth/me/theme", json={"theme": "mr-anderson"})
+        await client.patch("/api/auth/me/theme", json={"theme": "dark-dungeon"})
 
-        assert (await client.get("/api/auth/me")).json()["theme"] == "mr-anderson"
+        assert (await client.get("/api/auth/me")).json()["theme"] == "dark-dungeon"
 
 
 class TestTheEventDefault:

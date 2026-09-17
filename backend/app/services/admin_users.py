@@ -19,6 +19,7 @@ from app.models.notification import AchievementAward
 from app.models.play import Solve, Submission
 from app.models.team import MembershipRole, Team, TeamMembership
 from app.models.user import User
+from app.services import theme_unlocks
 from app.services.scoring import level_for_xp
 
 
@@ -162,6 +163,10 @@ async def detail(db: AsyncSession, user: User) -> dict[str, Any]:
         )
 
     return {
+        "unlocked_themes": await theme_unlocks.held_by(db, user.id),
+        # The secret ones only: the everyday themes are already everybody's, so
+        # granting one is not a reward (spec 058 §5.1).
+        "grantable_themes": theme_unlocks.grantable(),
         "entra_object_id": user.entra_object_id,
         "approved_by_name": (
             await db.scalar(select(User.display_name).where(User.id == user.approved_by_user_id))

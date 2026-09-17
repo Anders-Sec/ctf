@@ -9,12 +9,12 @@ scoring — this is roster management only.
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import ConflictError, NotFoundError
 from app.models.challenge import Ability
-from app.models.character_class import CharacterClass, Rarity
+from app.models.character_class import CharacterClass, ClassPreference, ClassRequirement, Rarity
 from app.models.skill import Skill
 from app.services import scoring
 
@@ -44,6 +44,7 @@ async def create_class(
     name: str,
     display_order: int = 0,
     description: str | None = None,
+    rarity: Rarity | None = None,
 ) -> CharacterClass:
     if await db.scalar(select(CharacterClass.id).where(CharacterClass.name == name)):
         raise ConflictError("A class with that name already exists.", code="class_exists")
@@ -52,6 +53,9 @@ async def create_class(
         name=name,
         display_order=display_order,
         description=description,
+        # Presentation only, and the model defaults it — but a create form that
+        # cannot set it would mean every new class arriving as common.
+        rarity=rarity or Rarity.COMMON,
     )
     db.add(character_class)
     await db.flush()
@@ -206,3 +210,70 @@ async def suggest_class(db: AsyncSession, user_id: UUID) -> Suggestion | None:
         if label and value > top:
             top, reason = value, label
     return Suggestion(character_class=best.character_class, reason=reason)
+
+
+async def set_preferences(
+    db: AsyncSession, class_id: UUID, preferences: list[dict]
+) -> CharacterClass:
+    """Replace the whole set (spec 058 §3).
+
+    Replacing rather than patching, matching `PUT /admin/challenges/{id}/skills`:
+    an admin should never have to reason about which of several calls left the
+    class in the state it is in.
+
+    The XOR is checked here as well as by the database CHECK, so a bad request
+    comes back as an explanation rather than an integrity error.
+    """
+    character_class = await get_class(db, class_id)
+
+    for index, entry in enumerate(preferences):
+        ability = entry.get("ability")
+        skill_id = entry.get("skill_id")
+        if bool(ability) == bool(skill_id):
+            raise ConflictError(
+                f"Preference {index + 1} must name exactly one of an ability or a skill.",
+                code="preference_not_exclusive",
+            )
+
+    await db.execute(delete(ClassPreference).where(ClassPreference.class_id == class_id))
+    for entry in preferences:
+        db.add(
+            ClassPreference(
+                class_id=class_id,
+                ability=entry.get("ability"),
+                skill_id=entry.get("skill_id"),
+            )
+        )
+    await db.flush()
+    await db.refresh(character_class)
+    return character_class
+
+
+async def set_requirements(
+    db: AsyncSession, class_id: UUID, requirements: list[dict]
+) -> CharacterClass:
+    """Replace the whole set. One requirement per skill, as the model enforces."""
+    character_class = await get_class(db, class_id)
+
+    seen: set[UUID] = set()
+    for entry in requirements:
+        skill_id = entry["skill_id"]
+        if skill_id in seen:
+            raise ConflictError(
+                "A class cannot require the same skill twice.",
+                code="duplicate_requirement",
+            )
+        seen.add(skill_id)
+
+    await db.execute(delete(ClassRequirement).where(ClassRequirement.class_id == class_id))
+    for entry in requirements:
+        db.add(
+            ClassRequirement(
+                class_id=class_id,
+                skill_id=entry["skill_id"],
+                min_level=entry["min_level"],
+            )
+        )
+    await db.flush()
+    await db.refresh(character_class)
+    return character_class

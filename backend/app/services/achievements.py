@@ -47,8 +47,9 @@ from app.models.player_event import PlayerEventKind
 from app.models.puzzle import ChallengePuzzle, PuzzleKind, PuzzleSession, PuzzleStatus
 from app.models.report import ChallengeReport, ReportStatus
 from app.models.team import Team, TeamMembership
+from app.models.theme_unlock import UnlockSource
 from app.models.user import User
-from app.services import narrator, notifications, player_events, scoring
+from app.services import narrator, notifications, player_events, scoring, theme_unlocks
 
 #: The events that can change a trigger's answer. A trigger declares which it
 #: cares about so a solve does not re-run every unrelated query in the roster.
@@ -1401,6 +1402,11 @@ async def evaluate(
                 body = f"{body} {achievement.no_loot_line}"
             elif box is not None:
                 body = f"{body} A {box.rarity.value} box is waiting for you."
+            if achievement.unlocks_theme:
+                # Folded into the achievement's own line, never sent as a second
+                # notification (spec 058 §9.2): two messages would make one
+                # achievement feel like two events.
+                body = f"{body} The dungeon looks different to you now."
             await notifications.notify(
                 db,
                 user_id=user_id,
@@ -1426,6 +1432,17 @@ async def _award(db: AsyncSession, achievement: Achievement, user_id: UUID) -> b
             db.add(AchievementAward(achievement_id=achievement.id, user_id=user_id))
     except IntegrityError:
         return False
+
+    if achievement.unlocks_theme:
+        # After the award, and on its own savepoint: a theme that cannot be
+        # granted must not undo an achievement somebody legitimately earned.
+        await theme_unlocks.grant(
+            db,
+            user_id,
+            achievement.unlocks_theme,
+            source=UnlockSource.ACHIEVEMENT,
+            achievement_id=achievement.id,
+        )
     return True
 
 

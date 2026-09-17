@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.errors import ConflictError, NotFoundError
 from app.models.notification import Achievement, AchievementAward
 from app.services.achievements import REGISTRY, resolve, trigger_families
+from app.theme import is_secret
 
 #: What 029's seed writes into `description`. Rows still holding it are the
 #: working list for whoever is writing the System AI's copy.
@@ -47,6 +48,12 @@ class AchievementRow:
     #: True while `description` is still the seeded placeholder.
     needs_copy: bool
     held_by: int
+    #: The reward. Editable since spec 058; before that an achievement's payout
+    #: was whatever the seed said, permanently.
+    loot_box_type: str | None = None
+    loot_rarity: str | None = None
+    no_loot_line: str | None = None
+    unlocks_theme: str | None = None
 
 
 async def list_achievements(db: AsyncSession) -> list[AchievementRow]:
@@ -83,6 +90,10 @@ def _row(achievement: Achievement, held_by: int) -> AchievementRow:
         has_trigger=resolve(achievement.code) is not None,
         needs_copy=achievement.description.strip() == PLACEHOLDER,
         held_by=held_by,
+        loot_box_type=achievement.loot_box_type.value if achievement.loot_box_type else None,
+        loot_rarity=achievement.loot_rarity.value if achievement.loot_rarity else None,
+        no_loot_line=achievement.no_loot_line,
+        unlocks_theme=achievement.unlocks_theme,
     )
 
 
@@ -113,8 +124,13 @@ async def create(
     earned_by: str = "",
     display_order: int = 0,
     secret: bool = False,
+    loot_box_type: object = None,
+    loot_rarity: object = None,
+    no_loot_line: str | None = None,
+    unlocks_theme: str | None = None,
 ) -> AchievementRow:
     await _check_free(db, code=code, name=name)
+    _check_theme(unlocks_theme)
     achievement = Achievement(
         code=code.strip(),
         name=name.strip(),
@@ -122,6 +138,10 @@ async def create(
         earned_by=earned_by,
         display_order=display_order,
         secret=secret,
+        loot_box_type=loot_box_type,
+        loot_rarity=loot_rarity,
+        no_loot_line=no_loot_line,
+        unlocks_theme=unlocks_theme,
     )
     db.add(achievement)
     await db.flush()
@@ -142,10 +162,34 @@ async def update(db: AsyncSession, achievement_id: UUID, *, changes: dict) -> Ac
     if new_name is not None and new_name != achievement.name:
         await _check_free(db, name=new_name, exclude=achievement_id)
 
+    # PATCH cannot tell "not sent" from "set to null", and null *is* the cleared
+    # value for a reward — so clearing one is an explicit flag rather than an
+    # omission that could never be expressed.
+    if changes.pop("clear_loot", False):
+        achievement.loot_box_type = None
+        achievement.loot_rarity = None
+    if changes.pop("clear_theme", False):
+        achievement.unlocks_theme = None
+
+    if "unlocks_theme" in changes:
+        _check_theme(changes["unlocks_theme"])
+
     for field, value in changes.items():
         setattr(achievement, field, value)
     await db.flush()
     return _row(achievement, await held_count(db, achievement_id))
+
+
+def _check_theme(theme: str | None) -> None:
+    """A theme that is not secret is not a reward.
+
+    The everyday themes are already everybody's, so attaching one would be an
+    achievement that grants what the player already had.
+    """
+    if theme is None:
+        return
+    if not is_secret(theme):
+        raise ConflictError(f"{theme} is not a grantable theme.", code="theme_not_grantable")
 
 
 async def delete(db: AsyncSession, achievement_id: UUID) -> None:

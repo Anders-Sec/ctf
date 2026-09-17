@@ -68,6 +68,7 @@ from app.models.team import (
     TeamJoinRequest,
     TeamMembership,
 )
+from app.models.theme_unlock import UnlockSource, UserThemeUnlock
 from app.models.user import User
 
 __all__ = [
@@ -84,6 +85,8 @@ __all__ = [
     "Announcement",
     "AnnouncementAudience",
     "AuditLog",
+    "UnlockSource",
+    "UserThemeUnlock",
     "AuthSession",
     "Base",
     "Ability",
