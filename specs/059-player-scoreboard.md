@@ -1,6 +1,6 @@
 # Spec 059 — The Player Scoreboard
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 005 (the board), 031 (boss stars), 038 (loot titles), 016/024 (classes)
 
@@ -55,33 +55,46 @@ the four things a player actually collects.
 | --- | --- |
 | Rank | |
 | Player | Name, avatar, and the **loot title** they are wearing — worn titles are cosmetic by design (038) and this is the one place they are seen by anybody else. |
+| Party | Plain text, no stars. Clicking it opens the **same party panel** the party board uses (§5), so "who are they with" is answered without leaving the board. |
 | Class | Their archetype, with its rarity colour (024's ladder). |
 | Level | |
-| Stars | Their own boss kills, coloured by tier. |
+| Stars | **The player's own kills only** — never their party's. A player's decoration is theirs. |
 
-## 3. Boss stars
+## 3. Boss stars, reworked
 
 Six tiers, six colours, already tokenised as `boss-*` and already theme-invariant
-(spec 048). A star is a boss killed; its colour is the boss's tier.
+(spec 048). A star is a boss killed; its colour is that boss's tier.
 
-**A party's stars are the distinct bosses its current members have killed.** Two
-members who both felled the same City Boss give the party one city star, not two
-— which is the same union rule spec 005 chose for party scoring, for the same
-reason: size buys speed and coverage, never a higher ceiling. Summing per-member
-counts would quietly make an eight-person party look eight times as decorated.
+**A star is identified by the boss challenge's slug.** That is the rework: a star
+stops being an anonymous increment and becomes a named thing, which is what makes
+deduplication possible at all — a party where six members each felled *XYZ*
+carries one `xyz` star, not six.
 
-`star_counts` cannot answer this. It returns one integer per player, with no
-tier and no boss identity, so it can neither colour a star nor deduplicate one.
-It is replaced by a per-tier breakdown:
+Slug rather than challenge id, for the reason specs 027 and 040 already key on
+it: it is unique (`CITEXT`, `unique=True`), it is stable across a re-import that
+reassigns ids, and it is legible in a payload somebody is debugging. "Why does
+this party have four stars?" becomes answerable by reading the response.
 
-- **per player**: `{tier: count}`
-- **per party**: the distinct boss challenge ids across current members, tallied
-  by tier
+A player's stars need no deduplication of their own — `uq_solve_user_challenge`
+means a player cannot solve the same boss twice. The dedup exists for parties,
+where the union is across members.
 
-Rendered as a compact run of pips with the count where a tier repeats
-(`★★ ★ ★`), and **a text total in the accessible label** — colour is never the
-only carrier, and six colours side by side is exactly where that rule earns its
-keep.
+**A party's stars are the distinct boss slugs its current members have felled.**
+The same union rule spec 005 chose for party scoring, for the same reason: size
+buys speed and coverage, never a higher ceiling. Summing per-member counts would
+quietly make an eight-person party look eight times as decorated.
+
+`star_counts` cannot answer any of this. It returns one integer per player, with
+no tier and no identity, so it can neither colour a star nor deduplicate one. It
+is replaced by a per-entry list of `{slug, tier}`:
+
+- **per player**: their own boss solves, already distinct.
+- **per party**: the union across current members, distinct by slug.
+
+Rendered as a run of coloured pips grouped by tier, highest tier first, with **a
+text total and a per-tier breakdown in the accessible label** — colour is never
+the only carrier, and six colours side by side is exactly where that rule earns
+its keep. Hovering a pip names its boss.
 
 ## 4. Coping with 200 rows
 
@@ -100,6 +113,17 @@ The same shape on both boards:
 │              [ Show all 47 ]                 │
 └──────────────────────────────────────────────┘
 ```
+
+### 4.1 Ties share a place
+
+Two entries on equal points **share a rank**, so a board can show two third
+places. Standard competition ranking, so the next entry takes the place its
+position implies: `1, 2, 3, 3, 5`.
+
+Ordering *within* a shared rank is still spec 005's tie-break — earliest to reach
+the score comes first — because a list has to be in some order and "who got there
+first" is the only defensible one. What changes is the number shown beside them,
+not the sequence.
 
 - **Top ten, then a break, then you.** The break is a real visual rule, not a
   gap — it says "the list skips" rather than leaving the reader to infer it from
@@ -121,8 +145,10 @@ The same shape on both boards:
 
 The two boards differ here, deliberately.
 
-- **A party opens a detail panel**, on the same page. A party has no page of its
-  own and does not need one; what a player wants is a glance at who is in it.
+- **A party opens a detail panel**, on the same page, reached from either board
+  — the party board's rows and the player board's Party column open the same
+  panel. A party has no page of its own and does not need one; what a player
+  wants is a glance at who is in it.
 - **A player links through to their character sheet** at `/character/:userId`,
   which already exists and already renders somebody else's sheet. Duplicating a
   fraction of it in a panel would be a second thing to keep true.
@@ -141,10 +167,10 @@ reintroduced one level down.
 `GET /api/scoreboard/players` and `/teams` keep their shape and lose `score`.
 Both gain what §2 needs:
 
-- **Player entry**: `+ stars` (per-tier), `+ title`, `+ class_name`,
-  `+ class_rarity`. Two of these are the values already being computed and
-  discarded.
-- **Party entry**: `+ stars` (per-tier, deduplicated).
+- **Player entry**: `+ stars` (slug and tier per star), `+ title`,
+  `+ class_name`, `+ class_rarity`. Two of these are the values already being
+  computed and discarded.
+- **Party entry**: `+ stars` (slug and tier, deduplicated across members).
 - Both: `score` **removed from the response**, not merely unread. A field that
   is sent and ignored is a field somebody renders by accident later.
 
@@ -156,14 +182,19 @@ placements, and that is exactly the context where the arithmetic has to be
 visible — `admin_scoreboard.board` reads the same computation and is unaffected
 by the public entries dropping a field, because it splits `score` itself.
 
+It also inherits §4.1's shared ranks, which is the right outcome there: the
+timestamp that *breaks* a tie is already a column on that page, so an admin sees
+both that two entries share a place and which of them reached it first. Spec
+051's rank-parity test therefore keeps passing unchanged.
+
 ## 7. Testing
 
 - **No response from either public board contains XP or `score`** — its own
   test, and the one that keeps §2 true as fields get added later.
 - Rank ordering is unchanged by the field removal: the same fixture produces the
   same order as before.
-- A party's stars deduplicate: two members who killed the same boss yield one
-  star, and the tier is right.
+- A party's stars deduplicate **by slug**: six members who each felled the same
+  boss yield one star, carrying that boss's slug and the right tier.
 - A party's stars follow its *current* roster — a member who leaves takes their
   unique kills with them, matching the scoring rule.
 - A player's stars are tallied by tier, and a player with no kills reports an
@@ -174,7 +205,11 @@ by the public entries dropping a field, because it splits `score` itself.
 - Frontend: the break appears when you are outside the top ten and does not when
   you are inside it; your row is marked in both cases; search shows real ranks;
   "show all" needs no further request.
-- Frontend: a star run carries a text total in its accessible label.
+- Frontend: a star run carries a text total and a per-tier breakdown in its
+  accessible label, and each pip names its boss.
+- Ties share a rank on both boards, the next entry skips accordingly
+  (`1, 2, 3, 3, 5`), and the order within a shared rank is still earliest-first.
+- The player board's Party column opens the same panel the party board does.
 - A signed-out or unranked viewer sees the top ten and no break, rather than an
   empty space where their row would be.
 
@@ -190,20 +225,12 @@ by the public entries dropping a field, because it splits `score` itself.
   (spec 005) and that is unchanged — the payload simply carries different
   fields.
 
-## 9. Open questions
+## 9. Decisions
 
-1. **Should the player board show party membership at all?** It has a Party
-   column today, and dropping it frees width for class and title. Recommend
-   **keeping it**, as text without stars — "who is this person with" is the
-   second question after "who are they", and the party board is a click away
-   rather than beside it.
-2. **How many rows should "show all" render at once?** 200 rows of five columns
-   is fine for a browser, but the player board's rows are taller than the
-   party board's. Recommend rendering all of them and revisiting only if it
-   actually stutters — virtualising 200 rows is machinery for a problem nobody
-   has yet.
-3. **Should a tie show as a tie?** Two parties on equal points are currently
-   ordered by who got there first (spec 005) and shown as distinct ranks. The
-   ordering is correct; the *display* could say `=4` for both. Recommend
-   leaving it as distinct ranks — the tie-break is real and the admin board is
-   where a placement is actually settled.
+Signed off 2026-09-17.
+
+1. **Party on the player board: kept**, as plain text linking to the party
+   panel. No stars on it — those are the player's own (§2).
+2. **"Show all" renders all 200.** Virtualising is machinery for a problem
+   nobody has yet.
+3. **A tie shares the place**, on both boards — see §4.1.

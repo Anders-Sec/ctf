@@ -85,7 +85,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 056 | `056-event-export.md` | Phase 3 — results out: standings, awards sheet, solves, submissions (redacted by default), full archive | **done** |
 | 057 | `057-platform-health.md` | Phase 3 — one staff-facing screen for dependency, connection, build and load state; explicitly not observability | **done** |
 | 058 | `058-content-admin-consistency.md` | Phase 3 QoL — one shape for all four Content pages: New button, search and filters, grouped lists with a drawer, full CRUD and bulk actions; achievement rewards become editable, and **secret themes unlock by achievement** (resolves 048 §11.4) | **approved** (2026-09-17) |
-| 059 | `059-player-scoreboard.md` | Phase 3 QoL — the player and party boards rebuilt: no XP anywhere, boss stars deduplicated and coloured, loot titles and class surfaced, top-ten-plus-you framing, search, party panel and click-through to a character sheet | **draft** |
+| 059 | `059-player-scoreboard.md` | Phase 3 QoL — the player and party boards rebuilt: no XP anywhere, boss stars deduplicated and coloured, loot titles and class surfaced, top-ten-plus-you framing, search, party panel and click-through to a character sheet | **approved** (2026-09-17) |
 
 ## Phase 3 sequencing
 
