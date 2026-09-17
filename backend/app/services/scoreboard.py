@@ -10,6 +10,14 @@ scale is one handful of grouped queries and tens of milliseconds.
 *distinct* hint any current member unlocked, plus their adjustments. A party of
 one and a party of eight therefore have the same attainable maximum: size buys
 speed and coverage, never a higher ceiling.
+
+Boss stars follow the same union rule, keyed on the boss's slug (spec 059 §3),
+for the same reason: summing per-member counts would quietly make an eight-person
+party look eight times as decorated.
+
+``score`` is computed here and carried on every entry, because rank is derived
+from it and the admin board (spec 051) splits it into its halves. It is stripped
+on the way out to the public boards — see ``scoreboard_cache.public_view``.
 """
 
 from dataclasses import dataclass
@@ -20,16 +28,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.models.character_class import CharacterClass
 from app.models.play import ScoreAdjustment, Solve
 from app.models.team import Team, TeamMembership
 from app.models.user import User, UserRole, UserStatus
 from app.services import achievements as achievement_service
 from app.services import loot as loot_service
+from app.services.achievements import BoardStar
 from app.services.scoring import level_for_xp
 
 
 @dataclass(frozen=True)
 class PlayerEntry:
+    #: Shared on a tie, so a board can show two third places (spec 059 §4.1).
     rank: int
     user_id: UUID
     display_name: str
@@ -41,6 +52,14 @@ class PlayerEntry:
     solve_count: int
     #: When this entry last gained points. Ties break on who got there first.
     last_gain_at: datetime | None
+    #: This player's own boss kills — never their party's. A player's decoration
+    #: is theirs (spec 059 §2).
+    stars: list[BoardStar]
+    #: The worn loot title (038) and the class (016/024), both cosmetic and both
+    #: computed-then-discarded before spec 059.
+    title: str | None
+    class_name: str | None
+    class_rarity: str | None
 
 
 @dataclass(frozen=True)
@@ -54,6 +73,8 @@ class TeamEntry:
     #: Distinct challenges solved by any current member.
     solve_count: int
     last_gain_at: datetime | None
+    #: The union across current members, distinct by slug (spec 059 §3).
+    stars: list[BoardStar]
 
 
 @dataclass(frozen=True)
@@ -143,9 +164,16 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
 
     # Boss kills, for the star column. One query for the whole board rather
     # than one per player.
-    stars = await achievement_service.star_counts(db)
+    stars = await achievement_service.board_stars(db)
     # Worn loot titles. Cosmetic — this never touches the ordering below.
     titles = await loot_service.equipped_titles(db)
+    classes = {
+        class_id: (name, getattr(rarity, "value", rarity))
+        for class_id, name, rarity in (
+            await db.execute(select(CharacterClass.id, CharacterClass.name, CharacterClass.rarity))
+        ).all()
+    }
+
     player_entries = _rank_players(
         players,
         solves_by_user,
@@ -156,6 +184,7 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
         level_base,
         stars,
         titles,
+        classes,
     )
     team_entries = _rank_teams(
         members_of_team,
@@ -166,6 +195,7 @@ async def compute(db: AsyncSession, now: datetime) -> Boards:
         adjust_by_team,
         team_adjust_gain_at,
         level_base,
+        stars,
     )
 
     return Boards(players=player_entries, teams=team_entries, generated_at=now)
@@ -179,8 +209,9 @@ def _rank_players(
     team_of_user: dict[UUID, UUID],
     team_names: dict[UUID, str],
     level_base: int,
-    stars: dict[UUID, int],
+    stars: dict[UUID, list[BoardStar]],
     titles: dict[UUID, str],
+    classes: dict[UUID, tuple[str, str]],
 ) -> list[PlayerEntry]:
     rows = []
 
@@ -205,8 +236,14 @@ def _rank_players(
                 "level": level_for_xp(score, level_base),
                 "solve_count": len(solved),
                 "last_gain_at": max(gains) if gains else None,
-                "stars": stars.get(player.id, 0),
+                # A player's own kills, already distinct — they cannot solve the
+                # same boss twice (`uq_solve_user_challenge`).
+                "stars": stars.get(player.id, []),
                 "title": titles.get(player.id),
+                "class_name": class_of[0]
+                if (class_of := classes.get(player.character_class_id))
+                else None,
+                "class_rarity": class_of[1] if class_of else None,
                 "sort_name": player.display_name.casefold(),
             }
         )
@@ -214,7 +251,7 @@ def _rank_players(
     rows.sort(key=_sort_key)
     return [
         PlayerEntry(
-            rank=index + 1,
+            rank=rank,
             user_id=row["user_id"],
             display_name=row["display_name"],
             has_avatar=row["has_avatar"],
@@ -224,8 +261,12 @@ def _rank_players(
             level=row["level"],
             solve_count=row["solve_count"],
             last_gain_at=row["last_gain_at"],
+            stars=row["stars"],
+            title=row["title"],
+            class_name=row["class_name"],
+            class_rarity=row["class_rarity"],
         )
-        for index, row in enumerate(rows)
+        for rank, row in _with_shared_ranks(rows)
     ]
 
 
@@ -238,6 +279,7 @@ def _rank_teams(
     adjust_by_team: dict[UUID, int],
     team_adjust_gain_at: dict[UUID, datetime],
     level_base: int,
+    stars: dict[UUID, list[BoardStar]],
 ) -> list[TeamEntry]:
     rows = []
     for team_id, member_ids in members_of_team.items():
@@ -271,6 +313,7 @@ def _rank_teams(
                 "level": level_for_xp(score, level_base),
                 "solve_count": len(solved),
                 "last_gain_at": max(gains) if gains else None,
+                "stars": _union_stars(member_ids, stars),
                 "sort_name": team_names.get(team_id, "").casefold(),
             }
         )
@@ -278,7 +321,7 @@ def _rank_teams(
     rows.sort(key=_sort_key)
     return [
         TeamEntry(
-            rank=index + 1,
+            rank=rank,
             team_id=row["team_id"],
             name=row["name"],
             member_count=row["member_count"],
@@ -286,9 +329,44 @@ def _rank_teams(
             level=row["level"],
             solve_count=row["solve_count"],
             last_gain_at=row["last_gain_at"],
+            stars=row["stars"],
         )
-        for index, row in enumerate(rows)
+        for rank, row in _with_shared_ranks(rows)
     ]
+
+
+def _union_stars(member_ids: list[UUID], stars: dict[UUID, list[BoardStar]]) -> list[BoardStar]:
+    """The distinct boss slugs this party's *current* members have felled.
+
+    Spec 005's union rule, applied to decoration: six members who each beat *XYZ*
+    give the party one `xyz` star. A member who leaves takes their unique kills
+    with them, because this reads the roster it is handed.
+    """
+    distinct: dict[str, BoardStar] = {}
+    for member_id in member_ids:
+        for star in stars.get(member_id, []):
+            distinct.setdefault(star.slug, star)
+    return sorted(distinct.values(), key=lambda star: (-star.level, star.slug))
+
+
+def _with_shared_ranks(rows: list[dict]):
+    """Standard competition ranking: ``1, 2, 3, 3, 5`` (spec 059 §4.1).
+
+    Two entries on equal points share a place, and the next entry takes the one
+    its position implies. The *order* within a shared rank is untouched — it is
+    still spec 005's tie-break, earliest to reach the score first — so only the
+    number beside them changes.
+
+    Takes the rows already sorted, and is the single place both boards get their
+    ranks from, which is what keeps the admin board (spec 051) in step.
+    """
+    rank = 0
+    previous_score = None
+    for index, row in enumerate(rows):
+        if row["score"] != previous_score:
+            rank = index + 1
+            previous_score = row["score"]
+        yield rank, row
 
 
 #: Sorts after every real timestamp, so entries that have never scored fall to

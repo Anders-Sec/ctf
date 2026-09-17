@@ -1210,17 +1210,58 @@ async def stars_for(db: AsyncSession, user_id: UUID) -> list[Star]:
     return sorted(stars, key=lambda s: (-s.level, s.zone_name))
 
 
-async def star_counts(db: AsyncSession) -> dict[UUID, int]:
-    """Stars per player, for the scoreboard. One query rather than one each."""
+@dataclass(frozen=True)
+class BoardStar:
+    """One boss kill, as the scoreboard shows it (spec 059 §3).
+
+    **Keyed on the challenge slug.** That is what makes deduplication possible
+    at all: a star stops being an anonymous increment and becomes a named thing,
+    so a party where six members each felled *XYZ* carries one `xyz` star rather
+    than six. Slug rather than id for the reason specs 027 and 040 already key on
+    it — unique, stable across a re-import that reassigns ids, and legible in a
+    payload somebody is debugging.
+    """
+
+    slug: str
+    tier: str
+    #: 1 (Neighborhood) to 6 (Floor), so a client orders without the names.
+    level: int
+    #: For the hover. The colour carries the tier; this carries which boss.
+    title: str
+
+
+async def board_stars(db: AsyncSession) -> dict[UUID, list[BoardStar]]:
+    """Every player's boss kills, for both boards. One query for all of them.
+
+    Replaces the old ``star_counts``, which returned one integer per player and
+    so could neither colour a star nor deduplicate one.
+
+    A player's own list needs no deduplication: ``uq_solve_user_challenge`` means
+    they cannot solve the same boss twice. The party union is where it matters,
+    and that happens in the scoreboard service where the roster is known.
+    """
     rows = (
         await db.execute(
-            select(Solve.user_id, func.count(Solve.id))
-            .join(Challenge, Challenge.id == Solve.challenge_id)
+            select(Challenge.slug, Challenge.title, Challenge.boss_tier, Solve.user_id)
+            .join(Solve, Solve.challenge_id == Challenge.id)
             .where(Challenge.boss_tier.is_not(None))
-            .group_by(Solve.user_id)
         )
     ).all()
-    return dict(rows)
+
+    stars: dict[UUID, list[BoardStar]] = {}
+    for slug, title, tier, user_id in rows:
+        stars.setdefault(user_id, []).append(
+            BoardStar(
+                slug=slug,
+                tier=tier.value,
+                level=BOSS_TIER_LEVEL[tier],
+                title=title,
+            )
+        )
+    # Biggest fight first, then by slug so the run is stable between refreshes.
+    for held in stars.values():
+        held.sort(key=lambda star: (-star.level, star.slug))
+    return stars
 
 
 # --- Platform events --------------------------------------------------------
