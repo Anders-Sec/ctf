@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
   createAdjustment,
@@ -244,6 +245,15 @@ function AdjustmentsSection({ canWrite }: { canWrite: boolean }) {
                   {row.reason} · {row.created_by_name ?? "system"}
                 </span>
               </span>
+              {/* The audit log is most useful arrived at from context (spec
+                  051 §2.2), so link to this subject's history rather than
+                  making an admin go and filter for it. */}
+              <Link
+                to={`/admin/audit?target_type=${row.team_id ? "team" : "user"}&search=${encodeURIComponent(row.reason)}`}
+                className="shrink-0 text-xs text-content-muted underline"
+              >
+                History
+              </Link>
               {/* A reversed entry stays visible: the record of the decision is the point. */}
               {canWrite && !row.reversed_by_id && !row.reverses_id && (
                 <button

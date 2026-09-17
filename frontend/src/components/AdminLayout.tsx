@@ -43,6 +43,7 @@ const GROUPS: Group[] = [
     items: [
       { to: "/admin/ops", label: "Reports & Adjustments", badge: "open_reports" },
       { to: "/admin/signals", label: "Anti-Cheat Signals", badge: "open_signals" },
+      { to: "/admin/scoreboard", label: "Scoreboard" },
       { to: "/admin/metrics", label: "Metrics" },
       { to: "/admin/assistant", label: "System AI" },
       { to: "/admin/instances", label: "Live Instances", badge: "failed_instances" },
@@ -84,7 +85,6 @@ const GROUPS: Group[] = [
  */
 const NOT_YET_BUILT = new Set([
   "/admin/metrics",
-  "/admin/audit",
   "/admin/announcements",
   "/admin/health",
   "/admin/email",

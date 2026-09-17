@@ -5,6 +5,7 @@ import AdminLayout from "./components/AdminLayout";
 import AppLayout from "./components/AppLayout";
 import AdminAchievementsPage from "./routes/AdminAchievementsPage";
 import AdminAssistantPage from "./routes/AdminAssistantPage";
+import AdminAuditPage from "./routes/AdminAuditPage";
 import AdminChallengesPage from "./routes/AdminChallengesPage";
 import AdminClassesPage from "./routes/AdminClassesPage";
 import AdminDashboardPage from "./routes/AdminDashboardPage";
@@ -14,6 +15,7 @@ import AdminInstancesPage from "./routes/AdminInstancesPage";
 import AdminMapPage from "./routes/AdminMapPage";
 import AdminOpsPage from "./routes/AdminOpsPage";
 import AdminPlaceholderPage from "./routes/AdminPlaceholderPage";
+import AdminScoreboardPage from "./routes/AdminScoreboardPage";
 import AdminSignalsPage from "./routes/AdminSignalsPage";
 import AdminSkillsPage from "./routes/AdminSkillsPage";
 import AdminTemplatesPage from "./routes/AdminTemplatesPage";
@@ -88,16 +90,8 @@ export default function App() {
           <Route path="assistant" element={<AdminAssistantPage />} />
           <Route path="instances" element={<AdminInstancesPage />} />
           <Route path="users" element={<AdminUsersPage />} />
-          <Route
-            path="audit"
-            element={
-              <AdminPlaceholderPage
-                title="Audit Log"
-                spec="051-audit-log-and-admin-scoreboard.md"
-                summary="Every consequential action, with the actor and the reason. The endpoint already exists and is rendered nowhere."
-              />
-            }
-          />
+          <Route path="audit" element={<AdminAuditPage />} />
+          <Route path="scoreboard" element={<AdminScoreboardPage />} />
           <Route
             path="announcements"
             element={

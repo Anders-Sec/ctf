@@ -112,8 +112,33 @@ export const listReports = (status?: ReportStatus) =>
 export const triageReport = (id: string, status: ReportStatus, note?: string) =>
   api.post<{ message: string }>(`/admin/reports/${id}/status`, { status, note: note ?? null });
 
-export const listAudit = (action?: string) =>
-  api.get<AuditEntry[]>(`/admin/audit-log${action ? `?action=${action}` : ""}`);
+export interface AuditPage {
+  /** Matching rows in total, not in this page. */
+  total: number;
+  entries: AuditEntry[];
+}
+
+export interface AuditFilters {
+  action?: string;
+  actor_user_id?: string;
+  target_type?: string;
+  since?: string;
+  until?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export const listAudit = (filters: AuditFilters = {}) => {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const suffix = query.toString();
+  return api.get<AuditPage>(`/admin/audit-log${suffix ? `?${suffix}` : ""}`);
+};
+
+export const listAuditActions = () => api.get<string[]>("/admin/audit-log/actions");
 
 export const reportChallenge = (challengeId: string, message: string) =>
   api.post<Report>(`/challenges/${challengeId}/report`, { message });
