@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, type ReactNode } from "react";
 
 import { ApiError } from "../api/client";
 import { getMe, type Capabilities, type Me } from "../api/auth";
+import { applyTheme, storeTheme } from "../theme/apply";
 
 interface SessionValue {
   me: Me | null;
@@ -32,6 +33,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const me = query.data ?? null;
+
+  // The inline snippet in index.html has already stamped the document from
+  // localStorage, which is what wins the race against this request. This is the
+  // reconciliation: the server is the source of truth, and the cache is
+  // refreshed so the next cold load starts correct.
+  const theme = me?.theme;
+  useEffect(() => {
+    if (!theme) return;
+    applyTheme(theme);
+    storeTheme(theme);
+  }, [theme]);
 
   return (
     <SessionContext.Provider value={{ me, isLoading: query.isPending, refresh }}>

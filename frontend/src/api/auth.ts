@@ -1,3 +1,4 @@
+import type { ThemeId } from "../theme/themes";
 import { api } from "./client";
 
 export type UserSource = "entra" | "guest";
@@ -64,6 +65,17 @@ export interface Me {
    * the first thing a player meets is not a refused request.
    */
   assistant_terms_accepted: boolean;
+  /**
+   * The theme to render (spec 048), already resolved server-side so the client
+   * never re-implements the precedence rule and an unrecognised stored value
+   * cannot reach the browser.
+   */
+  theme: ThemeId;
+  /**
+   * Where that theme came from, so the picker can say "following the event
+   * default" rather than implying the player chose it.
+   */
+  theme_source: "user" | "event";
 }
 
 export const getMe = () => api.get<Me>("/auth/me");
@@ -78,6 +90,10 @@ export const logout = () => api.post<{ message: string }>("/auth/logout");
 
 export const updateDisplayName = (display_name: string) =>
   api.patch<User>("/auth/me", { display_name });
+
+/** Null clears the choice, returning to the event default. */
+export const updateTheme = (theme: ThemeId | null) =>
+  api.patch<{ message: string }>("/auth/me/theme", { theme });
 
 export const avatarUrl = (userId: string) => `/api/users/${userId}/avatar`;
 

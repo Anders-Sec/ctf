@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { resolveTheme } from "./apply";
+import { resolveTheme, THEME_STORAGE_KEY } from "./apply";
 import { FALLBACK_THEME, isThemeId, THEME_IDS, THEMES } from "./themes";
 
 /**
@@ -206,5 +206,34 @@ describe("resolving a preference", () => {
     expect(resolveTheme("midnight-gala", null)).toBe(FALLBACK_THEME);
     expect(resolveTheme("midnight-gala", "torchlight")).toBe("torchlight");
     expect(isThemeId("midnight-gala")).toBe(false);
+  });
+});
+
+describe("the anti-flash stamp in index.html", () => {
+  // The snippet cannot import anything — it runs before the bundle parses — so
+  // it carries its own copy of the roster. That copy is the drift risk, and
+  // this is what keeps it honest.
+  const HTML = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
+
+  it("knows exactly the themes the roster knows", () => {
+    const listed = /var known = \[([^\]]*)\]/.exec(HTML)?.[1];
+    expect(listed, "no theme list found in the inline snippet").toBeTruthy();
+    const names = [...(listed ?? "").matchAll(/"([a-z-]+)"/g)].map((m) => m[1]);
+    expect(names.sort()).toEqual([...THEME_IDS].sort());
+  });
+
+  it("agrees with the roster about which themes are dark", () => {
+    const dark = THEMES.filter((theme) => theme.mode === "dark").map((theme) => theme.id);
+    for (const id of dark) {
+      expect(HTML, `${id} is dark but the snippet does not say so`).toContain(`"${id}"`);
+    }
+    // The snippet's dark test is a literal comparison; assert its shape so a
+    // new dark preset cannot be silently left out of it.
+    const test = /stored === "([a-z-]+)" \|\| stored === "([a-z-]+)"/.exec(HTML);
+    expect(test?.slice(1, 3).sort()).toEqual(dark.sort());
+  });
+
+  it("reads the same storage key the app writes", () => {
+    expect(HTML).toContain(`"${THEME_STORAGE_KEY}"`);
   });
 });

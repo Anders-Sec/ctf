@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 
+import { FALLBACK_THEME } from "../theme/themes";
 import { SessionProvider } from "../auth/session";
 import type { Capabilities, Me } from "../api/auth";
 
@@ -48,6 +49,8 @@ export function me(overrides: Partial<Me> = {}): Me {
       created_at: "2026-09-01T00:00:00Z",
     },
     team: null,
+    theme: FALLBACK_THEME,
+    theme_source: "event",
     capabilities: capabilities(),
     event: {
       name: "Autumn Crawl",

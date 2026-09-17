@@ -48,18 +48,25 @@ uses roles only**. Roles, and what each is for:
 | `surface-raised` | Cards, panels, nav — anything sitting on the page | `bg-white/60` |
 | `surface-sunken` | Wells, table header bands, inset areas | — |
 | `surface-overlay` | Drawers, modals, the assistant panel | ad hoc |
-| `border` | Default hairline | `stone` |
-| `border-strong` | Emphasised divider, input outline | — |
+| `border` | Decorative hairline — row dividers, card edges | `stone` |
+| `border-strong` | **Control boundary** — input outline, toggle | — |
 | `content` | Primary text | `ink` |
 | `content-muted` | Secondary text, labels | `muted` |
 | `content-faint` | Placeholder, disabled | — |
-| `accent` | Brand, links, primary action | `torch` |
+| `accent` | Brand fill — a button, a badge | `torch` |
+| `accent-strong` | The accent **as text**: links, emphasis | — |
 | `accent-content` | Text/icon on top of `accent` | — |
 | `danger` | Destructive action, broken challenge, failure | `torch` (shared) |
 | `warning` | Needs attention, not yet failing | `torch` (shared) |
 | `success` | Solved, healthy, delivered | ad hoc greens |
 | `info` | Neutral notice | — |
 | `focus-ring` | Keyboard focus outline | `#ffca7a` literal |
+
+Two further tokens are theme-invariant, alongside the ladder below:
+`on-fill` (text on any saturated fill — a puzzle tile, a generated avatar) and
+the `puzzle-*` set (spec 044's board colours). Green/amber/grey on a Wordle tile
+is a convention players arrive already knowing, and a theme that reassigned it
+would be lying to them.
 
 The six-step ladder (`loot-*` / `boss-*` / `rarity-*`) stays exactly as it is. It
 is already tokenised, already shared between bosses and loot, and it is semantic
@@ -177,7 +184,31 @@ Step 5 is what makes steps 1–4 stay done.
 - The inline stamp applies the stored theme before first paint.
 - `prefers-reduced-motion` behaviour from spec 023 is unchanged by any preset.
 
-## 9. Open questions
+## 9. What implementation changed
+
+Recorded per `CLAUDE.md`: the spec was signed off before building, and these
+are the places reality pushed back.
+
+1. **`accent` split into `accent` and `accent-strong`.** One value cannot do
+   both jobs. The brand torch at `194 106 42` gives **3.46:1** as text on
+   parchment — failing AA body text — while white on it gives **3.78:1**, also
+   failing. Nudging it darker fixes the text case and breaks the fill case, and
+   lighter does the reverse. Fills and text therefore have separate values.
+2. **`border-strong` is specifically a control boundary, and `border` is exempt
+   from 3:1.** WCAG 1.4.11 covers boundaries a user must be able to *find* — an
+   input outline, a focus ring — not decorative rules. Holding a row divider to
+   3:1 would draw a heavy black line between every table row in every theme, so
+   the two weights are tested against different thresholds.
+3. **`on-fill` and the `puzzle-*` set added**, theme-invariant (see §2).
+4. **The map's glow colours became `--map-glow-warm` / `--map-glow-cold`**,
+   defined once rather than themed. This resolves open question 3 below: the map
+   stays theme-invariant.
+5. **A latent bug fixed on the way through.** `bg-stone-500` emitted **no CSS at
+   all** — the config replaces Tailwind's stone scale with a single token, so
+   the class matched nothing. The Wordle "not in the word" tile and a puzzle
+   badge have had no background since spec 044. Both now use `puzzle-absent`.
+
+## 10. Open questions
 
 Signed off 2026-09-17. Each recommendation below was accepted as written
 unless a **Decision** line says otherwise.
@@ -189,9 +220,9 @@ unless a **Decision** line says otherwise.
 2. **Does High Contrast belong in the same picker as the flavour themes?** It is
    an accessibility setting, not a taste. Recommend keeping it in one list — a
    separate "accessibility" menu is a place people do not look.
-3. **What happens to the illustrated map under a dark theme?** The 22 zone tiles
-   (spec 020) are raster art with baked-in lighting, and the map already carries
-   its own dark atmosphere from spec 023. Recommend the map stays
-   **theme-invariant** — it is already dark, it is the one surface with real art,
-   and re-rendering 22 tiles per theme is not a Phase 3 budget. Worth confirming
-   rather than assuming.
+3. ~~**What happens to the illustrated map under a dark theme?**~~ **Resolved
+   during implementation: the map is theme-invariant.** Its glow colours are
+   defined once (§9.4) and `DungeonMap.tsx` is allow-listed in the colour linter
+   with that reason recorded in the allowlist itself. The 22 tiles are raster art
+   with baked-in lighting and the map already carries its own dark atmosphere
+   from spec 023.

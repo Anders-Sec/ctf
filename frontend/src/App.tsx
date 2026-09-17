@@ -13,6 +13,7 @@ import AdminEventPage from "./routes/AdminEventPage";
 import AdminInstancesPage from "./routes/AdminInstancesPage";
 import AdminSignalsPage from "./routes/AdminSignalsPage";
 import AdminSkillsPage from "./routes/AdminSkillsPage";
+import AdminThemePage from "./routes/AdminThemePage";
 import AdminUsersPage from "./routes/AdminUsersPage";
 import ChallengeDetailPage from "./routes/ChallengeDetailPage";
 import ChallengesPage from "./routes/ChallengesPage";
@@ -96,6 +97,14 @@ export default function App() {
           element={
             <RequireAuth staffOnly>
               <AdminEventPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/theme"
+          element={
+            <RequireAuth staffOnly>
+              <AdminThemePage />
             </RequireAuth>
           }
         />

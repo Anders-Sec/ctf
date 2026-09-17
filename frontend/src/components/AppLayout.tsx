@@ -8,6 +8,7 @@ import { useSession } from "../auth/session";
 import AssistantPanel from "./AssistantPanel";
 import Avatar from "./Avatar";
 import NotificationCentre from "./NotificationCentre";
+import ThemePicker from "./ThemePicker";
 
 export default function AppLayout() {
   const { me } = useSession();
@@ -93,6 +94,9 @@ export default function AppLayout() {
               <NavLink to="/admin/event" className="text-sm hover:underline">
                 Event
               </NavLink>
+              <NavLink to="/admin/theme" className="text-sm hover:underline">
+                Theme
+              </NavLink>
             </>
           ) : (
             <>
@@ -117,6 +121,7 @@ export default function AppLayout() {
 
           <span className="ml-auto flex items-center gap-3">
             {me?.capabilities.play && <NotificationCentre />}
+            <ThemePicker />
             {isAdmin && (
               // The one cross-over control. Player view is the default so an
               // admin can see the event as a player does.
