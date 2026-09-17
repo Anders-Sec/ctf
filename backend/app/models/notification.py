@@ -106,6 +106,13 @@ class Notification(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     link: Mapped[str | None] = mapped_column(String(500), nullable=True)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    #: Set on the rows an admin announcement fanned out to (spec 054), so a read
+    #: count is a count over these rather than a second number stored on the
+    #: announcement and kept in step by hand.
+    announcement_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("announcement.id", ondelete="SET NULL"), nullable=True
+    )
+
 
 class Achievement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "achievement"

@@ -5,6 +5,7 @@ by the time Alembic autogenerate or a test fixture looks at it. A model that is
 not imported here is invisible to migrations.
 """
 
+from app.models.announcement import Announcement, AnnouncementAudience
 from app.models.assistant import AssistantConversation, AssistantMessage, MessageRole
 from app.models.audit import AuditLog
 from app.models.auth import AuthSession, MagicLinkToken
@@ -80,6 +81,8 @@ __all__ = [
     "AssistantConversation",
     "AssistantFinding",
     "AssistantMessage",
+    "Announcement",
+    "AnnouncementAudience",
     "AuditLog",
     "AuthSession",
     "Base",

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import (
     admin,
     admin_achievements,
+    admin_announcements,
     admin_challenge_csv,
     admin_challenges,
     admin_classes,
@@ -159,6 +160,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(admin_classes.router)
     api.include_router(admin_hints.router)
     api.include_router(admin_instances.router)
+    api.include_router(admin_announcements.router)
     api.include_router(admin_email.router)
     api.include_router(admin_ops.router)
     api.include_router(admin_parties.router)

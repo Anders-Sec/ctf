@@ -23,7 +23,7 @@ from app.models.challenge import Category, Challenge
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.models.notification import NotificationKind
 from app.models.play import Solve
-from app.services import narrator, notifications
+from app.services import announcements, narrator, notifications
 
 logger = get_logger(__name__)
 
@@ -105,6 +105,9 @@ class DispatchLoop:
             try:
                 async with sessionmaker() as session:
                     await send_today(session, redis)
+                    # Spec 054: due announcements ride this pass rather than
+                    # introducing a second scheduler for the same job.
+                    await announcements.send_due(session, redis)
                     await session.commit()
             except asyncio.CancelledError:
                 raise

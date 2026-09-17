@@ -186,6 +186,8 @@ async def broadcast(
     body: str,
     link: str | None = None,
     redis: Redis | None = None,
+    to_user_ids: list[UUID] | None = None,
+    announcement_id: UUID | None = None,
 ) -> BroadcastResult:
     """Say something to everybody, exactly once.
 
@@ -198,12 +200,21 @@ async def broadcast(
     if not await claim(db, kind, key):
         return BroadcastResult(sent=False, recipients=0)
 
-    targets = await recipients(db)
+    # A narrowed audience (spec 054) passes its own list; everything else gets
+    # every active player, which is what every caller before it wanted.
+    targets = to_user_ids if to_user_ids is not None else await recipients(db)
     if not targets:
         return BroadcastResult(sent=True, recipients=0)
 
     rows = [
-        Notification(user_id=user_id, kind=kind, title=title, body=body, link=link)
+        Notification(
+            user_id=user_id,
+            kind=kind,
+            title=title,
+            body=body,
+            link=link,
+            announcement_id=announcement_id,
+        )
         for user_id in targets
     ]
     db.add_all(rows)

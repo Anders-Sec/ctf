@@ -267,7 +267,7 @@ class TestAnnouncements:
         )
 
         assert sent.status_code == 200
-        assert sent.json()["recipients"] >= 1
+        assert sent.json()["recipient_count"] >= 1
         assert await count_for(db_session, player.id) == 1
 
     async def test_two_announcements_both_send(

@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import { getChallengeHealth, getDashboard, type ChallengeHealth } from "../api/adminOps";
 import { useSession } from "../auth/session";
-import AnnouncementComposer from "../components/AnnouncementComposer";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 
@@ -120,9 +119,17 @@ export default function AdminDashboardPage() {
         <strong className="text-content">Containers</strong> — {data.containers.note}
       </section>
 
-      {/* Sample data moved to Data & Reset (spec 049). The composer stays until
-          spec 054 gives announcements a page of their own. */}
-      {canAnnounce && <AnnouncementComposer />}
+      {/* Sample data moved to Data & Reset (spec 049); the composer to
+          Announcements (spec 054). */}
+      {canAnnounce && (
+        <p className="mt-8 text-sm text-content-muted">
+          Need to tell everyone something?{" "}
+          <Link to="/admin/announcements" className="text-accent-strong underline">
+            Announcements
+          </Link>
+          .
+        </p>
+      )}
     </main>
   );
 }

@@ -4,6 +4,7 @@ import { RequireAuth } from "./auth/RequireAuth";
 import AdminLayout from "./components/AdminLayout";
 import AppLayout from "./components/AppLayout";
 import AdminAchievementsPage from "./routes/AdminAchievementsPage";
+import AdminAnnouncementsPage from "./routes/AdminAnnouncementsPage";
 import AdminAssistantPage from "./routes/AdminAssistantPage";
 import AdminAuditPage from "./routes/AdminAuditPage";
 import AdminChallengesPage from "./routes/AdminChallengesPage";
@@ -95,16 +96,7 @@ export default function App() {
           <Route path="parties" element={<AdminPartiesPage />} />
           <Route path="audit" element={<AdminAuditPage />} />
           <Route path="scoreboard" element={<AdminScoreboardPage />} />
-          <Route
-            path="announcements"
-            element={
-              <AdminPlaceholderPage
-                title="Announcements"
-                spec="054-announcements.md"
-                summary="What you have already told people, how many read it, and what is scheduled to go out."
-              />
-            }
-          />
+          <Route path="announcements" element={<AdminAnnouncementsPage />} />
           <Route
             path="health"
             element={
