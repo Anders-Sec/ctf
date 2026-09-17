@@ -20,9 +20,7 @@ depends_on = None
 
 def upgrade() -> None:
     op.add_column("user", sa.Column("theme", sa.String(length=32), nullable=True))
-    op.add_column(
-        "event_config", sa.Column("default_theme", sa.String(length=32), nullable=True)
-    )
+    op.add_column("event_config", sa.Column("default_theme", sa.String(length=32), nullable=True))
 
 
 def downgrade() -> None:
