@@ -22,7 +22,7 @@ export default function HintList({
 
   return (
     <section className="mt-6">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Hints</h2>
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">Hints</h2>
       <ul className="mt-3 flex flex-col gap-2">
         {hints.map((hint) => (
           <HintRow key={hint.id} challengeId={challengeId} hint={hint} />
@@ -49,20 +49,20 @@ function HintRow({ challengeId, hint }: { challengeId: string; hint: Hint }) {
   const body = hint.unlocked ? hint.body : unlock.data?.body;
 
   return (
-    <li className="rounded-lg border border-stone bg-white/60 p-4">
+    <li className="rounded-lg border border-border bg-surface-raised p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium">{hint.title}</span>
 
         {body ? (
-          <span className="text-sm text-muted">unlocked</span>
+          <span className="text-sm text-content-muted">unlocked</span>
         ) : !hint.available ? (
-          <span className="text-sm text-muted">locked</span>
+          <span className="text-sm text-content-muted">locked</span>
         ) : confirming ? (
           <span className="flex items-center gap-2">
             <button
               onClick={() => unlock.mutate()}
               disabled={unlock.isPending}
-              className="rounded bg-torch px-3 py-1.5 text-sm text-white disabled:opacity-50"
+              className="rounded bg-accent px-3 py-1.5 text-sm text-on-fill disabled:opacity-50"
             >
               {unlock.isPending
                 ? "Unlocking…"
@@ -77,7 +77,7 @@ function HintRow({ challengeId, hint }: { challengeId: string; hint: Hint }) {
         ) : (
           <button
             onClick={() => setConfirming(true)}
-            className="rounded border border-ink px-3 py-1.5 text-sm"
+            className="rounded border border-content px-3 py-1.5 text-sm"
           >
             {hint.cost === 0 ? "Reveal — free" : `Unlock — ${hint.cost} XP`}
           </button>
@@ -85,13 +85,13 @@ function HintRow({ challengeId, hint }: { challengeId: string; hint: Hint }) {
       </div>
 
       {!hint.available && !body && (
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-sm text-content-muted">
           Unlock the hint before this one, or wait for it to open.
         </p>
       )}
 
       {hint.cost === 0 && !body && hint.available && (
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-sm text-content-muted">
           Free — you have already solved this challenge.
         </p>
       )}

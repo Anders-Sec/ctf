@@ -196,7 +196,7 @@ describe("ScoreboardPage", () => {
     renderApp(<ScoreboardPage />);
 
     const row = (await screen.findByText("The Mimics")).closest("tr")!;
-    expect(row.className).toContain("bg-ink/5");
+    expect(row.className).toContain("bg-content/5");
   });
 
   it("says so when nobody has scored", async () => {

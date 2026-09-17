@@ -45,15 +45,15 @@ body {
    brightly, which read as "come in" for somewhere you cannot go. */
 .dungeon-zone:not([data-locked]):hover,
 .dungeon-zone:not([data-locked]):focus-visible {
-  filter: drop-shadow(0 0 10px rgba(255, 157, 61, 0.9))
-    drop-shadow(0 0 22px rgba(255, 157, 61, 0.5));
+  filter: drop-shadow(0 0 10px rgb(var(--map-glow-warm) / 0.9))
+    drop-shadow(0 0 22px rgb(var(--map-glow-warm) / 0.5));
 }
 
 /* A sealed zone still acknowledges the cursor — cold and dim, so it reads as
    "there is something here" rather than "this is open". */
 .dungeon-zone[data-locked]:hover,
 .dungeon-zone[data-locked]:focus-visible {
-  filter: drop-shadow(0 0 8px rgba(63, 214, 208, 0.35));
+  filter: drop-shadow(0 0 8px rgb(var(--map-glow-cold) / 0.35));
 }
 
 /* Keyboard focus keeps a real ring as well as the glow — on every zone, sealed
@@ -62,7 +62,7 @@ body {
    outside the box without affecting layout, so it cannot cause the same
    fighting-the-cursor problem. */
 .dungeon-zone:focus-visible {
-  outline: 2px solid #ffca7a;
+  outline: 2px solid rgb(var(--focus-ring));
   outline-offset: 3px;
 }
 

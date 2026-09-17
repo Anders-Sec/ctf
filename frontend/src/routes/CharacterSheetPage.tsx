@@ -70,13 +70,13 @@ function OwnSheet({ sheet }: { sheet: CharacterSheet }) {
 
       <ClassSection sheet={sheet} />
 
-      <section className="mt-6 rounded border border-stone bg-white/40 p-4">
+      <section className="mt-6 rounded border border-border bg-surface-raised p-4">
         <div className="flex items-baseline justify-between">
           <h2 className="text-lg font-semibold">Level {sheet.level}</h2>
-          <span className="text-sm text-muted tabular-nums">{sheet.total_xp} XP total</span>
+          <span className="text-sm text-content-muted tabular-nums">{sheet.total_xp} XP total</span>
         </div>
         <XpBar into={sheet.xp_into_level} toNext={sheet.xp_to_next} />
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-content-muted">
           {sheet.xp_to_next > 0
             ? `${sheet.xp_to_next} XP to level ${sheet.level + 1}`
             : "Top of the curve for now"}
@@ -105,7 +105,7 @@ function ClassSection({ sheet }: { sheet: CharacterSheet }) {
   });
 
   return (
-    <section className="mt-6 rounded border border-stone bg-white/40 p-4">
+    <section className="mt-6 rounded border border-border bg-surface-raised p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold">Class</h2>
@@ -115,13 +115,13 @@ function ClassSection({ sheet }: { sheet: CharacterSheet }) {
         </div>
         {sheet.class_unlocked ? (
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-muted">Your calling</span>
+            <span className="text-content-muted">Your calling</span>
             <select
               aria-label="Class"
               value={sheet.character_class?.id ?? ""}
               disabled={choose.isPending || roster.isPending}
               onChange={(e) => choose.mutate(e.target.value || null)}
-              className="rounded border border-stone px-2 py-1 text-sm"
+              className="rounded border border-border px-2 py-1 text-sm"
             >
               <option value="">Classless</option>
               {/* Unlocked classes only — the server never sends the rest, so
@@ -134,7 +134,7 @@ function ClassSection({ sheet }: { sheet: CharacterSheet }) {
             </select>
           </label>
         ) : (
-          <span className="text-sm text-muted">
+          <span className="text-sm text-content-muted">
             Reach level {sheet.class_unlock_level} to choose a class
           </span>
         )}
@@ -144,7 +144,7 @@ function ClassSection({ sheet }: { sheet: CharacterSheet }) {
           do. Server-side template, not a model call — it is the System AI's
           voice, not its reasoning. */}
       {sheet.suggested_class_line && (
-        <p className="mt-3 border-l-2 border-torch/50 pl-3 text-sm italic text-muted">
+        <p className="mt-3 border-l-2 border-accent/50 pl-3 text-sm italic text-content-muted">
           {sheet.suggested_class_line}
         </p>
       )}
@@ -192,9 +192,9 @@ function StatBlock({ abilities }: { abilities: AbilityScore[] }) {
         {abilities.map((a) => (
           <li
             key={a.ability}
-            className="rounded border border-stone bg-white/40 p-3 text-center"
+            className="rounded border border-border bg-surface-raised p-3 text-center"
           >
-            <div className="text-xs uppercase tracking-wide text-muted">
+            <div className="text-xs uppercase tracking-wide text-content-muted">
               {ABILITY_LABEL[a.ability] ?? a.ability}
             </div>
             <div className="mt-1 text-3xl font-semibold tabular-nums">{a.score}</div>
@@ -225,7 +225,7 @@ function SkillTable({ skills }: { skills: SkillRow[] }) {
     <section className="mt-8">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="text-lg font-semibold">Skills</h2>
-        <span className="text-sm text-muted">
+        <span className="text-sm text-content-muted">
           {found} of {skills.length} discovered
         </span>
       </div>
@@ -236,7 +236,7 @@ function SkillTable({ skills }: { skills: SkillRow[] }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search skills"
           aria-label="Search skills"
-          className="flex-1 rounded border border-stone px-3 py-1.5 text-sm"
+          className="flex-1 rounded border border-border px-3 py-1.5 text-sm"
         />
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -248,7 +248,7 @@ function SkillTable({ skills }: { skills: SkillRow[] }) {
         </label>
       </div>
 
-      <ul className="mt-3 divide-y divide-stone rounded border border-stone bg-white/40">
+      <ul className="mt-3 divide-y divide-stone rounded border border-border bg-surface-raised">
         {rows.map((skill) => (
           <li key={skill.skill_id} className="flex items-center justify-between px-4 py-2">
             <span
@@ -257,10 +257,10 @@ function SkillTable({ skills }: { skills: SkillRow[] }) {
             >
               {skill.name}
               {skill.kind === "funny" && skill.discovered && (
-                <span className="ml-2 text-xs text-muted">funny</span>
+                <span className="ml-2 text-xs text-content-muted">funny</span>
               )}
             </span>
-            <span className="text-sm text-muted tabular-nums">
+            <span className="text-sm text-content-muted tabular-nums">
               {skill.discovered ? `Level ${skill.level}` : "—"}
             </span>
           </li>
@@ -290,7 +290,7 @@ function Header({
       <Avatar userId={userId} displayName={displayName} hasAvatar={hasAvatar} size={56} />
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{displayName}</h1>
-        <p className="text-sm text-muted">
+        <p className="text-sm text-content-muted">
           Level {level} {className ?? "Classless"} adventurer
           {rank !== null ? ` · rank #${rank}` : ""}
         </p>
@@ -305,13 +305,13 @@ function XpBar({ into, toNext }: { into: number; toNext: number }) {
   const pct = span > 0 ? Math.round((into / span) * 100) : 100;
   return (
     <div
-      className="mt-3 h-2 w-full overflow-hidden rounded-full bg-stone/40"
+      className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-sunken"
       role="progressbar"
       aria-valuenow={pct}
       aria-valuemin={0}
       aria-valuemax={100}
     >
-      <div className="h-full rounded-full bg-ink" style={{ width: `${pct}%` }} />
+      <div className="h-full rounded-full bg-content" style={{ width: `${pct}%` }} />
     </div>
   );
 }

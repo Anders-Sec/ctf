@@ -36,9 +36,9 @@ export default function ChallengeCsvPanel() {
   });
 
   return (
-    <section className="mt-8 rounded border border-stone bg-white/40 p-4">
+    <section className="mt-8 rounded border border-border bg-surface-raised p-4">
       <h2 className="text-lg font-semibold">Challenges as CSV</h2>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 text-sm text-content-muted">
         The template has a row for every challenge, with the category,
         difficulty and its suggested XP already filled in — write the rest in a
         spreadsheet and upload it back. A row carries everything a challenge
@@ -54,13 +54,13 @@ export default function ChallengeCsvPanel() {
             fetch would have to reimplement. */}
         <a
           href={TEMPLATE_URL}
-          className="rounded bg-ink px-4 py-2 text-sm text-parchment hover:opacity-90"
+          className="rounded bg-content px-4 py-2 text-sm text-surface hover:opacity-90"
         >
           Download template
         </a>
         <a
           href={EXPORT_URL}
-          className="rounded border border-stone px-4 py-2 text-sm hover:bg-white/60"
+          className="rounded border border-border px-4 py-2 text-sm hover:bg-surface-raised"
         >
           Export current
         </a>
@@ -89,7 +89,7 @@ export default function ChallengeCsvPanel() {
         <button
           onClick={() => upload.mutate()}
           disabled={!file || upload.isPending}
-          className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+          className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
         >
           {upload.isPending ? "Reading…" : dryRun ? "Check file" : "Import"}
         </button>
@@ -110,28 +110,28 @@ export default function ChallengeCsvPanel() {
 
           {report.errors.length > 0 && (
             <>
-              <p className="mt-2 text-muted">
+              <p className="mt-2 text-content-muted">
                 Nothing was written — the whole file is refused if any row is
                 wrong, so a half-imported event cannot happen.
               </p>
               <table className="mt-2 w-full border-collapse text-left">
                 <thead>
-                  <tr className="text-muted">
-                    <th className="border-b border-stone py-1 pr-3">Row</th>
-                    <th className="border-b border-stone py-1 pr-3">Column</th>
-                    <th className="border-b border-stone py-1">Problem</th>
+                  <tr className="text-content-muted">
+                    <th className="border-b border-border py-1 pr-3">Row</th>
+                    <th className="border-b border-border py-1 pr-3">Column</th>
+                    <th className="border-b border-border py-1">Problem</th>
                   </tr>
                 </thead>
                 <tbody>
                   {report.errors.map((error, index) => (
                     <tr key={`${error.row}-${error.column}-${index}`}>
-                      <td className="border-b border-stone/50 py-1 pr-3 tabular-nums">
+                      <td className="border-b border-border/50 py-1 pr-3 tabular-nums">
                         {error.row}
                       </td>
-                      <td className="border-b border-stone/50 py-1 pr-3">
+                      <td className="border-b border-border/50 py-1 pr-3">
                         {error.column}
                       </td>
-                      <td className="border-b border-stone/50 py-1">{error.problem}</td>
+                      <td className="border-b border-border/50 py-1">{error.problem}</td>
                     </tr>
                   ))}
                 </tbody>

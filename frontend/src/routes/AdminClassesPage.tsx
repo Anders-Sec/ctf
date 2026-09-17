@@ -54,29 +54,29 @@ export default function AdminClassesPage() {
   return (
     <main className="mx-auto max-w-2xl p-6">
       <h1 className="text-3xl font-semibold tracking-tight">Classes</h1>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2 text-sm text-content-muted">
         The archetypes players pick from. A class's affinity skill is what the
         System AI reads to suggest it — it has no effect on scoring.
       </p>
 
       {!canWrite && (
-        <p className="mt-4 rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
+        <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
           Read-only — only admins can change classes.
         </p>
       )}
 
       {classes.data.length === 0 ? (
-        <p className="mt-6 text-sm text-muted">No classes yet.</p>
+        <p className="mt-6 text-sm text-content-muted">No classes yet.</p>
       ) : (
         <ul className="mt-6 space-y-2">
           {classes.data.map((klass) => (
             <li
               key={klass.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded border border-stone bg-white/40 px-4 py-2"
+              className="flex flex-wrap items-center justify-between gap-3 rounded border border-border bg-surface-raised px-4 py-2"
             >
               <span className="font-medium">{klass.name}</span>
               <span className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-sm text-muted">
+                <label className="flex items-center gap-2 text-sm text-content-muted">
                   Affinity
                   <select
                     aria-label={`Affinity skill for ${klass.name}`}
@@ -88,7 +88,7 @@ export default function AdminClassesPage() {
                         skillId: e.target.value || null,
                       })
                     }
-                    className="rounded border border-stone px-2 py-1 text-sm"
+                    className="rounded border border-border px-2 py-1 text-sm"
                   >
                     <option value="">— none —</option>
                     {skills.data.map((skill: Skill) => (
@@ -102,7 +102,7 @@ export default function AdminClassesPage() {
                   <button
                     onClick={() => remove.mutate(klass.id)}
                     disabled={remove.isPending}
-                    className="text-sm text-muted hover:text-ink hover:underline disabled:opacity-50"
+                    className="text-sm text-content-muted hover:text-content hover:underline disabled:opacity-50"
                   >
                     Delete
                   </button>
@@ -126,12 +126,12 @@ export default function AdminClassesPage() {
             onChange={(e) => setNewName(e.target.value)}
             placeholder="New class name"
             aria-label="New class name"
-            className="flex-1 rounded border border-stone px-3 py-2"
+            className="flex-1 rounded border border-border px-3 py-2"
           />
           <button
             type="submit"
             disabled={create.isPending || !newName.trim()}
-            className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+            className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
           >
             Add class
           </button>

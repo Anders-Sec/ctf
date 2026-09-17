@@ -41,7 +41,7 @@ export default function AdminSignalsPage() {
     <main className="mx-auto max-w-4xl p-6">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Signals</h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-content-muted">
           Things worth a second look — <strong>not</strong> accusations. Almost every
           finding here has an innocent explanation, and two colleagues sitting together
           talking about a puzzle will trip several of them. Nothing on this page changes a
@@ -50,13 +50,13 @@ export default function AdminSignalsPage() {
       </header>
 
       {total === 0 ? (
-        <p className="mt-8 text-muted">Nothing to review.</p>
+        <p className="mt-8 text-content-muted">Nothing to review.</p>
       ) : (
         Object.entries(data.findings)
           .filter(([, findings]) => findings.length > 0)
           .map(([type, findings]) => (
             <section key={type} className="mt-8">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
                 {SIGNAL_LABELS[type] ?? type} ({findings.length})
               </h2>
               <ul className="mt-3 flex flex-col gap-3">
@@ -94,13 +94,13 @@ function FindingCard({
   onInspect: (userId: string) => void;
 }) {
   return (
-    <li className="rounded-lg border border-stone bg-white/60 p-4">
+    <li className="rounded-lg border border-border bg-surface-raised p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex-1">
           <p className="font-medium">
             {finding.participants.map((person, index) => (
               <span key={person.user_id}>
-                {index > 0 && <span className="text-muted"> and </span>}
+                {index > 0 && <span className="text-content-muted"> and </span>}
                 <button
                   onClick={() => onInspect(person.user_id)}
                   className="underline decoration-dotted"
@@ -110,14 +110,14 @@ function FindingCard({
               </span>
             ))}
             {finding.challenge_title && (
-              <span className="text-muted"> · {finding.challenge_title}</span>
+              <span className="text-content-muted"> · {finding.challenge_title}</span>
             )}
           </p>
 
           <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
             {Object.entries(finding.evidence).map(([key, value]) => (
               <span key={key}>
-                <dt className="inline text-muted">{key.replace(/_/g, " ")}: </dt>
+                <dt className="inline text-content-muted">{key.replace(/_/g, " ")}: </dt>
                 <dd className="inline font-mono">
                   {Array.isArray(value) ? value.join(", ") : String(value)}
                 </dd>
@@ -126,15 +126,15 @@ function FindingCard({
           </dl>
 
           {/* Beside the evidence, never below the fold. */}
-          <p className="mt-2 rounded bg-parchment px-3 py-2 text-sm text-muted">
-            <strong className="text-ink">Probably: </strong>
+          <p className="mt-2 rounded bg-surface px-3 py-2 text-sm text-content-muted">
+            <strong className="text-content">Probably: </strong>
             {finding.innocent_explanation}
           </p>
         </div>
 
         <button
           onClick={onDismiss}
-          className="shrink-0 rounded border border-stone px-3 py-1.5 text-sm"
+          className="shrink-0 rounded border border-border px-3 py-1.5 text-sm"
         >
           Looks fine
         </button>
@@ -151,7 +151,7 @@ function PlayerTimeline({ userId, onClose }: { userId: string; onClose: () => vo
 
   return (
     <aside
-      className="mt-10 rounded-lg border border-ink/30 bg-white/80 p-5"
+      className="mt-10 rounded-lg border border-content/30 bg-surface-overlay p-5"
       aria-label="Player timeline"
     >
       <div className="flex items-baseline justify-between">
@@ -168,17 +168,17 @@ function PlayerTimeline({ userId, onClose }: { userId: string; onClose: () => vo
       ) : timeline.isError ? (
         <ErrorMessage error={timeline.error} />
       ) : timeline.data.events.length === 0 ? (
-        <p className="mt-3 text-muted">Nothing recorded for this player yet.</p>
+        <p className="mt-3 text-content-muted">Nothing recorded for this player yet.</p>
       ) : (
         <ol className="mt-3 flex flex-col gap-1 text-sm">
           {timeline.data.events.map((event, index) => (
-            <li key={index} className="flex gap-3 border-t border-stone py-1">
-              <span className="w-40 shrink-0 text-muted">
+            <li key={index} className="flex gap-3 border-t border-border py-1">
+              <span className="w-40 shrink-0 text-content-muted">
                 {new Date(event.at).toLocaleString()}
               </span>
               <span className="w-24 shrink-0">{event.kind.replace(/_/g, " ")}</span>
               <span className="flex-1">
-                {event.challenge && <span className="text-muted">{event.challenge} · </span>}
+                {event.challenge && <span className="text-content-muted">{event.challenge} · </span>}
                 <span className="font-mono">{event.detail}</span>
               </span>
             </li>

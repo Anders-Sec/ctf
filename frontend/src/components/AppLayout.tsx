@@ -40,7 +40,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen">
-      <nav className="relative border-b border-stone bg-white/40">
+      <nav className="relative border-b border-border bg-surface-raised">
         <div className="mx-auto flex max-w-3xl items-center gap-4 p-4">
           <NavLink to="/" className="font-semibold">
             CTF
@@ -122,7 +122,7 @@ export default function AppLayout() {
               // admin can see the event as a player does.
               <button
                 onClick={showingAdmin ? enterPlayerView : enterAdminView}
-                className="rounded border border-stone px-2 py-1 text-xs hover:bg-white/60"
+                className="rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised"
               >
                 {showingAdmin ? "Player view" : "Admin view"}
               </button>

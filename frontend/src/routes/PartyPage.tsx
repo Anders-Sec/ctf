@@ -51,7 +51,7 @@ function PartyBrowser() {
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Find your party</h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-content-muted">
           Adventure alone if you must, but parties of up to eight fare better.
         </p>
       </header>
@@ -64,7 +64,7 @@ function PartyBrowser() {
             aria-selected={tab === value}
             onClick={() => setTab(value)}
             className={`rounded px-4 py-2 text-sm font-medium ${
-              tab === value ? "bg-ink text-parchment" : "border border-stone"
+              tab === value ? "bg-content text-surface" : "border border-border"
             }`}
           >
             {value === "join" ? "Join a party" : "Start a party"}
@@ -91,7 +91,7 @@ function PartyList({
   onJoined: () => Promise<void>;
 }) {
   if (teams.length === 0) {
-    return <p className="text-muted">No open parties yet. Start the first one.</p>;
+    return <p className="text-content-muted">No open parties yet. Start the first one.</p>;
   }
 
   return (
@@ -120,22 +120,22 @@ function PartyRow({
   const askToJoin = useMutation({ mutationFn: () => requestToJoin(team.id) });
 
   return (
-    <li className="rounded-lg border border-stone bg-white/60 p-4">
+    <li className="rounded-lg border border-border bg-surface-raised p-4">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="font-medium">{team.name}</p>
-          <p className="text-sm text-muted">
+          <p className="text-sm text-content-muted">
             {team.member_count} / {team.max_members} adventurers
             {team.visibility === "private" && " · private"}
           </p>
         </div>
 
         {!team.has_space ? (
-          <span className="text-sm text-muted">Full</span>
+          <span className="text-sm text-content-muted">Full</span>
         ) : team.requires_password && !showPassword ? (
           <button
             onClick={() => setShowPassword(true)}
-            className="rounded border border-ink px-3 py-1.5 text-sm"
+            className="rounded border border-content px-3 py-1.5 text-sm"
           >
             Join with password
           </button>
@@ -143,7 +143,7 @@ function PartyRow({
           <button
             onClick={() => askToJoin.mutate()}
             disabled={askToJoin.isPending || askToJoin.isSuccess}
-            className="rounded border border-ink px-3 py-1.5 text-sm disabled:opacity-50"
+            className="rounded border border-content px-3 py-1.5 text-sm disabled:opacity-50"
           >
             {askToJoin.isSuccess ? "Request sent" : "Ask to join"}
           </button>
@@ -151,7 +151,7 @@ function PartyRow({
           <button
             onClick={() => join.mutate()}
             disabled={join.isPending}
-            className="rounded bg-ink px-3 py-1.5 text-sm text-parchment disabled:opacity-50"
+            className="rounded bg-content px-3 py-1.5 text-sm text-surface disabled:opacity-50"
           >
             Join
           </button>
@@ -171,13 +171,13 @@ function PartyRow({
             aria-label={`Password for ${team.name}`}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="flex-1 rounded border border-stone px-3 py-1.5 text-sm"
+            className="flex-1 rounded border border-border px-3 py-1.5 text-sm"
             placeholder="Party password"
           />
           <button
             type="submit"
             disabled={join.isPending}
-            className="rounded bg-ink px-3 py-1.5 text-sm text-parchment disabled:opacity-50"
+            className="rounded bg-content px-3 py-1.5 text-sm text-surface disabled:opacity-50"
           >
             Join
           </button>
@@ -206,7 +206,7 @@ function CreatePartyForm({ onCreated }: { onCreated: () => Promise<void> }) {
 
   return (
     <form
-      className="rounded-lg border border-stone bg-white/60 p-6"
+      className="rounded-lg border border-border bg-surface-raised p-6"
       onSubmit={(event) => {
         event.preventDefault();
         create.mutate();
@@ -222,7 +222,7 @@ function CreatePartyForm({ onCreated }: { onCreated: () => Promise<void> }) {
         maxLength={32}
         value={name}
         onChange={(event) => setName(event.target.value)}
-        className="mt-1 w-full rounded border border-stone px-3 py-2"
+        className="mt-1 w-full rounded border border-border px-3 py-2"
       />
 
       <fieldset className="mt-4">
@@ -249,7 +249,7 @@ function CreatePartyForm({ onCreated }: { onCreated: () => Promise<void> }) {
       {visibility === "private" && (
         <div className="mt-4">
           <label htmlFor="party-password" className="block text-sm">
-            Party password <span className="text-muted">(optional)</span>
+            Party password <span className="text-content-muted">(optional)</span>
           </label>
           <input
             id="party-password"
@@ -257,9 +257,9 @@ function CreatePartyForm({ onCreated }: { onCreated: () => Promise<void> }) {
             minLength={6}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           />
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-1 text-xs text-content-muted">
             Leave it blank and people will have to ask you to let them in.
           </p>
         </div>
@@ -268,7 +268,7 @@ function CreatePartyForm({ onCreated }: { onCreated: () => Promise<void> }) {
       <button
         type="submit"
         disabled={create.isPending || name.trim().length < 3}
-        className="mt-5 w-full rounded bg-ink px-4 py-2 font-medium text-parchment disabled:opacity-50"
+        className="mt-5 w-full rounded bg-content px-4 py-2 font-medium text-surface disabled:opacity-50"
       >
         {create.isPending ? "Gathering…" : "Form the party"}
       </button>
@@ -330,7 +330,7 @@ function MyParty({ teamId }: { teamId: string }) {
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">{detail.name}</h1>
-          <p className="mt-1 text-muted">
+          <p className="mt-1 text-content-muted">
             {detail.member_count} / {detail.max_members} adventurers ·{" "}
             {detail.visibility === "private" ? "private" : "open to all"}
           </p>
@@ -338,25 +338,25 @@ function MyParty({ teamId }: { teamId: string }) {
         <button
           onClick={() => leave.mutate()}
           disabled={leave.isPending}
-          className="rounded border border-stone px-3 py-1.5 text-sm hover:border-torch"
+          className="rounded border border-border px-3 py-1.5 text-sm hover:border-accent"
         >
           Leave party
         </button>
       </header>
 
-      <p className="rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
+      <p className="rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
         Your solves are your own — if you leave, your XP goes with you.
       </p>
 
       <ErrorMessage error={leave.error ?? kick.error ?? promote.error} />
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Roster</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">Roster</h2>
         <ul className="mt-3 flex flex-col gap-2">
           {detail.members.map((member) => (
             <li
               key={member.user_id}
-              className="flex items-center gap-3 rounded-lg border border-stone bg-white/60 p-3"
+              className="flex items-center gap-3 rounded-lg border border-border bg-surface-raised p-3"
             >
               <Avatar
                 userId={member.user_id}
@@ -366,10 +366,10 @@ function MyParty({ teamId }: { teamId: string }) {
               <span className="flex-1">
                 {member.display_name}
                 {member.is_leader && (
-                  <span className="ml-2 rounded bg-stone px-2 py-0.5 text-xs">Leader</span>
+                  <span className="ml-2 rounded bg-surface-sunken px-2 py-0.5 text-xs">Leader</span>
                 )}
                 {member.user_id === me?.user.id && (
-                  <span className="ml-2 text-xs text-muted">you</span>
+                  <span className="ml-2 text-xs text-content-muted">you</span>
                 )}
               </span>
 
@@ -377,13 +377,13 @@ function MyParty({ teamId }: { teamId: string }) {
                 <span className="flex gap-2">
                   <button
                     onClick={() => promote.mutate(member.user_id)}
-                    className="rounded border border-stone px-2 py-1 text-xs"
+                    className="rounded border border-border px-2 py-1 text-xs"
                   >
                     Make leader
                   </button>
                   <button
                     onClick={() => kick.mutate(member.user_id)}
-                    className="rounded border border-torch/60 px-2 py-1 text-xs text-torch"
+                    className="rounded border border-accent/60 px-2 py-1 text-xs text-accent-strong"
                   >
                     Remove
                   </button>
@@ -422,34 +422,34 @@ function JoinRequestsSection({
 }) {
   return (
     <section>
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
         Knocking at the door ({requests.length})
       </h2>
       <ErrorMessage error={error} />
       {requests.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">Nobody is waiting.</p>
+        <p className="mt-2 text-sm text-content-muted">Nobody is waiting.</p>
       ) : (
         <ul className="mt-3 flex flex-col gap-2">
           {requests.map((request) => (
             <li
               key={request.id}
-              className="flex items-center gap-3 rounded-lg border border-stone bg-white/60 p-3"
+              className="flex items-center gap-3 rounded-lg border border-border bg-surface-raised p-3"
             >
               <span className="flex-1">
                 {request.display_name}
                 {request.message && (
-                  <span className="block text-sm text-muted">“{request.message}”</span>
+                  <span className="block text-sm text-content-muted">“{request.message}”</span>
                 )}
               </span>
               <button
                 onClick={() => onAccept(request.id)}
-                className="rounded bg-ink px-3 py-1 text-xs text-parchment"
+                className="rounded bg-content px-3 py-1 text-xs text-surface"
               >
                 Let them in
               </button>
               <button
                 onClick={() => onReject(request.id)}
-                className="rounded border border-stone px-3 py-1 text-xs"
+                className="rounded border border-border px-3 py-1 text-xs"
               >
                 Decline
               </button>
@@ -486,8 +486,8 @@ function PartySettings({
   });
 
   return (
-    <section className="rounded-lg border border-stone bg-white/60 p-6">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Party settings</h2>
+    <section className="rounded-lg border border-border bg-surface-raised p-6">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">Party settings</h2>
       <form
         className="mt-3 flex flex-col gap-3"
         onSubmit={(event) => {
@@ -500,7 +500,7 @@ function PartySettings({
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           />
         </label>
 
@@ -509,7 +509,7 @@ function PartySettings({
           <select
             value={visibility}
             onChange={(event) => setVisibility(event.target.value as TeamVisibility)}
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           >
             <option value="public">Open to all</option>
             <option value="private">Private</option>
@@ -524,7 +524,7 @@ function PartySettings({
               minLength={6}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full rounded border border-stone px-3 py-2"
+              className="mt-1 w-full rounded border border-border px-3 py-2"
               placeholder="Leave blank to keep approving requests yourself"
             />
           </label>
@@ -533,7 +533,7 @@ function PartySettings({
         <button
           type="submit"
           disabled={save.isPending}
-          className="self-start rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+          className="self-start rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
         >
           Save changes
         </button>

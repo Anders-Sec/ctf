@@ -36,6 +36,22 @@ export default {
         success: "rgb(var(--success) / <alpha-value>)",
         info: "rgb(var(--info) / <alpha-value>)",
 
+        // Text on a saturated fill — a puzzle tile, a generated avatar.
+        "on-fill": "rgb(var(--on-fill) / <alpha-value>)",
+
+        // Puzzle boards (spec 044). Theme-invariant: green/amber/grey on a
+        // Wordle tile is a convention players arrive already knowing.
+        puzzle: {
+          exact: "rgb(var(--puzzle-exact) / <alpha-value>)",
+          present: "rgb(var(--puzzle-present) / <alpha-value>)",
+          absent: "rgb(var(--puzzle-absent) / <alpha-value>)",
+          "level-1": "rgb(var(--puzzle-level-1) / <alpha-value>)",
+          "level-2": "rgb(var(--puzzle-level-2) / <alpha-value>)",
+          "level-3": "rgb(var(--puzzle-level-3) / <alpha-value>)",
+          "level-4": "rgb(var(--puzzle-level-4) / <alpha-value>)",
+          "level-content": "rgb(var(--puzzle-level-content) / <alpha-value>)",
+        },
+
         // Legacy pigment names, aliased onto the roles in themes.css. Kept so
         // the migration is incremental; removed once nothing references them.
         parchment: "rgb(var(--color-parchment) / <alpha-value>)",

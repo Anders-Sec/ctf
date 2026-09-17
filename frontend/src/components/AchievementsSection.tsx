@@ -24,24 +24,24 @@ export default function AchievementsSection() {
     <section className="mt-6">
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold">Achievements</h2>
-        <span className="text-sm text-muted tabular-nums">
+        <span className="text-sm text-content-muted tabular-nums">
           {earned} of {total} earned
         </span>
       </div>
 
       {rarest.length > 0 && (
         <>
-          <h3 className="mt-3 text-sm font-semibold uppercase tracking-wide text-muted">
+          <h3 className="mt-3 text-sm font-semibold uppercase tracking-wide text-content-muted">
             Rarest held
           </h3>
           <ul className="mt-2 grid gap-2 sm:grid-cols-5">
             {rarest.map((row) => (
               <li
                 key={row.id}
-                className="rounded border border-torch/40 bg-torch/10 px-3 py-2"
+                className="rounded border border-accent/40 bg-accent/10 px-3 py-2"
               >
                 <p className="text-sm font-semibold">{row.name}</p>
-                <p className="mt-0.5 text-xs text-muted tabular-nums">
+                <p className="mt-0.5 text-xs text-content-muted tabular-nums">
                   {formatRarity(row.rarity)} of players
                 </p>
               </li>
@@ -71,25 +71,25 @@ function formatRarity(rarity: number | null): string {
 function Row({ row }: { row: AchievementRow }) {
   if (!row.earned) {
     return (
-      <li className="flex items-center justify-between rounded border border-stone bg-white/30 px-3 py-2">
+      <li className="flex items-center justify-between rounded border border-border bg-surface-raised px-3 py-2">
         <span className="select-none text-sm blur-[3px]" aria-hidden>
           Undiscovered achievement
         </span>
         <span className="sr-only">Undiscovered achievement</span>
-        <span className="text-sm text-muted">—</span>
+        <span className="text-sm text-content-muted">—</span>
       </li>
     );
   }
 
   return (
-    <li className="rounded border border-stone bg-white/50 px-3 py-2">
+    <li className="rounded border border-border bg-surface-raised px-3 py-2">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-sm font-semibold">{row.name}</p>
-        <span className="text-xs text-muted tabular-nums">
+        <span className="text-xs text-content-muted tabular-nums">
           {formatRarity(row.rarity)}
         </span>
       </div>
-      <p className="mt-0.5 text-sm text-muted">{row.description}</p>
+      <p className="mt-0.5 text-sm text-content-muted">{row.description}</p>
     </li>
   );
 }

@@ -52,7 +52,7 @@ export default function ChallengeDetailPage() {
         <h1 className="text-2xl font-semibold">
           {notFound ? "No such challenge" : "Could not load that challenge"}
         </h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-content-muted">
           {notFound && "It may not have been unsealed yet."}
         </p>
         <Link to="/challenges" className="mt-4 inline-block underline">
@@ -73,27 +73,27 @@ export default function ChallengeDetailPage() {
       </Link>
 
       <header className="mt-4">
-        <p className="text-sm uppercase tracking-wide text-muted">
+        <p className="text-sm uppercase tracking-wide text-content-muted">
           {detail.category.name}
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">
           {detail.title}
         </h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-content-muted">
           {detail.value} XP · {detail.difficulty} · {detail.solve_count}{" "}
           {detail.solve_count === 1 ? "solve" : "solves"}
         </p>
       </header>
 
       {detail.solved && (
-        <p className="mt-4 rounded border border-ink/30 bg-ink/5 px-3 py-2">
+        <p className="mt-4 rounded border border-content/30 bg-content/5 px-3 py-2">
           You have already cleared this one.
         </p>
       )}
 
       {detail.locked && (
-        <section className="mt-6 rounded-lg border border-torch/40 bg-torch/10 p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+        <section className="mt-6 rounded-lg border border-accent/40 bg-accent/10 p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
             Locked
           </h2>
           {detail.unlock_requirements.length > 0 ? (
@@ -106,7 +106,7 @@ export default function ChallengeDetailPage() {
                   <li key={`${req.type}-${req.challenge_id ?? index}`}>
                     {req.met ? "✓" : "•"} {req.description}
                     {req.threshold !== null && req.progress !== null && (
-                      <span className="ml-1 text-muted">
+                      <span className="ml-1 text-content-muted">
                         ({req.progress}/{req.threshold})
                       </span>
                     )}
@@ -115,7 +115,7 @@ export default function ChallengeDetailPage() {
               </ul>
             </>
           ) : (
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 text-sm text-content-muted">
               This challenge is not open yet.
             </p>
           )}
@@ -123,14 +123,14 @@ export default function ChallengeDetailPage() {
       )}
 
       {detail.body !== null && detail.body !== "" && (
-        <section className="mt-6 whitespace-pre-wrap rounded-lg border border-stone bg-white/60 p-5">
+        <section className="mt-6 whitespace-pre-wrap rounded-lg border border-border bg-surface-raised p-5">
           {detail.body}
         </section>
       )}
 
       {detail.artifacts.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
             Files
           </h2>
           <ul className="mt-2 flex flex-col gap-2">
@@ -143,7 +143,7 @@ export default function ChallengeDetailPage() {
                 >
                   {artifact.filename}
                 </a>
-                <span className="ml-2 text-sm text-muted">
+                <span className="ml-2 text-sm text-content-muted">
                   {(artifact.size_bytes / 1024).toFixed(1)} KB
                 </span>
               </li>
@@ -183,7 +183,7 @@ export default function ChallengeDetailPage() {
                 value={answer}
                 onChange={(event) => setAnswer(event.target.value)}
                 disabled={outOfAttempts}
-                className="flex-1 rounded border border-stone px-3 py-2 font-mono"
+                className="flex-1 rounded border border-border px-3 py-2 font-mono"
                 placeholder="flag{…}"
                 autoComplete="off"
               />
@@ -192,14 +192,14 @@ export default function ChallengeDetailPage() {
                 disabled={
                   submit.isPending || answer.trim() === "" || outOfAttempts
                 }
-                className="rounded bg-ink px-4 py-2 font-medium text-parchment disabled:opacity-50"
+                className="rounded bg-content px-4 py-2 font-medium text-surface disabled:opacity-50"
               >
                 {submit.isPending ? "Checking…" : "Submit"}
               </button>
             </div>
 
             {detail.max_attempts !== null && (
-              <p className="mt-2 text-sm text-muted">
+              <p className="mt-2 text-sm text-content-muted">
                 {outOfAttempts
                   ? "No attempts left on this challenge."
                   : `${result?.attempts_remaining ?? detail.attempts_remaining} of ${detail.max_attempts} attempts remaining.`}
@@ -212,8 +212,8 @@ export default function ChallengeDetailPage() {
               role="status"
               className={`mt-3 rounded px-3 py-2 ${
                 result.correct
-                  ? "border border-ink/30 bg-ink/5"
-                  : "border border-torch/40 bg-torch/10"
+                  ? "border border-content/30 bg-content/5"
+                  : "border border-accent/40 bg-accent/10"
               }`}
             >
               {result.message}

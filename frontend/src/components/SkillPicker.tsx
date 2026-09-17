@@ -56,9 +56,9 @@ export default function SkillPicker({
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-sm font-medium">Skills</span>
-        <span className="text-xs text-muted">{selected.length} selected</span>
+        <span className="text-xs text-content-muted">{selected.length} selected</span>
       </div>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-xs text-content-muted">
         Solving this feeds every skill below in full — attaching several costs the
         player nothing.
       </p>
@@ -69,18 +69,18 @@ export default function SkillPicker({
         placeholder="Search all skills"
         aria-label="Search skills"
         disabled={disabled}
-        className="mt-2 w-full rounded border border-stone px-3 py-1.5 text-sm"
+        className="mt-2 w-full rounded border border-border px-3 py-1.5 text-sm"
       />
 
-      <ul className="mt-2 max-h-56 overflow-y-auto rounded border border-stone bg-white/60">
+      <ul className="mt-2 max-h-56 overflow-y-auto rounded border border-border bg-surface-raised">
         {shown.length === 0 && (
-          <li className="px-3 py-2 text-sm text-muted">No skills match.</li>
+          <li className="px-3 py-2 text-sm text-content-muted">No skills match.</li>
         )}
         {shown.map((skill) => {
           const relevant = Boolean(skill.category_id && skill.category_id === categoryId);
           return (
             <li key={skill.id}>
-              <label className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-ink/5">
+              <label className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-content/5">
                 <input
                   type="checkbox"
                   checked={chosen.has(skill.id)}
@@ -89,10 +89,10 @@ export default function SkillPicker({
                 />
                 <span className={relevant ? "font-medium" : ""}>{skill.name}</span>
                 {skill.kind === "funny" && (
-                  <span className="text-xs text-muted">funny</span>
+                  <span className="text-xs text-content-muted">funny</span>
                 )}
                 {relevant && (
-                  <span className="ml-auto text-xs text-muted">this category</span>
+                  <span className="ml-auto text-xs text-content-muted">this category</span>
                 )}
               </label>
             </li>

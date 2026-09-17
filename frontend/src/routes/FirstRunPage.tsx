@@ -27,7 +27,7 @@ export default function FirstRunPage() {
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 p-6">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">What shall we call you?</h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-content-muted">
           This is the name other adventurers will see on the scoreboard.
         </p>
       </header>
@@ -48,12 +48,12 @@ export default function FirstRunPage() {
           maxLength={64}
           value={name}
           onChange={(event) => setName(event.target.value)}
-          className="mt-1 w-full rounded border border-stone px-3 py-2"
+          className="mt-1 w-full rounded border border-border px-3 py-2"
         />
         <button
           type="submit"
           disabled={save.isPending || name.trim().length < 2}
-          className="mt-4 w-full rounded bg-ink px-4 py-2 font-medium text-parchment disabled:opacity-50"
+          className="mt-4 w-full rounded bg-content px-4 py-2 font-medium text-surface disabled:opacity-50"
         >
           {save.isPending ? "Saving…" : "Continue"}
         </button>

@@ -40,7 +40,7 @@ export default function AdminInstancesPage() {
     <main className="mx-auto max-w-4xl p-6">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Live dungeons</h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-content-muted">
           Every challenge container running right now, with its owner. Tearing
           one down stops it immediately and is recorded in the audit log.
         </p>
@@ -51,7 +51,7 @@ export default function AdminInstancesPage() {
       ) : instances.isError ? (
         <ErrorMessage error={instances.error} />
       ) : instances.data.length === 0 ? (
-        <p className="mt-8 text-muted">Nothing running.</p>
+        <p className="mt-8 text-content-muted">Nothing running.</p>
       ) : (
         <ul className="mt-6 space-y-3">
           {instances.data.map((instance) => (
@@ -142,14 +142,14 @@ function Templates() {
           {open ? "Cancel" : "New template"}
         </button>
       </div>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 text-sm text-content-muted">
         The images challenges spin up. Assign one to a challenge from its
         editor.
       </p>
 
       {open && (
         <form
-          className="mt-3 grid gap-2 rounded border border-stone bg-white/60 p-4 sm:grid-cols-2"
+          className="mt-3 grid gap-2 rounded border border-border bg-surface-raised p-4 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
             create.mutate();
@@ -161,7 +161,7 @@ function Templates() {
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="mt-1 w-full rounded border border-stone px-3 py-2"
+              className="mt-1 w-full rounded border border-border px-3 py-2"
             />
           </label>
           <label className="text-sm">
@@ -171,7 +171,7 @@ function Templates() {
               value={form.image}
               onChange={(e) => setForm({ ...form, image: e.target.value })}
               placeholder="ghcr.io/anders-sec/ctf-demo"
-              className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+              className="mt-1 w-full rounded border border-border px-3 py-2 font-mono"
             />
           </label>
           <label className="text-sm">
@@ -179,7 +179,7 @@ function Templates() {
             <input
               value={form.image_tag}
               onChange={(e) => setForm({ ...form, image_tag: e.target.value })}
-              className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+              className="mt-1 w-full rounded border border-border px-3 py-2 font-mono"
             />
           </label>
           <label className="text-sm">
@@ -195,7 +195,7 @@ function Templates() {
                   container_port: numberOr(e.target.value, BLANK_TEMPLATE.container_port),
                 })
               }
-              className="mt-1 w-full rounded border border-stone px-3 py-2"
+              className="mt-1 w-full rounded border border-border px-3 py-2"
             />
           </label>
           <label className="text-sm">
@@ -211,9 +211,9 @@ function Templates() {
                   ttl_seconds: numberOr(e.target.value, BLANK_TEMPLATE.ttl_seconds),
                 })
               }
-              className="mt-1 w-full rounded border border-stone px-3 py-2"
+              className="mt-1 w-full rounded border border-border px-3 py-2"
             />
-            <span className="mt-1 block text-xs text-muted">
+            <span className="mt-1 block text-xs text-content-muted">
               How long a launched container lives. At least 60 seconds — anything
               shorter is reaped before the team can use it.
             </span>
@@ -224,7 +224,7 @@ function Templates() {
               value={form.cpu_limit}
               onChange={(e) => setForm({ ...form, cpu_limit: e.target.value })}
               placeholder="250m"
-              className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+              className="mt-1 w-full rounded border border-border px-3 py-2 font-mono"
             />
           </label>
           <label className="text-sm">
@@ -233,7 +233,7 @@ function Templates() {
               value={form.memory_limit}
               onChange={(e) => setForm({ ...form, memory_limit: e.target.value })}
               placeholder="256Mi"
-              className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+              className="mt-1 w-full rounded border border-border px-3 py-2 font-mono"
             />
           </label>
           <label className="text-sm">
@@ -242,9 +242,9 @@ function Templates() {
               value={form.readiness_path}
               onChange={(e) => setForm({ ...form, readiness_path: e.target.value })}
               placeholder="/"
-              className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+              className="mt-1 w-full rounded border border-border px-3 py-2 font-mono"
             />
-            <span className="mt-1 block text-xs text-muted">
+            <span className="mt-1 block text-xs text-content-muted">
               What the probe polls to decide the container is ready. Keep it
               cheap — a slow one fails the probe and takes a healthy instance
               out of service.
@@ -262,7 +262,7 @@ function Templates() {
               />
               <span>
                 One container for every challenge on this template
-                <span className="block text-xs text-muted">
+                <span className="block text-xs text-content-muted">
                   For an image that carries several challenges. A party launches
                   it once and works all of them inside it.
                 </span>
@@ -279,7 +279,7 @@ function Templates() {
               />
               <span>
                 Mint a flag per team
-                <span className="block text-xs text-muted">
+                <span className="block text-xs text-content-muted">
                   Each challenge gets its own flag, unique to whoever launched
                   it, so a leaked flag is worthless to anyone else. Needs a
                   dynamic flag rule on each challenge.
@@ -291,7 +291,7 @@ function Templates() {
             <button
               type="submit"
               disabled={create.isPending}
-              className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+              className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
             >
               Create template
             </button>
@@ -304,15 +304,15 @@ function Templates() {
         {(templates.data ?? []).map((t) => (
           <li
             key={t.id}
-            className="flex items-center gap-3 rounded border border-stone bg-white/40 p-3 text-sm"
+            className="flex items-center gap-3 rounded border border-border bg-surface-raised p-3 text-sm"
           >
             <span className="flex-1">
               <span className="font-medium">{t.name}</span>
-              <span className="block font-mono text-xs text-muted">
+              <span className="block font-mono text-xs text-content-muted">
                 {t.image}:{t.image_tag} · :{t.container_port} · {t.ttl_seconds}s ·{" "}
                 {t.cpu_limit}/{t.memory_limit}
               </span>
-              <span className="block text-xs text-muted">
+              <span className="block text-xs text-content-muted">
                 {t.shared_instance ? "shared container" : "one container per challenge"}
                 {" · "}
                 {t.injects_answer ? "flag minted per team" : "static flags"}
@@ -321,14 +321,14 @@ function Templates() {
             <Lifetime template={t} onSave={(ttl) => retime.mutate({ id: t.id, ttl_seconds: ttl })} />
             <button
               onClick={() => remove.mutate(t.id)}
-              className="text-xs text-torch underline"
+              className="text-xs text-danger underline"
             >
               Delete
             </button>
           </li>
         ))}
         {(templates.data ?? []).length === 0 && (
-          <li className="text-sm text-muted">No templates yet.</li>
+          <li className="text-sm text-content-muted">No templates yet.</li>
         )}
       </ul>
     </section>
@@ -360,7 +360,7 @@ function Lifetime({
           setValue(String(template.ttl_seconds));
           setEditing(true);
         }}
-        className="text-xs underline text-muted"
+        className="text-xs underline text-content-muted"
       >
         Lifetime
       </button>
@@ -376,7 +376,7 @@ function Lifetime({
         aria-label={`Lifetime for ${template.name}`}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="w-24 rounded border border-stone px-2 py-1 text-xs"
+        className="w-24 rounded border border-border px-2 py-1 text-xs"
       />
       <button
         onClick={() => {
@@ -387,7 +387,7 @@ function Lifetime({
       >
         Save
       </button>
-      <button onClick={() => setEditing(false)} className="text-xs text-muted underline">
+      <button onClick={() => setEditing(false)} className="text-xs text-content-muted underline">
         Cancel
       </button>
     </span>
@@ -402,21 +402,21 @@ function Row({
   onTeardown: () => void;
 }) {
   return (
-    <li className="flex flex-wrap items-center gap-3 rounded-lg border border-stone bg-white/40 p-4">
+    <li className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface-raised p-4">
       <div className="min-w-0 flex-1">
         <p className="font-medium">{instance.challenge_title}</p>
-        <p className="text-sm text-muted">
+        <p className="text-sm text-content-muted">
           {instance.owner_label} · {instance.status}
           {instance.template_name ? ` · ${instance.template_name}` : ""}
           {instance.error ? ` · ${instance.error}` : ""}
         </p>
       </div>
-      <span className="text-xs text-muted">
+      <span className="text-xs text-content-muted">
         expires {new Date(instance.expires_at).toLocaleTimeString()}
       </span>
       <button
         onClick={onTeardown}
-        className="rounded border border-torch/50 px-3 py-1 text-sm text-torch"
+        className="rounded border border-danger/50 px-3 py-1 text-sm text-danger"
       >
         Tear down
       </button>

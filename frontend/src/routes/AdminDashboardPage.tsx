@@ -43,12 +43,12 @@ export default function AdminDashboardPage() {
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Event console</h1>
-          <p className="mt-1 text-muted">
+          <p className="mt-1 text-content-muted">
             {data.event.name ?? "Unnamed event"} ·{" "}
             {data.event.running ? "running" : "not running"}
           </p>
         </div>
-        <span className="text-sm text-muted">
+        <span className="text-sm text-content-muted">
           refreshed {new Date(data.generated_at).toLocaleTimeString()}
         </span>
       </header>
@@ -62,12 +62,12 @@ export default function AdminDashboardPage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
           Needs attention {needsAttention > 0 && `(${needsAttention})`}
         </h2>
 
         {needsAttention === 0 ? (
-          <p className="mt-3 text-muted">Nothing is on fire.</p>
+          <p className="mt-3 text-content-muted">Nothing is on fire.</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
             {attention.suspected_broken.map((item) => (
@@ -110,15 +110,15 @@ export default function AdminDashboardPage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
           Challenge health
         </h2>
         <ErrorMessage error={health.error} />
         {health.data && <HealthTable rows={health.data} />}
       </section>
 
-      <section className="mt-8 rounded-lg border border-dashed border-stone p-4 text-sm text-muted">
-        <strong className="text-ink">Containers</strong> — {data.containers.note}
+      <section className="mt-8 rounded-lg border border-dashed border-border p-4 text-sm text-content-muted">
+        <strong className="text-content">Containers</strong> — {data.containers.note}
       </section>
 
       <SampleDataPanel />
@@ -129,8 +129,8 @@ export default function AdminDashboardPage() {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-stone bg-white/60 p-4">
-      <p className="text-sm text-muted">{label}</p>
+    <div className="rounded-lg border border-border bg-surface-raised p-4">
+      <p className="text-sm text-content-muted">{label}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
     </div>
   );
@@ -140,7 +140,7 @@ function Alert({ children, tone }: { children: React.ReactNode; tone: "urgent" |
   return (
     <li
       className={`rounded border px-3 py-2 text-sm ${
-        tone === "urgent" ? "border-torch/50 bg-torch/10" : "border-stone bg-white/60"
+        tone === "urgent" ? "border-danger/50 bg-danger/10" : "border-border bg-surface-raised"
       }`}
     >
       {children}
@@ -150,13 +150,13 @@ function Alert({ children, tone }: { children: React.ReactNode; tone: "urgent" |
 
 function HealthTable({ rows }: { rows: ChallengeHealth[] }) {
   if (rows.length === 0) {
-    return <p className="mt-3 text-muted">No challenges yet.</p>;
+    return <p className="mt-3 text-content-muted">No challenges yet.</p>;
   }
 
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="text-muted">
+        <thead className="text-content-muted">
           <tr>
             <th className="py-2">Challenge</th>
             <th className="py-2">State</th>
@@ -168,21 +168,21 @@ function HealthTable({ rows }: { rows: ChallengeHealth[] }) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.challenge_id} className="border-t border-stone">
+            <tr key={row.challenge_id} className="border-t border-border">
               <td className="py-2">{row.title}</td>
-              <td className="py-2 text-muted">{row.state}</td>
+              <td className="py-2 text-content-muted">{row.state}</td>
               <td className="py-2 text-right tabular-nums">{row.solve_count}</td>
               <td className="py-2 text-right tabular-nums">{row.attempt_count}</td>
               <td className="py-2 text-right tabular-nums">{row.open_reports || ""}</td>
               <td className="py-2">
                 {row.suspected_broken && (
-                  <span className="text-torch">likely broken</span>
+                  <span className="text-danger">likely broken</span>
                 )}
                 {row.suspiciously_easy && (
-                  <span className="text-torch">answer may have leaked</span>
+                  <span className="text-danger">answer may have leaked</span>
                 )}
                 {/* An untouched challenge is untouched, not a 0% success rate. */}
-                {row.attempt_count === 0 && <span className="text-muted">untouched</span>}
+                {row.attempt_count === 0 && <span className="text-content-muted">untouched</span>}
               </td>
             </tr>
           ))}

@@ -19,17 +19,17 @@ const KEYS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
  *  the fast path for everyone who can use it. */
 const VERDICT_STYLE: Record<LetterVerdict, { className: string; mark: string; label: string }> = {
   exact: {
-    className: "border-transparent bg-emerald-600 text-white",
+    className: "border-transparent bg-puzzle-exact text-on-fill",
     mark: "●",
     label: "right letter, right place",
   },
   present: {
-    className: "border-transparent bg-amber-500 text-white",
+    className: "border-transparent bg-puzzle-present text-on-fill",
     mark: "▲",
     label: "right letter, wrong place",
   },
   absent: {
-    className: "border-transparent bg-stone-500 text-white",
+    className: "border-transparent bg-puzzle-absent text-on-fill",
     mark: "×",
     label: "not in the word",
   },
@@ -129,7 +129,7 @@ export default function WordleBoard({
                       : `Your guess, letter ${index + 1}: ${letter || "empty"}`
                   }
                   className={`flex h-12 w-12 items-center justify-center rounded border-2 text-xl font-semibold uppercase ${
-                    style ? style.className : "border-stone bg-white/60"
+                    style ? style.className : "border-border bg-surface-raised"
                   }`}
                 >
                   <span aria-hidden>{letter}</span>
@@ -149,7 +149,7 @@ export default function WordleBoard({
             {Array.from({ length: view.length }).map((_, index) => (
               <div
                 key={index}
-                className="h-12 w-12 rounded border-2 border-stone/50"
+                className="h-12 w-12 rounded border-2 border-border/50"
                 aria-hidden
               />
             ))}
@@ -157,7 +157,7 @@ export default function WordleBoard({
         ))}
       </div>
 
-      <p className="mt-3 text-center text-sm text-muted" role="status">
+      <p className="mt-3 text-center text-sm text-content-muted" role="status">
         {over
           ? state.status === "solved"
             ? "Solved."
@@ -223,7 +223,7 @@ function KeyButton({
       }
       className={`h-11 rounded text-sm font-semibold disabled:opacity-50 ${
         wide ? "px-3" : "w-8 sm:w-9"
-      } ${style ? style.className : "border border-stone bg-white/70"}`}
+      } ${style ? style.className : "border border-border bg-surface-raised"}`}
     >
       {children}
     </button>

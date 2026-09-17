@@ -32,9 +32,9 @@ export default function AnnouncementComposer() {
   const ready = title.trim().length >= 3 && body.trim().length >= 3;
 
   return (
-    <section className="mt-8 rounded border border-stone bg-white/40 p-4">
+    <section className="mt-8 rounded border border-border bg-surface-raised p-4">
       <h2 className="text-lg font-semibold">Announce to everyone</h2>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 text-sm text-content-muted">
         Goes to every active player in the System AI&apos;s voice, and appears in
         their feed immediately. It cannot be taken back — a correction is another
         announcement.
@@ -42,7 +42,7 @@ export default function AnnouncementComposer() {
 
       <div className="mt-3 space-y-3">
         <label className="block text-sm">
-          <span className="mb-1 block text-muted">Title</span>
+          <span className="mb-1 block text-content-muted">Title</span>
           <input
             value={title}
             onChange={(event) => {
@@ -50,11 +50,11 @@ export default function AnnouncementComposer() {
               setConfirming(false);
             }}
             aria-label="Announcement title"
-            className="w-full rounded border border-stone px-2 py-1.5"
+            className="w-full rounded border border-border px-2 py-1.5"
           />
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block text-muted">Message</span>
+          <span className="mb-1 block text-content-muted">Message</span>
           <textarea
             value={body}
             onChange={(event) => {
@@ -63,7 +63,7 @@ export default function AnnouncementComposer() {
             }}
             rows={3}
             aria-label="Announcement message"
-            className="w-full rounded border border-stone px-2 py-1.5"
+            className="w-full rounded border border-border px-2 py-1.5"
           />
         </label>
       </div>
@@ -71,7 +71,7 @@ export default function AnnouncementComposer() {
       <ErrorMessage error={send.error} />
 
       {sentTo !== null && (
-        <p className="mt-3 rounded border border-stone bg-white/60 px-3 py-2 text-sm">
+        <p className="mt-3 rounded border border-border bg-surface-raised px-3 py-2 text-sm">
           Sent to {sentTo} {sentTo === 1 ? "player" : "players"}.
         </p>
       )}
@@ -85,7 +85,7 @@ export default function AnnouncementComposer() {
             <button
               onClick={() => send.mutate()}
               disabled={send.isPending}
-              className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+              className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
             >
               {send.isPending ? "Sending…" : "Yes, send it"}
             </button>
@@ -103,7 +103,7 @@ export default function AnnouncementComposer() {
               setConfirming(true);
             }}
             disabled={!ready}
-            className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+            className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
           >
             Send announcement
           </button>

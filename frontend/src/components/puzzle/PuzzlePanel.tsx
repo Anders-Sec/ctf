@@ -71,11 +71,11 @@ export default function PuzzlePanel({ challengeId }: { challengeId: string }) {
 
   return (
     <section
-      className="mt-6 rounded-lg border border-stone bg-white/60 p-5"
+      className="mt-6 rounded-lg border border-border bg-surface-raised p-5"
       aria-label={`${KIND_LABEL[state.kind]} puzzle`}
     >
       <header className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
           {KIND_LABEL[state.kind]}
         </h2>
         {state.status && <Banner state={state} />}
@@ -109,7 +109,7 @@ export default function PuzzlePanel({ challengeId }: { challengeId: string }) {
       {refusal && (
         <p
           role="status"
-          className="mt-3 rounded border border-torch/40 bg-torch/10 px-3 py-2 text-sm"
+          className="mt-3 rounded border border-accent/40 bg-accent/10 px-3 py-2 text-sm"
         >
           {refusal}
         </p>
@@ -128,14 +128,14 @@ export default function PuzzlePanel({ challengeId }: { challengeId: string }) {
 function Banner({ state }: { state: PuzzleState }) {
   if (state.status === "solved") {
     return (
-      <p className="rounded bg-emerald-600 px-2 py-0.5 text-sm font-medium text-white">
+      <p className="rounded border border-success/40 bg-success/15 px-2 py-0.5 text-sm font-medium text-success">
         Solved{state.xp_awarded ? ` · ${state.xp_awarded} XP` : ""}
       </p>
     );
   }
   if (state.status === "failed") {
     return (
-      <p className="rounded bg-stone-500 px-2 py-0.5 text-sm font-medium text-white">
+      <p className="rounded border border-border bg-surface-sunken px-2 py-0.5 text-sm font-medium text-content-muted">
         Out of luck today
       </p>
     );

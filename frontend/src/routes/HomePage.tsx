@@ -22,7 +22,7 @@ export default function HomePage() {
         <h1 className="text-3xl font-semibold tracking-tight">
           {event?.name ?? "The dungeon"}
         </h1>
-        <p className="mt-2 text-muted">Welcome, {user.display_name}.</p>
+        <p className="mt-2 text-content-muted">Welcome, {user.display_name}.</p>
       </header>
 
       {capabilities.blocked_reason === "account_pending_approval" && (
@@ -71,8 +71,8 @@ export default function HomePage() {
         </GateCard>
       )}
 
-      <section className="rounded-lg border border-stone bg-white/60 p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Your party</h2>
+      <section className="rounded-lg border border-border bg-surface-raised p-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">Your party</h2>
         {team ? (
           <p className="mt-2">
             You march with <Link to="/party" className="underline">{team.name}</Link>
@@ -94,9 +94,9 @@ export default function HomePage() {
 
 function GateCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-stone bg-white/60 p-6">
+    <section className="rounded-lg border border-border bg-surface-raised p-6">
       <h2 className="font-medium">{title}</h2>
-      <div className="mt-2 text-muted">{children}</div>
+      <div className="mt-2 text-content-muted">{children}</div>
     </section>
   );
 }

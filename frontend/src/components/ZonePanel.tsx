@@ -41,7 +41,7 @@ export default function ZonePanel({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex justify-end bg-ink/40"
+      className="fixed inset-0 z-40 flex justify-end bg-content/40"
       onClick={onClose}
       role="presentation"
     >
@@ -52,26 +52,26 @@ export default function ZonePanel({
         aria-modal="true"
         aria-label={`${zone.name} challenges`}
         onClick={(event) => event.stopPropagation()}
-        className="h-full w-full max-w-md overflow-y-auto bg-parchment p-6 shadow-xl outline-none"
+        className="h-full w-full max-w-md overflow-y-auto bg-surface p-6 shadow-xl outline-none"
       >
         <header className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">{zone.name}</h2>
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 text-sm text-content-muted">
               {zone.cleared} of {zone.total} cleared
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded border border-stone px-3 py-1 text-sm hover:bg-white/60"
+            className="rounded border border-border px-3 py-1 text-sm hover:bg-surface-raised"
           >
             Close
           </button>
         </header>
 
         {zone.locked && (
-          <p className="mt-4 rounded border border-stone bg-white/60 px-3 py-2 text-sm">
+          <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm">
             <strong>Sealed.</strong> {condition || "Not yet open."}
           </p>
         )}
@@ -80,7 +80,7 @@ export default function ZonePanel({
         <ErrorMessage error={challenges.error} />
 
         {!challenges.isPending && rows.length === 0 && (
-          <p className="mt-6 text-sm text-muted">Nothing here yet.</p>
+          <p className="mt-6 text-sm text-content-muted">Nothing here yet.</p>
         )}
 
         <ul className="mt-4 space-y-2">
@@ -89,17 +89,17 @@ export default function ZonePanel({
               key={challenge.id}
               className={`rounded border px-4 py-3 ${
                 challenge.solved
-                  ? "border-ink/40 bg-ink/5"
+                  ? "border-content/40 bg-content/5"
                   : challenge.locked
-                    ? "border-stone bg-white/40 opacity-70"
-                    : "border-stone bg-white/60"
+                    ? "border-border bg-surface-raised opacity-70"
+                    : "border-border bg-surface-raised"
               }`}
             >
               {challenge.locked ? (
                 // Deliberately not a link: there is nothing behind it yet.
                 <div>
                   <span className="font-medium">{challenge.title}</span>
-                  <p className="mt-1 text-xs text-muted">
+                  <p className="mt-1 text-xs text-content-muted">
                     {challenge.unlock_requirements
                       .map((r) => r.description)
                       .join(", ") || "Locked"}
@@ -113,18 +113,18 @@ export default function ZonePanel({
                   <span className="font-medium">
                     {challenge.title}
                     {challenge.puzzle_kind && (
-                      <span className="ml-2 rounded bg-stone/40 px-1.5 py-0.5 text-xs uppercase tracking-wide">
+                      <span className="ml-2 rounded bg-surface-sunken px-1.5 py-0.5 text-xs uppercase tracking-wide">
                         {KIND_LABEL[challenge.puzzle_kind]}
                       </span>
                     )}
                     {challenge.solved && (
-                      <span className="ml-2 text-sm text-muted">✓ cleared</span>
+                      <span className="ml-2 text-sm text-content-muted">✓ cleared</span>
                     )}
                     {!challenge.solved && challenge.puzzle_status === "failed" && (
-                      <span className="ml-2 text-sm text-muted">✗ missed</span>
+                      <span className="ml-2 text-sm text-content-muted">✗ missed</span>
                     )}
                   </span>
-                  <span className="text-sm text-muted tabular-nums">
+                  <span className="text-sm text-content-muted tabular-nums">
                     {challenge.value} XP
                   </span>
                 </Link>

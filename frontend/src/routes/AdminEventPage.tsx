@@ -62,14 +62,14 @@ export default function AdminEventPage() {
   return (
     <main className="mx-auto max-w-2xl p-6">
       <h1 className="text-3xl font-semibold tracking-tight">Event settings</h1>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2 text-sm text-content-muted">
         Server time is currently{" "}
         {new Date(config.data.server_time).toLocaleString()} — the clock the
         start and end gates use.
       </p>
 
       {!canWrite && (
-        <p className="mt-4 rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
+        <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
           Read-only — only admins can change event settings.
         </p>
       )}
@@ -87,7 +87,7 @@ export default function AdminEventPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={!canWrite}
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           />
         </label>
 
@@ -99,7 +99,7 @@ export default function AdminEventPage() {
               value={starts}
               onChange={(e) => setStarts(e.target.value)}
               disabled={!canWrite}
-              className="mt-1 w-full rounded border border-stone px-3 py-2"
+              className="mt-1 w-full rounded border border-border px-3 py-2"
             />
           </label>
           <label className="block text-sm">
@@ -109,7 +109,7 @@ export default function AdminEventPage() {
               value={ends}
               onChange={(e) => setEnds(e.target.value)}
               disabled={!canWrite}
-              className="mt-1 w-full rounded border border-stone px-3 py-2"
+              className="mt-1 w-full rounded border border-border px-3 py-2"
             />
           </label>
         </div>
@@ -149,12 +149,12 @@ export default function AdminEventPage() {
             <button
               type="submit"
               disabled={save.isPending}
-              className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+              className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
             >
               Save
             </button>
             {save.isSuccess && (
-              <span className="text-sm text-muted">Saved.</span>
+              <span className="text-sm text-content-muted">Saved.</span>
             )}
           </div>
         )}

@@ -124,7 +124,7 @@ export default function AdminMapPage() {
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Map layout</h1>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-sm text-content-muted">
             Drag a zone to move it, click one to change what opens it. Saves as
             you go; players pick it up on their next load. Drag the floor to pan,
             scroll to zoom.
@@ -135,14 +135,14 @@ export default function AdminMapPage() {
             <button
               onClick={() => download.mutate()}
               disabled={download.isPending}
-              className="rounded border border-stone px-4 py-2 text-sm disabled:opacity-50"
+              className="rounded border border-border px-4 py-2 text-sm disabled:opacity-50"
             >
               Export layout
             </button>
             <button
               onClick={() => layoutInput.current?.click()}
               disabled={upload.isPending}
-              className="rounded border border-stone px-4 py-2 text-sm disabled:opacity-50"
+              className="rounded border border-border px-4 py-2 text-sm disabled:opacity-50"
             >
               {upload.isPending ? "Importing…" : "Import layout"}
             </button>
@@ -161,7 +161,7 @@ export default function AdminMapPage() {
             <button
               onClick={() => reset.mutate()}
               disabled={reset.isPending}
-              className="rounded border border-stone px-4 py-2 text-sm disabled:opacity-50"
+              className="rounded border border-border px-4 py-2 text-sm disabled:opacity-50"
             >
               {reset.isPending ? "Resetting…" : "Reset layout"}
             </button>
@@ -170,20 +170,20 @@ export default function AdminMapPage() {
       </header>
 
       {!canWrite && (
-        <p className="mt-4 rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
+        <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
           Read-only — only admins can change the map.
         </p>
       )}
 
       {unreachable.size > 0 && (
-        <p className="mt-4 rounded border border-torch bg-torch/10 px-3 py-2 text-sm">
+        <p className="mt-4 rounded border border-warning bg-warning/10 px-3 py-2 text-sm">
           {unreachable.size} {unreachable.size === 1 ? "zone is" : "zones are"}{" "}
           unreachable — no path opens {unreachable.size === 1 ? "it" : "them"}.
         </p>
       )}
 
       {layoutNote && (
-        <p className="mt-4 rounded border border-stone bg-white/50 px-3 py-2 text-sm">
+        <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm">
           {layoutNote}
         </p>
       )}

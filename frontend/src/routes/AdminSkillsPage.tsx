@@ -71,14 +71,14 @@ export default function AdminSkillsPage() {
   return (
     <main className="mx-auto max-w-2xl p-6">
       <h1 className="text-3xl font-semibold tracking-tight">Skills</h1>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2 text-sm text-content-muted">
         Skills attach to individual challenges, and solving one feeds every skill
         on it. Categories feed an <strong>ability</strong> instead — that mapping
         is below, and every category needs one.
       </p>
 
       {!canWrite && (
-        <p className="mt-4 rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
+        <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
           Read-only — only admins can change skills.
         </p>
       )}
@@ -86,25 +86,25 @@ export default function AdminSkillsPage() {
       <section className="mt-6">
         <h2 className="text-lg font-semibold">Skills</h2>
         {skills.data.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">No skills yet.</p>
+          <p className="mt-2 text-sm text-content-muted">No skills yet.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {skills.data.map((skill) => (
               <li
                 key={skill.id}
-                className="flex items-center justify-between rounded border border-stone bg-white/40 px-4 py-2"
+                className="flex items-center justify-between rounded border border-border bg-surface-raised px-4 py-2"
               >
                 <span className="font-medium">
                   {skill.name}
                   {skill.kind === "funny" && (
-                    <span className="ml-2 text-xs text-muted">funny</span>
+                    <span className="ml-2 text-xs text-content-muted">funny</span>
                   )}
                 </span>
                 {canWrite && (
                   <button
                     onClick={() => remove.mutate(skill.id)}
                     disabled={remove.isPending}
-                    className="text-sm text-muted hover:text-ink hover:underline disabled:opacity-50"
+                    className="text-sm text-content-muted hover:text-content hover:underline disabled:opacity-50"
                   >
                     Delete
                   </button>
@@ -127,12 +127,12 @@ export default function AdminSkillsPage() {
               onChange={(e) => setNewName(e.target.value)}
               placeholder="New skill name"
               aria-label="New skill name"
-              className="flex-1 rounded border border-stone px-3 py-2"
+              className="flex-1 rounded border border-border px-3 py-2"
             />
             <button
               type="submit"
               disabled={create.isPending || !newName.trim()}
-              className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+              className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
             >
               Add skill
             </button>
@@ -144,13 +144,13 @@ export default function AdminSkillsPage() {
       <section className="mt-8">
         <h2 className="text-lg font-semibold">Category → ability</h2>
         {categories.data.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">No categories yet.</p>
+          <p className="mt-2 text-sm text-content-muted">No categories yet.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {categories.data.map((category) => (
               <li
                 key={category.id}
-                className="flex items-center justify-between rounded border border-stone bg-white/40 px-4 py-2"
+                className="flex items-center justify-between rounded border border-border bg-surface-raised px-4 py-2"
               >
                 <span>{category.name}</span>
                 <select
@@ -163,7 +163,7 @@ export default function AdminSkillsPage() {
                       ability: e.target.value as Ability,
                     })
                   }
-                  className="rounded border border-stone px-2 py-1 text-sm"
+                  className="rounded border border-border px-2 py-1 text-sm"
                 >
                   {ABILITIES.map(([value, label]) => (
                     <option key={value} value={value}>

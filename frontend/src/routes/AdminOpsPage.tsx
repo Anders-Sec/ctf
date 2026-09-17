@@ -25,7 +25,7 @@ export default function AdminOpsPage() {
       <h1 className="text-3xl font-semibold tracking-tight">Operations</h1>
 
       {!canWrite && (
-        <p className="mt-4 rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
+        <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
           You have read-only access. Only admins can adjust scores or triage reports.
         </p>
       )}
@@ -56,7 +56,7 @@ function ReportsSection({ canWrite }: { canWrite: boolean }) {
 
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
         Broken-challenge reports
       </h2>
       <ErrorMessage error={reports.error ?? triage.error} />
@@ -64,16 +64,16 @@ function ReportsSection({ canWrite }: { canWrite: boolean }) {
       {reports.isPending ? (
         <Spinner />
       ) : (reports.data ?? []).length === 0 ? (
-        <p className="mt-3 text-muted">Nothing reported.</p>
+        <p className="mt-3 text-content-muted">Nothing reported.</p>
       ) : (
         <ul className="mt-3 flex flex-col gap-2">
           {(reports.data ?? []).map((report: Report) => (
-            <li key={report.id} className="rounded-lg border border-stone bg-white/60 p-4">
+            <li key={report.id} className="rounded-lg border border-border bg-surface-raised p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-medium">{report.challenge_title ?? "Unknown challenge"}</p>
                   <p className="mt-1 text-sm">{report.message}</p>
-                  <p className="mt-1 text-xs text-muted">
+                  <p className="mt-1 text-xs text-content-muted">
                     {report.reporter_name ?? "Someone"} ·{" "}
                     {new Date(report.created_at).toLocaleString()}
                   </p>
@@ -82,13 +82,13 @@ function ReportsSection({ canWrite }: { canWrite: boolean }) {
                   <span className="flex shrink-0 gap-2">
                     <button
                       onClick={() => triage.mutate({ id: report.id, status: "resolved" })}
-                      className="rounded bg-ink px-3 py-1 text-xs text-parchment"
+                      className="rounded bg-content px-3 py-1 text-xs text-surface"
                     >
                       Fixed
                     </button>
                     <button
                       onClick={() => triage.mutate({ id: report.id, status: "dismissed" })}
-                      className="rounded border border-stone px-3 py-1 text-xs"
+                      className="rounded border border-border px-3 py-1 text-xs"
                     >
                       Nothing wrong
                     </button>
@@ -142,13 +142,13 @@ function AdjustmentsSection({ canWrite }: { canWrite: boolean }) {
 
   return (
     <section className="mt-10">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
         Score adjustments
       </h2>
 
       {canWrite && (
         <form
-          className="mt-3 rounded-lg border border-stone bg-white/60 p-4"
+          className="mt-3 rounded-lg border border-border bg-surface-raised p-4"
           onSubmit={(event) => {
             event.preventDefault();
             create.mutate();
@@ -160,7 +160,7 @@ function AdjustmentsSection({ canWrite }: { canWrite: boolean }) {
               <select
                 value={target}
                 onChange={(event) => setTarget(event.target.value as "user" | "team")}
-                className="mt-1 w-full rounded border border-stone px-3 py-2"
+                className="mt-1 w-full rounded border border-border px-3 py-2"
               >
                 <option value="team">A party</option>
                 <option value="user">A player</option>
@@ -172,7 +172,7 @@ function AdjustmentsSection({ canWrite }: { canWrite: boolean }) {
                 required
                 value={targetId}
                 onChange={(event) => setTargetId(event.target.value)}
-                className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono text-sm"
+                className="mt-1 w-full rounded border border-border px-3 py-2 font-mono text-sm"
               />
             </label>
             <label className="text-sm">
@@ -182,7 +182,7 @@ function AdjustmentsSection({ canWrite }: { canWrite: boolean }) {
                 type="number"
                 value={points}
                 onChange={(event) => setPoints(event.target.value)}
-                className="mt-1 w-full rounded border border-stone px-3 py-2"
+                className="mt-1 w-full rounded border border-border px-3 py-2"
                 placeholder="±"
               />
             </label>
@@ -195,12 +195,12 @@ function AdjustmentsSection({ canWrite }: { canWrite: boolean }) {
               minLength={3}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              className="mt-1 w-full rounded border border-stone px-3 py-2"
+              className="mt-1 w-full rounded border border-border px-3 py-2"
               placeholder="Compensation for a broken challenge"
             />
           </label>
 
-          <p className="mt-2 text-xs text-muted">
+          <p className="mt-2 text-xs text-content-muted">
             {target === "team"
               ? "Applied to the party once. No member's personal score changes, and it stays with the party through joins, departures and leadership handovers."
               : "Applied to that player, and so to whichever party they are in."}
@@ -209,7 +209,7 @@ function AdjustmentsSection({ canWrite }: { canWrite: boolean }) {
           <button
             type="submit"
             disabled={create.isPending}
-            className="mt-3 rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+            className="mt-3 rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
           >
             Apply adjustment
           </button>
@@ -220,13 +220,13 @@ function AdjustmentsSection({ canWrite }: { canWrite: boolean }) {
       {adjustments.isPending ? (
         <Spinner />
       ) : (adjustments.data ?? []).length === 0 ? (
-        <p className="mt-3 text-muted">No adjustments have been made.</p>
+        <p className="mt-3 text-content-muted">No adjustments have been made.</p>
       ) : (
         <ul className="mt-4 flex flex-col gap-2">
           {(adjustments.data ?? []).map((row: Adjustment) => (
             <li
               key={row.id}
-              className={`flex items-center gap-3 rounded border border-stone bg-white/60 px-3 py-2 text-sm ${
+              className={`flex items-center gap-3 rounded border border-border bg-surface-raised px-3 py-2 text-sm ${
                 row.reversed_by_id ? "line-through opacity-60" : ""
               }`}
             >
@@ -235,8 +235,8 @@ function AdjustmentsSection({ canWrite }: { canWrite: boolean }) {
               </span>
               <span className="flex-1">
                 {row.subject_name ?? "Unknown"}
-                {row.team_id && <span className="ml-1 text-xs text-muted">(party)</span>}
-                <span className="block text-xs text-muted">
+                {row.team_id && <span className="ml-1 text-xs text-content-muted">(party)</span>}
+                <span className="block text-xs text-content-muted">
                   {row.reason} · {row.created_by_name ?? "system"}
                 </span>
               </span>

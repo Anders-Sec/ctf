@@ -54,9 +54,9 @@ export default function AssistantTerms() {
         <Markdown>{terms.data.text}</Markdown>
       </div>
 
-      <div className="border-t border-stone p-3">
+      <div className="border-t border-border p-3">
         {stale && (
-          <p role="alert" className="mb-2 text-xs text-torch">
+          <p role="alert" className="mb-2 text-xs text-danger">
             These terms were updated while you were reading. Please look again.
           </p>
         )}
@@ -64,7 +64,7 @@ export default function AssistantTerms() {
         <button
           onClick={() => accept.mutate(terms.data.version)}
           disabled={accept.isPending}
-          className="w-full rounded bg-torch px-3 py-2 text-sm text-parchment disabled:opacity-50"
+          className="w-full rounded bg-accent px-3 py-2 text-sm text-accent-content disabled:opacity-50"
         >
           {accept.isPending ? "Filing…" : "I have read and accept these terms"}
         </button>

@@ -59,9 +59,9 @@ export default function ResetPlayDataPanel({ canWrite }: { canWrite: boolean }) 
   const armed = chosen.size > 0 && typed === "RESET";
 
   return (
-    <section className="mt-10 rounded border border-torch/50 bg-white/40 p-4">
+    <section className="mt-10 rounded border border-danger/50 bg-surface-raised p-4">
       <h2 className="text-lg font-semibold">Reset play data</h2>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 text-sm text-content-muted">
         Clears what players did, so challenges used for testing can be deleted
         again. Challenges, hints, skills, areas and every account stay. There is
         no undo.
@@ -98,7 +98,7 @@ export default function ResetPlayDataPanel({ canWrite }: { canWrite: boolean }) 
               setChosen(new Set());
               setTyped("");
             }}
-            className="text-muted underline"
+            className="text-content-muted underline"
           >
             Clear
           </button>
@@ -106,7 +106,7 @@ export default function ResetPlayDataPanel({ canWrite }: { canWrite: boolean }) 
       </div>
 
       {chosen.size > 0 && (
-        <div className="mt-4 rounded border border-torch bg-parchment p-3 text-sm">
+        <div className="mt-4 rounded border border-danger bg-surface p-3 text-sm">
           <p>
             This deletes <strong>{total.toLocaleString()}</strong>{" "}
             {total === 1 ? "row" : "rows"} across {chosen.size}{" "}
@@ -118,13 +118,13 @@ export default function ResetPlayDataPanel({ canWrite }: { canWrite: boolean }) 
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               aria-label="Type RESET to confirm"
-              className="mt-1 block w-40 rounded border border-stone px-2 py-1"
+              className="mt-1 block w-40 rounded border border-border px-2 py-1"
             />
           </label>
           <button
             onClick={() => run.mutate()}
             disabled={!armed || run.isPending}
-            className="mt-3 rounded bg-torch px-4 py-2 text-parchment disabled:opacity-40"
+            className="mt-3 rounded bg-danger px-4 py-2 text-accent-content disabled:opacity-40"
           >
             {run.isPending ? "Clearing…" : "Reset play data"}
           </button>
@@ -158,7 +158,7 @@ function GroupRow({
     <li>
       <label
         className={`flex items-center gap-2 rounded px-2 py-1 ${
-          checked ? "bg-white/70" : "text-muted"
+          checked ? "bg-surface-raised" : "text-content-muted"
         }`}
       >
         <input type="checkbox" checked={checked} onChange={onToggle} />

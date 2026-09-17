@@ -39,12 +39,12 @@ export default function ErrorMessage({ error }: { error: unknown }) {
   return (
     <p
       role="alert"
-      className="mt-3 rounded border border-torch/40 bg-torch/10 px-3 py-2 text-sm"
+      className="mt-3 rounded border border-danger/40 bg-danger/10 px-3 py-2 text-sm"
     >
       {text}
       {requestId && (
         // Gives a player something concrete to quote when they report a problem.
-        <span className="mt-1 block text-xs text-muted">
+        <span className="mt-1 block text-xs text-content-muted">
           Reference: {requestId}
         </span>
       )}

@@ -223,7 +223,10 @@ describe("AdminAssistantPage health", () => {
     render({ metrics: data });
 
     const cell = await screen.findByText("7");
-    expect(cell).toHaveClass("text-torch");
+    // `warning`, not `accent`: a decoy count above zero is something to go and
+    // look at. Before spec 048 both were the same `torch` value, so the
+    // distinction could not be expressed.
+    expect(cell).toHaveClass("text-warning");
   });
 
   it("reports the terms version and acceptance count", async () => {

@@ -55,24 +55,24 @@ export default function InstancePanel({ challengeId }: { challengeId: string }) 
   const shared = current?.shared_challenge_count ?? 0;
 
   return (
-    <section className="mt-6 rounded-lg border border-stone bg-white/40 p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Live target</h2>
+    <section className="mt-6 rounded-lg border border-border bg-surface-raised p-4">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">Live target</h2>
 
       {(!current || notFound) && (
         <div className="mt-3">
-          <p className="text-sm text-muted">
+          <p className="text-sm text-content-muted">
             This encounter has a live target you can summon. It is yours (or your party's)
             alone, and it winds down on a timer.
           </p>
           <button
             onClick={() => launch.mutate()}
             disabled={launch.isPending}
-            className="mt-3 rounded bg-torch px-4 py-2 text-sm text-parchment disabled:opacity-50"
+            className="mt-3 rounded bg-accent px-4 py-2 text-sm text-accent-content disabled:opacity-50"
           >
             {launch.isPending ? "Summoning…" : "Summon your dungeon"}
           </button>
           {launch.error instanceof ApiError && (
-            <p role="alert" className="mt-2 text-sm text-muted">
+            <p role="alert" className="mt-2 text-sm text-content-muted">
               {launch.error.code === "instance_cap_reached"
                 ? "You already have as many live targets as you can run at once. Close one first."
                 : "The dungeon could not be summoned right now. Try again shortly."}
@@ -82,7 +82,7 @@ export default function InstancePanel({ challengeId }: { challengeId: string }) 
       )}
 
       {current?.status === "pending" && (
-        <p className="mt-3 text-sm text-muted" role="status">
+        <p className="mt-3 text-sm text-content-muted" role="status">
           Summoning your dungeon… this can take a moment.
         </p>
       )}
@@ -93,13 +93,13 @@ export default function InstancePanel({ challengeId }: { challengeId: string }) 
             href={current.connection_url ?? "#"}
             target="_blank"
             rel="noreferrer"
-            className="inline-block rounded bg-torch px-4 py-2 text-sm text-parchment"
+            className="inline-block rounded bg-accent px-4 py-2 text-sm text-accent-content"
           >
             Enter the dungeon ↗
           </a>
-          <p className="text-xs text-muted">{current.connection_url}</p>
+          <p className="text-xs text-content-muted">{current.connection_url}</p>
           {shared > 0 && (
-            <p className="text-xs text-muted">
+            <p className="text-xs text-content-muted">
               This target also serves {shared} other{" "}
               {shared === 1 ? "encounter" : "encounters"} in this area. The flags
               inside it are yours alone — a flag from another party will not be
@@ -110,12 +110,12 @@ export default function InstancePanel({ challengeId }: { challengeId: string }) 
             <button onClick={() => extend.mutate()} className="underline">
               Give me more time
             </button>
-            <button onClick={() => destroy.mutate()} className="underline text-muted">
+            <button onClick={() => destroy.mutate()} className="underline text-content-muted">
               Close it
             </button>
           </div>
           {shared > 0 && (
-            <p className="text-xs text-muted">
+            <p className="text-xs text-content-muted">
               Closing it ends it for those encounters too.
             </p>
           )}
@@ -124,12 +124,12 @@ export default function InstancePanel({ challengeId }: { challengeId: string }) 
 
       {current?.status === "failed" && (
         <div className="mt-3">
-          <p role="alert" className="text-sm text-muted">
+          <p role="alert" className="text-sm text-content-muted">
             The dungeon collapsed as it formed. Summon it again.
           </p>
           <button
             onClick={() => launch.mutate()}
-            className="mt-2 rounded border border-stone px-3 py-1 text-sm"
+            className="mt-2 rounded border border-border px-3 py-1 text-sm"
           >
             Try again
           </button>

@@ -172,7 +172,7 @@ export default function CrosswordBoard({
             Array.from({ length: view.width }).map((_, col) => {
               const key = `${row}:${col}`;
               if (blocks.has(key)) {
-                return <div key={key} className="h-10 w-10 bg-ink/80" aria-hidden />;
+                return <div key={key} className="h-10 w-10 bg-content/80" aria-hidden />;
               }
               const number = numbers.get(key);
               const isWrong = wrong.has(key);
@@ -180,7 +180,7 @@ export default function CrosswordBoard({
               return (
                 <div key={key} className="relative">
                   {number && (
-                    <span className="pointer-events-none absolute left-0.5 top-0 text-[0.5rem] text-muted">
+                    <span className="pointer-events-none absolute left-0.5 top-0 text-[0.5rem] text-content-muted">
                       {number}
                     </span>
                   )}
@@ -227,10 +227,10 @@ export default function CrosswordBoard({
                       // Marked wrong keeps a ring *and* a tint: the ring is the
                       // one that survives a colour-blind reading.
                       isWrong
-                        ? "border-red-600 bg-red-100 ring-2 ring-red-500"
+                        ? "border-danger bg-danger/15 ring-2 ring-danger"
                         : focused
-                          ? "border-ink bg-amber-50"
-                          : "border-stone bg-white/70"
+                          ? "border-content bg-accent/15"
+                          : "border-border bg-surface-raised"
                     }`}
                   />
                 </div>
@@ -242,7 +242,7 @@ export default function CrosswordBoard({
         <div className="flex-1 text-sm">
           {(["across", "down"] as const).map((direction) => (
             <div key={direction} className="mb-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-content-muted">
                 {direction}
               </h3>
               <ul className="mt-1 space-y-0.5">
@@ -254,7 +254,7 @@ export default function CrosswordBoard({
                       className={
                         currentClue?.number === clue.number &&
                         currentClue?.direction === clue.direction
-                          ? "rounded bg-amber-100 px-1 font-medium"
+                          ? "rounded bg-accent/20 px-1 font-medium"
                           : ""
                       }
                     >
@@ -268,7 +268,7 @@ export default function CrosswordBoard({
                         }}
                       >
                         <strong>{clue.number}.</strong> {clue.clue}{" "}
-                        <span className="text-muted">({clue.length})</span>
+                        <span className="text-content-muted">({clue.length})</span>
                       </button>
                     </li>
                   ))}
@@ -279,7 +279,7 @@ export default function CrosswordBoard({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted" role="status">
+        <p className="text-sm text-content-muted" role="status">
           {over
             ? state.status === "solved"
               ? "Solved."
@@ -294,7 +294,7 @@ export default function CrosswordBoard({
             <button
               type="button"
               onClick={() => onSave(grid)}
-              className="rounded border border-stone px-3 py-1.5 text-sm"
+              className="rounded border border-border px-3 py-1.5 text-sm"
             >
               Save
             </button>
@@ -302,7 +302,7 @@ export default function CrosswordBoard({
               type="button"
               onClick={() => onPlay(grid)}
               disabled={pending}
-              className="rounded bg-ink px-4 py-1.5 text-sm font-medium text-parchment disabled:opacity-50"
+              className="rounded bg-content px-4 py-1.5 text-sm font-medium text-surface disabled:opacity-50"
             >
               {pending ? "Checking…" : "Check"}
             </button>

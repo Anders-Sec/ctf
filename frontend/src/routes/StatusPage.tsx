@@ -16,25 +16,25 @@ export default function StatusPage() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-8 p-8">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">CTF Platform</h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-content-muted">
           The dungeon is still being dug. This page exists to prove the walls stand up.
         </p>
       </header>
 
       <section
         aria-labelledby="build-heading"
-        className="rounded-lg border border-stone bg-white/60 p-6"
+        className="rounded-lg border border-border bg-surface-raised p-6"
       >
-        <h2 id="build-heading" className="text-sm font-semibold uppercase tracking-wide text-muted">
+        <h2 id="build-heading" className="text-sm font-semibold uppercase tracking-wide text-content-muted">
           Build
         </h2>
         {version.isPending && <p className="mt-3">Loading…</p>}
         {version.isError && <ErrorLine error={version.error} />}
         {version.data && (
           <dl className="mt-3 grid grid-cols-2 gap-2">
-            <dt className="text-muted">Version</dt>
+            <dt className="text-content-muted">Version</dt>
             <dd data-testid="version">{version.data.version}</dd>
-            <dt className="text-muted">Environment</dt>
+            <dt className="text-content-muted">Environment</dt>
             <dd data-testid="environment">{version.data.environment}</dd>
           </dl>
         )}
@@ -42,11 +42,11 @@ export default function StatusPage() {
 
       <section
         aria-labelledby="dependencies-heading"
-        className="rounded-lg border border-stone bg-white/60 p-6"
+        className="rounded-lg border border-border bg-surface-raised p-6"
       >
         <h2
           id="dependencies-heading"
-          className="text-sm font-semibold uppercase tracking-wide text-muted"
+          className="text-sm font-semibold uppercase tracking-wide text-content-muted"
         >
           Dependencies
         </h2>
@@ -54,9 +54,9 @@ export default function StatusPage() {
         {readiness.isError && <ErrorLine error={readiness.error} />}
         {readiness.data && (
           <dl className="mt-3 grid grid-cols-2 gap-2">
-            <dt className="text-muted">PostgreSQL</dt>
+            <dt className="text-content-muted">PostgreSQL</dt>
             <dd data-testid="postgres">{readiness.data.postgres}</dd>
-            <dt className="text-muted">Redis</dt>
+            <dt className="text-content-muted">Redis</dt>
             <dd data-testid="redis">{readiness.data.redis}</dd>
           </dl>
         )}
@@ -69,7 +69,7 @@ function ErrorLine({ error }: { error: unknown }) {
   // Branch on the stable code, never the prose message.
   const code = error instanceof ApiError ? error.code : "unreachable";
   return (
-    <p className="mt-3 text-torch" role="alert" data-testid="error">
+    <p className="mt-3 text-danger" role="alert" data-testid="error">
       Could not reach the API ({code}).
     </p>
   );

@@ -40,7 +40,7 @@ export default function Avatar({
   return (
     <span
       aria-hidden="true"
-      className="inline-flex items-center justify-center rounded-full font-semibold text-white"
+      className="inline-flex items-center justify-center rounded-full font-semibold text-on-fill"
       style={{ ...dimension, backgroundColor: initialsColor(userId), fontSize: size * 0.4 }}
     >
       {displayName.trim().charAt(0).toUpperCase() || "?"}

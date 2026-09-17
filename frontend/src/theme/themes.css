@@ -170,6 +170,41 @@
 }
 
 /*
+ * Puzzle board colours (spec 044) are theme-invariant for the same reason the
+ * rarity ladder is: green/amber/grey on a Wordle tile is a convention players
+ * arrive already knowing, and a theme that reassigned it would be lying to
+ * them. Every one is a fill carrying `on-fill` text, so none depends on the
+ * surface behind it.
+ *
+ * `--puzzle-absent` also fixes a real bug: the tile was `bg-stone-500`, and
+ * because the config replaces Tailwind's stone scale with a single token, that
+ * class emitted no CSS at all — the "not in the word" tile had no background.
+ */
+:root {
+  --puzzle-exact: 5 150 105;
+  --puzzle-present: 190 98 8;
+  --puzzle-absent: 106 100 94;
+
+  /* Connections groups, ordered as a difficulty scale rather than decoration.
+     Always light fills carrying dark text, so they are surface-independent. */
+  --puzzle-level-1: 253 230 138;
+  --puzzle-level-2: 167 243 208;
+  --puzzle-level-3: 186 230 253;
+  --puzzle-level-4: 221 214 254;
+  --puzzle-level-content: 26 24 22;
+
+  /* Text sitting on any saturated fill — a puzzle tile, a generated avatar. */
+  --on-fill: 255 255 255;
+
+  /* Zone hover glows on the dungeon map. Theme-invariant with the rest of the
+     map (spec 048 §9.3): the tiles are raster art with baked-in lighting and
+     the map carries its own dark atmosphere from spec 023, so a themed glow
+     would be the one lit thing disagreeing with everything around it. */
+  --map-glow-warm: 255 157 61;
+  --map-glow-cold: 63 214 208;
+}
+
+/*
  * Legacy pigment aliases, kept so the migration off them can be incremental.
  * New code uses the roles above; these are removed once nothing references
  * them, and the lint rule in `scripts/check-colours.mjs` stops new uses.

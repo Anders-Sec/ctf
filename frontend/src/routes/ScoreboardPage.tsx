@@ -41,7 +41,7 @@ export default function ScoreboardPage() {
         <LiveBadge status={status} />
       </header>
 
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2 text-sm text-content-muted">
         A party scores each challenge once, however many members solved it — so a party of
         one and a party of eight can reach the same total.
       </p>
@@ -59,7 +59,7 @@ export default function ScoreboardPage() {
             aria-selected={tab === value}
             onClick={() => setTab(value)}
             className={`rounded px-4 py-2 text-sm font-medium ${
-              tab === value ? "bg-ink text-parchment" : "border border-stone"
+              tab === value ? "bg-content text-surface" : "border border-border"
             }`}
           >
             {label}
@@ -83,11 +83,11 @@ export default function ScoreboardPage() {
 function LiveBadge({ status }: { status: "connecting" | "live" | "offline" }) {
   const label = { connecting: "connecting…", live: "live", offline: "reconnecting…" }[status];
   return (
-    <span className="flex items-center gap-2 text-sm text-muted" role="status">
+    <span className="flex items-center gap-2 text-sm text-content-muted" role="status">
       <span
         aria-hidden="true"
         className={`inline-block h-2 w-2 rounded-full ${
-          status === "live" ? "bg-ink" : "bg-muted"
+          status === "live" ? "bg-content" : "bg-content-muted"
         } ${status === "live" ? "" : "animate-pulse"}`}
       />
       {label}
@@ -103,12 +103,12 @@ function TeamTable({
   highlightTeamId: string | null;
 }) {
   if (rows.length === 0) {
-    return <p className="mt-8 text-muted">No parties have scored yet.</p>;
+    return <p className="mt-8 text-content-muted">No parties have scored yet.</p>;
   }
 
   return (
     <table className="mt-4 w-full text-left">
-      <thead className="text-sm text-muted">
+      <thead className="text-sm text-content-muted">
         <tr>
           <th className="w-12 py-2">#</th>
           <th className="py-2">Party</th>
@@ -121,14 +121,14 @@ function TeamTable({
         {rows.map((row) => (
           <tr
             key={row.team_id}
-            className={`border-t border-stone ${
-              row.team_id === highlightTeamId ? "bg-ink/5 font-medium" : ""
+            className={`border-t border-border ${
+              row.team_id === highlightTeamId ? "bg-content/5 font-medium" : ""
             }`}
           >
             <td className="py-2">{row.rank}</td>
             <td className="py-2">
               {row.name}
-              <span className="ml-2 text-sm text-muted">
+              <span className="ml-2 text-sm text-content-muted">
                 {row.member_count} {row.member_count === 1 ? "adventurer" : "adventurers"}
               </span>
             </td>
@@ -150,12 +150,12 @@ function PlayerTable({
   highlightUserId: string | null;
 }) {
   if (rows.length === 0) {
-    return <p className="mt-8 text-muted">Nobody has scored yet.</p>;
+    return <p className="mt-8 text-content-muted">Nobody has scored yet.</p>;
   }
 
   return (
     <table className="mt-4 w-full text-left">
-      <thead className="text-sm text-muted">
+      <thead className="text-sm text-content-muted">
         <tr>
           <th className="w-12 py-2">#</th>
           <th className="py-2">Player</th>
@@ -169,8 +169,8 @@ function PlayerTable({
         {rows.map((row) => (
           <tr
             key={row.user_id}
-            className={`border-t border-stone ${
-              row.user_id === highlightUserId ? "bg-ink/5 font-medium" : ""
+            className={`border-t border-border ${
+              row.user_id === highlightUserId ? "bg-content/5 font-medium" : ""
             }`}
           >
             <td className="py-2">{row.rank}</td>
@@ -190,14 +190,14 @@ function PlayerTable({
                   {row.title && (
                     // Cosmetic, and the reason a title is worth having at all:
                     // the board is where people actually look.
-                    <span className="block truncate text-xs italic text-muted">
+                    <span className="block truncate text-xs italic text-content-muted">
                       {row.title}
                     </span>
                   )}
                 </span>
               </Link>
             </td>
-            <td className="py-2 text-muted">{row.team_name ?? "—"}</td>
+            <td className="py-2 text-content-muted">{row.team_name ?? "—"}</td>
             <td className="py-2 text-right tabular-nums">{row.level}</td>
             <td className="py-2 text-right">{row.solve_count}</td>
             <td className="py-2 text-right tabular-nums">{row.score}</td>

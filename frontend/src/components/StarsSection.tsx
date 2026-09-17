@@ -25,7 +25,7 @@ export default function StarsSection() {
     <section className="mt-6">
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold">Bosses felled</h2>
-        <span className="text-sm text-muted tabular-nums">
+        <span className="text-sm text-content-muted tabular-nums">
           {held.length} {held.length === 1 ? "star" : "stars"}
         </span>
       </div>
@@ -41,7 +41,7 @@ export default function StarsSection() {
 
 function StarRow({ star }: { star: Star }) {
   return (
-    <li className="flex items-center gap-3 rounded border border-stone bg-white/50 px-3 py-2">
+    <li className="flex items-center gap-3 rounded border border-border bg-surface-raised px-3 py-2">
       <span
         aria-hidden
         className={`text-2xl leading-none ${BOSS_TIER_CLASS[star.tier]}`}
@@ -52,7 +52,7 @@ function StarRow({ star }: { star: Star }) {
         <p className="truncate text-sm font-semibold">{star.challenge_title}</p>
         {/* The tier name is always rendered, so the colour is never the only
             thing carrying the meaning. */}
-        <p className="text-xs text-muted">
+        <p className="text-xs text-content-muted">
           {BOSS_TIER_LABEL[star.tier]} · {star.zone_name}
         </p>
       </span>

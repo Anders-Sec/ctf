@@ -38,9 +38,9 @@ export const ZONE_XP_BUDGET = 1900;
 export const ZONE_EXPECTED_ROWS = 11;
 
 const STATE_DOT: Record<ChallengeState, string> = {
-  draft: "bg-stone",
-  hidden: "bg-stone/50",
-  locked: "bg-torch/60",
+  draft: "bg-surface-sunken",
+  hidden: "bg-surface-sunken",
+  locked: "bg-accent/60",
   published: "bg-moss",
 };
 
@@ -103,7 +103,7 @@ export default function ChallengeTable({
 
   if (challenges.length === 0) {
     return (
-      <p className="mt-8 rounded border border-stone bg-white/40 px-4 py-6 text-center text-muted">
+      <p className="mt-8 rounded border border-border bg-surface-raised px-4 py-6 text-center text-content-muted">
         Nothing matches.
       </p>
     );
@@ -200,7 +200,7 @@ function ZoneHeader({
 }) {
   const offBudget = zone.total_xp !== ZONE_XP_BUDGET;
   return (
-    <div className="flex items-center gap-2 rounded-t border border-stone bg-white/70 px-3 py-2">
+    <div className="flex items-center gap-2 rounded-t border border-border bg-surface-raised px-3 py-2">
       {canWrite && (
         <input
           type="checkbox"
@@ -219,25 +219,25 @@ function ZoneHeader({
       >
         <span aria-hidden>{collapsed ? "▶" : "▼"}</span>
         <span className="font-semibold">{zone.name}</span>
-        <span className="text-xs text-muted">
+        <span className="text-xs text-content-muted">
           {zone.challenge_count}/{ZONE_EXPECTED_ROWS} written
         </span>
         <span
-          className={`text-xs ${offBudget ? "text-torch" : "text-muted"}`}
+          className={`text-xs ${offBudget ? "text-warning" : "text-content-muted"}`}
           title={`The 018 economy budgets ${ZONE_XP_BUDGET} XP per area`}
         >
           {zone.total_xp.toLocaleString()}/{ZONE_XP_BUDGET.toLocaleString()} XP
         </span>
         {zone.boss_challenge_id ? (
-          <span className="text-xs text-muted">★ {zone.boss_tier}</span>
+          <span className="text-xs text-content-muted">★ {zone.boss_tier}</span>
         ) : (
-          <span className="text-xs text-torch">no boss</span>
+          <span className="text-xs text-warning">no boss</span>
         )}
         {zone.draft_count > 0 && (
-          <span className="text-xs text-muted">{zone.draft_count} draft</span>
+          <span className="text-xs text-content-muted">{zone.draft_count} draft</span>
         )}
       </button>
-      <span className="text-xs text-muted">{rows.length} shown</span>
+      <span className="text-xs text-content-muted">{rows.length} shown</span>
     </div>
   );
 }
@@ -290,7 +290,7 @@ function Row({
 
   return (
     <tr
-      className={`border-b border-stone/40 ${open ? "bg-parchment" : "hover:bg-white/50"}`}
+      className={`border-b border-border/40 ${open ? "bg-surface" : "hover:bg-surface-raised"}`}
     >
       {canWrite && (
         <td className="w-8 px-3 py-1">
@@ -308,12 +308,12 @@ function Row({
           {challenge.title}
         </button>
         {challenge.boss_tier && (
-          <span className="ml-2 text-xs text-torch" title={`${challenge.boss_tier} boss`}>
+          <span className="ml-2 text-xs text-accent-strong" title={`${challenge.boss_tier} boss`}>
             ★
           </span>
         )}
         {challenge.ai_ladder_level !== null && (
-          <span className="ml-1 text-xs text-muted" title="System AI ladder rung">
+          <span className="ml-1 text-xs text-content-muted" title="System AI ladder rung">
             L{challenge.ai_ladder_level}
           </span>
         )}
@@ -328,7 +328,7 @@ function Row({
             // Deliberately alone: difficulty is a label and does not move XP.
             save.mutate({ difficulty: value });
           }}
-          className="w-full rounded border border-stone/60 bg-transparent px-1 py-0.5 text-xs"
+          className="w-full rounded border border-border/60 bg-transparent px-1 py-0.5 text-xs"
         >
           {DIFFICULTIES.map((d) => (
             <option key={d} value={d}>
@@ -351,7 +351,7 @@ function Row({
               save.mutate({ initial_points: value });
             }
           }}
-          className="w-full rounded border border-stone/60 bg-transparent px-1 py-0.5 text-right text-xs tabular-nums"
+          className="w-full rounded border border-border/60 bg-transparent px-1 py-0.5 text-right text-xs tabular-nums"
         />
       </td>
       <td className="w-28 py-1">
@@ -366,7 +366,7 @@ function Row({
               setDraft((d) => ({ ...d, state: value }));
               changeState.mutate(value);
             }}
-            className="w-full rounded border border-stone/60 bg-transparent px-1 py-0.5 text-xs"
+            className="w-full rounded border border-border/60 bg-transparent px-1 py-0.5 text-xs"
           >
             {STATES.map((s) => (
               <option key={s} value={s}>
@@ -381,7 +381,7 @@ function Row({
       <Count value={challenge.answer_count} label="flags" warn />
       <Count value={challenge.hint_count} label="hints" />
       <Count value={challenge.skill_count} label="skills" warn />
-      <td className="w-16 py-1 pr-3 text-right text-xs tabular-nums text-muted">
+      <td className="w-16 py-1 pr-3 text-right text-xs tabular-nums text-content-muted">
         {challenge.solve_count}
       </td>
     </tr>
@@ -400,7 +400,7 @@ function Count({
   return (
     <td
       className={`w-10 py-1 text-center text-xs tabular-nums ${
-        value === 0 && warn ? "text-torch" : "text-muted"
+        value === 0 && warn ? "text-warning" : "text-content-muted"
       }`}
       title={`${value} ${label}`}
     >

@@ -12,10 +12,10 @@ import type { ConnectionsView, PuzzleState } from "../../api/puzzles";
 /** Level 1 is the gentlest group, 4 the trap. Ordered, so the colours read as a
  *  difficulty scale rather than as decoration. */
 const LEVEL_STYLE = [
-  "bg-amber-200 text-ink",
-  "bg-emerald-200 text-ink",
-  "bg-sky-200 text-ink",
-  "bg-violet-200 text-ink",
+  "bg-puzzle-level-1 text-puzzle-level-content",
+  "bg-puzzle-level-2 text-puzzle-level-content",
+  "bg-puzzle-level-3 text-puzzle-level-content",
+  "bg-puzzle-level-4 text-puzzle-level-content",
 ];
 
 export default function ConnectionsBoard({
@@ -86,7 +86,7 @@ export default function ConnectionsBoard({
                 disabled={over || pending}
                 aria-pressed={chosen}
                 className={`flex min-h-16 items-center justify-center rounded-lg px-1 py-2 text-center text-xs font-semibold uppercase leading-tight break-words disabled:opacity-60 sm:text-sm ${
-                  chosen ? "bg-ink text-parchment" : "bg-stone/30 text-ink hover:bg-stone/50"
+                  chosen ? "bg-content text-surface" : "bg-surface-sunken text-content hover:bg-surface-sunken"
                 }`}
               >
                 {tile}
@@ -97,7 +97,7 @@ export default function ConnectionsBoard({
       )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted" role="status">
+        <p className="text-sm text-content-muted" role="status">
           {over
             ? state.status === "solved"
               ? "Solved."
@@ -112,7 +112,7 @@ export default function ConnectionsBoard({
             <button
               type="button"
               onClick={shuffle}
-              className="rounded border border-stone px-3 py-1.5 text-sm"
+              className="rounded border border-border px-3 py-1.5 text-sm"
             >
               Shuffle
             </button>
@@ -120,7 +120,7 @@ export default function ConnectionsBoard({
               type="button"
               onClick={() => setPicked([])}
               disabled={picked.length === 0}
-              className="rounded border border-stone px-3 py-1.5 text-sm disabled:opacity-50"
+              className="rounded border border-border px-3 py-1.5 text-sm disabled:opacity-50"
             >
               Deselect
             </button>
@@ -128,7 +128,7 @@ export default function ConnectionsBoard({
               type="button"
               onClick={() => onPlay(picked)}
               disabled={picked.length !== 4 || pending}
-              className="rounded bg-ink px-4 py-1.5 text-sm font-medium text-parchment disabled:opacity-50"
+              className="rounded bg-content px-4 py-1.5 text-sm font-medium text-surface disabled:opacity-50"
             >
               {pending ? "Checking…" : "Submit"}
             </button>

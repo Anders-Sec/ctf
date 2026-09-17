@@ -75,7 +75,7 @@ export default function BulkToolbar({
   if (selected.length === 0 && !result) return null;
 
   return (
-    <div className="sticky bottom-0 z-10 mt-4 rounded border border-stone bg-white/95 p-3 shadow-lg">
+    <div className="sticky bottom-0 z-10 mt-4 rounded border border-border bg-surface-overlay p-3 shadow-lg">
       {selected.length > 0 && (
         <>
           <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -85,7 +85,7 @@ export default function BulkToolbar({
                 Select all {matchingCount} matching
               </button>
             )}
-            <button onClick={onClear} className="text-muted underline">
+            <button onClick={onClear} className="text-content-muted underline">
               Clear
             </button>
           </div>
@@ -109,7 +109,7 @@ export default function BulkToolbar({
                 onChange={(e) => setXp(e.target.value)}
                 placeholder="XP, or +25 / -10%"
                 aria-label="Set XP"
-                className="w-36 rounded border border-stone px-2 py-1"
+                className="w-36 rounded border border-border px-2 py-1"
               />
               <button
                 disabled={!xp || run.isPending}
@@ -117,7 +117,7 @@ export default function BulkToolbar({
                   run.mutate({ action: "set_xp", value: xp });
                   setXp("");
                 }}
-                className="rounded border border-stone px-2 py-1 disabled:opacity-40"
+                className="rounded border border-border px-2 py-1 disabled:opacity-40"
               >
                 Apply
               </button>
@@ -132,7 +132,7 @@ export default function BulkToolbar({
                 value={releaseAt}
                 onChange={(e) => setReleaseAt(e.target.value)}
                 aria-label="Set release time"
-                className="rounded border border-stone px-2 py-1"
+                className="rounded border border-border px-2 py-1"
               />
               <button
                 disabled={run.isPending}
@@ -145,7 +145,7 @@ export default function BulkToolbar({
                   });
                   setReleaseAt("");
                 }}
-                className="rounded border border-stone px-2 py-1 disabled:opacity-40"
+                className="rounded border border-border px-2 py-1 disabled:opacity-40"
               >
                 {releaseAt ? "Schedule" : "Clear schedule"}
               </button>
@@ -153,7 +153,7 @@ export default function BulkToolbar({
             <button
               disabled={preview.isPending || run.isPending}
               onClick={() => preview.mutate()}
-              className="rounded border border-torch px-3 py-1 text-torch"
+              className="rounded border border-danger px-3 py-1 text-danger"
             >
               Delete…
             </button>
@@ -199,7 +199,7 @@ function SkillPicker({
         disabled={disabled}
         aria-label="Skill"
         onChange={(e) => setName(e.target.value)}
-        className="rounded border border-stone px-2 py-1"
+        className="rounded border border-border px-2 py-1"
       >
         <option value="">Skill…</option>
         {(skills.data ?? []).map((skill) => (
@@ -211,14 +211,14 @@ function SkillPicker({
       <button
         disabled={!name || disabled}
         onClick={() => onApply("add_skills", [name])}
-        className="rounded border border-stone px-2 py-1 disabled:opacity-40"
+        className="rounded border border-border px-2 py-1 disabled:opacity-40"
       >
         Add
       </button>
       <button
         disabled={!name || disabled}
         onClick={() => onApply("remove_skills", [name])}
-        className="rounded border border-stone px-2 py-1 disabled:opacity-40"
+        className="rounded border border-border px-2 py-1 disabled:opacity-40"
       >
         Remove
       </button>
@@ -246,7 +246,7 @@ function Picker({
         if (e.target.value) onPick(e.target.value);
         e.target.value = "";
       }}
-      className="rounded border border-stone px-2 py-1"
+      className="rounded border border-border px-2 py-1"
     >
       <option value="">{label}…</option>
       {options.map((option) => (
@@ -277,13 +277,13 @@ function DeleteConfirm({
     <div
       role="dialog"
       aria-label="Confirm delete"
-      className="mt-3 rounded border border-torch bg-parchment p-3 text-sm"
+      className="mt-3 rounded border border-danger bg-surface p-3 text-sm"
     >
       <p className="font-semibold">
         Delete {preview.deletable}{" "}
         {preview.deletable === 1 ? "challenge" : "challenges"}?
       </p>
-      <ul className="mt-2 list-disc pl-5 text-muted">
+      <ul className="mt-2 list-disc pl-5 text-content-muted">
         {preview.zones_emptied.map((zone) => (
           <li key={zone.category_id}>
             This empties <strong>{zone.name}</strong>, so that area will be
@@ -306,13 +306,13 @@ function DeleteConfirm({
         )}
       </ul>
       <div className="mt-3 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded border border-stone px-3 py-1">
+        <button onClick={onCancel} className="rounded border border-border px-3 py-1">
           Cancel
         </button>
         <button
           onClick={onConfirm}
           disabled={pending || preview.deletable === 0}
-          className="rounded bg-torch px-3 py-1 text-parchment disabled:opacity-40"
+          className="rounded bg-danger px-3 py-1 text-accent-content disabled:opacity-40"
         >
           {pending ? "Deleting…" : `Delete ${preview.deletable}`}
         </button>
@@ -329,7 +329,7 @@ function Result({
   onDismiss: () => void;
 }) {
   return (
-    <div role="status" className="mt-3 rounded border border-stone bg-white/60 p-3 text-sm">
+    <div role="status" className="mt-3 rounded border border-border bg-surface-raised p-3 text-sm">
       <div className="flex items-baseline justify-between">
         <span>
           <strong>{result.succeeded}</strong> changed
@@ -338,7 +338,7 @@ function Result({
             <> Areas removed: {result.categories_deleted.join(", ")}.</>
           )}
         </span>
-        <button onClick={onDismiss} className="text-muted underline">
+        <button onClick={onDismiss} className="text-content-muted underline">
           Dismiss
         </button>
       </div>
@@ -347,7 +347,7 @@ function Result({
       {result.results
         .filter((item) => !item.ok)
         .map((item) => (
-          <p key={item.challenge_id} className="mt-1 text-xs text-muted">
+          <p key={item.challenge_id} className="mt-1 text-xs text-content-muted">
             {item.reason}
           </p>
         ))}

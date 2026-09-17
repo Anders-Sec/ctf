@@ -75,7 +75,7 @@ export default function ChallengesPage() {
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Challenges</h1>
-          <p className="mt-1 text-muted">
+          <p className="mt-1 text-content-muted">
             {solved} of {rows.length} cleared
           </p>
         </div>
@@ -92,7 +92,7 @@ export default function ChallengesPage() {
                 onClick={() => chooseView(value)}
                 aria-pressed={view === value}
                 className={`rounded px-3 py-1.5 text-sm ${
-                  view === value ? "bg-ink text-parchment" : "border border-stone"
+                  view === value ? "bg-content text-surface" : "border border-border"
                 }`}
               >
                 {label}
@@ -101,7 +101,7 @@ export default function ChallengesPage() {
           </div>
           <p className="text-2xl font-semibold" aria-label="Your XP">
             {score.data?.total ?? 0}
-            <span className="ml-1 text-sm font-normal text-muted">points</span>
+            <span className="ml-1 text-sm font-normal text-content-muted">points</span>
           </p>
         </div>
       </header>
@@ -150,7 +150,7 @@ function ListView({
         <button
           onClick={() => setCategory(null)}
           className={`rounded px-3 py-1.5 text-sm ${
-            category === null ? "bg-ink text-parchment" : "border border-stone"
+            category === null ? "bg-content text-surface" : "border border-border"
           }`}
         >
           All
@@ -160,7 +160,7 @@ function ListView({
             key={slug}
             onClick={() => setCategory(slug)}
             className={`rounded px-3 py-1.5 text-sm ${
-              category === slug ? "bg-ink text-parchment" : "border border-stone"
+              category === slug ? "bg-content text-surface" : "border border-border"
             }`}
           >
             {name}
@@ -177,14 +177,14 @@ function ListView({
       </div>
 
       {rows.length === 0 && (
-        <p className="mt-8 text-muted">
+        <p className="mt-8 text-content-muted">
           Nothing has been unsealed yet. Check back when the next wave opens.
         </p>
       )}
 
       {grouped.map(([name, items]) => (
         <section key={name} className="mt-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{name}</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">{name}</h2>
           <ul className="mt-3 grid gap-3 sm:grid-cols-2">
             {items.map((challenge) => (
               <ChallengeCard key={challenge.id} challenge={challenge} />
@@ -199,8 +199,8 @@ function ListView({
 function ChallengeCard({ challenge }: { challenge: ChallengeListItem }) {
   const classes = [
     "rounded-lg border p-4 transition",
-    challenge.solved ? "border-ink/40 bg-ink/5" : "border-stone bg-white/60",
-    challenge.locked ? "opacity-70" : "hover:border-ink",
+    challenge.solved ? "border-content/40 bg-content/5" : "border-border bg-surface-raised",
+    challenge.locked ? "opacity-70" : "hover:border-content",
   ].join(" ");
 
   const inner = (
@@ -208,17 +208,17 @@ function ChallengeCard({ challenge }: { challenge: ChallengeListItem }) {
       <div className="flex items-start justify-between gap-3">
         <span className="font-medium">
           {challenge.title}
-          {challenge.solved && <span className="ml-2 text-sm text-muted">✓ solved</span>}
+          {challenge.solved && <span className="ml-2 text-sm text-content-muted">✓ solved</span>}
           {/* A failed daily is not an untouched one (spec 044 §6). */}
           {!challenge.solved && challenge.puzzle_status === "failed" && (
-            <span className="ml-2 text-sm text-muted">✗ missed</span>
+            <span className="ml-2 text-sm text-content-muted">✗ missed</span>
           )}
         </span>
         <span className="shrink-0 font-semibold">{challenge.value}</span>
       </div>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2 text-sm text-content-muted">
         {challenge.puzzle_kind && (
-          <span className="mr-1 rounded bg-stone/40 px-1.5 py-0.5 text-xs uppercase tracking-wide">
+          <span className="mr-1 rounded bg-surface-sunken px-1.5 py-0.5 text-xs uppercase tracking-wide">
             {KIND_LABEL[challenge.puzzle_kind]}
           </span>
         )}
@@ -229,7 +229,7 @@ function ChallengeCard({ challenge }: { challenge: ChallengeListItem }) {
         )}
       </p>
       {challenge.locked && (
-        <p className="mt-2 text-sm text-torch">
+        <p className="mt-2 text-sm text-accent-strong">
           Sealed
           {challenge.release_at && ` until ${new Date(challenge.release_at).toLocaleString()}`}
         </p>

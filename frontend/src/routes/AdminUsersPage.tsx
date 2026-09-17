@@ -45,11 +45,11 @@ export default function AdminUsersPage() {
     <main className="mx-auto max-w-3xl p-6">
       <header className="flex items-baseline justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">Approval queue</h1>
-        <span className="text-muted">{pending.data?.total ?? 0} waiting</span>
+        <span className="text-content-muted">{pending.data?.total ?? 0} waiting</span>
       </header>
 
       {!canApprove && (
-        <p className="mt-4 rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
+        <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
           You have read-only access. Only admins can approve accounts.
         </p>
       )}
@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
       {pending.isPending ? (
         <Spinner />
       ) : users.length === 0 ? (
-        <p className="mt-6 text-muted">Nobody is waiting. The gate is clear.</p>
+        <p className="mt-6 text-content-muted">Nobody is waiting. The gate is clear.</p>
       ) : (
         <>
           {canApprove && (
@@ -67,14 +67,14 @@ export default function AdminUsersPage() {
               <button
                 onClick={() => approve.mutate([...selected])}
                 disabled={selected.size === 0 || approve.isPending}
-                className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+                className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
               >
                 Approve selected ({selected.size})
               </button>
               <button
                 onClick={() => approve.mutate(users.map((user) => user.id))}
                 disabled={approve.isPending}
-                className="rounded border border-ink px-4 py-2 text-sm"
+                className="rounded border border-content px-4 py-2 text-sm"
               >
                 Approve all {users.length}
               </button>
@@ -85,7 +85,7 @@ export default function AdminUsersPage() {
             {users.map((user) => (
               <li
                 key={user.id}
-                className="flex items-center gap-3 rounded-lg border border-stone bg-white/60 p-3"
+                className="flex items-center gap-3 rounded-lg border border-border bg-surface-raised p-3"
               >
                 {canApprove && (
                   <input
@@ -97,9 +97,9 @@ export default function AdminUsersPage() {
                 )}
                 <span className="flex-1">
                   <span className="font-medium">{user.display_name}</span>
-                  <span className="block text-sm text-muted">{user.email}</span>
+                  <span className="block text-sm text-content-muted">{user.email}</span>
                 </span>
-                <span className="text-xs text-muted">
+                <span className="text-xs text-content-muted">
                   signed up {new Date(user.created_at).toLocaleString()}
                 </span>
               </li>

@@ -235,7 +235,7 @@ export default function DungeonMap({
   const points = useMemo(() => new Map(placed.map((z) => [z.id, centre(z)])), [placed]);
 
   if (zones.length === 0) {
-    return <p className="mt-8 text-muted">The dungeon is empty for now.</p>;
+    return <p className="mt-8 text-content-muted">The dungeon is empty for now.</p>;
   }
 
   return (
@@ -834,7 +834,7 @@ function ZoneNode({
 
 function MapControls({ view }: { view: ReturnType<typeof useMapViewport> }) {
   const button =
-    "rounded border border-stone/60 bg-ink/70 px-2.5 py-1 text-sm text-parchment hover:bg-ink";
+    "rounded border border-border/60 bg-content/70 px-2.5 py-1 text-sm text-surface hover:bg-content";
   return (
     <div className="absolute right-3 top-3 z-10 flex gap-1.5" onPointerDown={(e) => e.stopPropagation()}>
       <button type="button" className={button} onClick={() => view.zoomBy(1.2)} aria-label="Zoom in">

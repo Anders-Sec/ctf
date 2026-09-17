@@ -20,7 +20,7 @@ import type { Components } from "react-markdown";
 const COMPONENTS: Components = {
   // The notification block — the persona's one piece of ceremony.
   blockquote: ({ children }) => (
-    <blockquote className="my-1 border-l-2 border-torch/60 pl-2 text-[0.8rem] leading-snug">
+    <blockquote className="my-1 border-l-2 border-accent/60 pl-2 text-[0.8rem] leading-snug">
       {children}
     </blockquote>
   ),
@@ -31,10 +31,10 @@ const COMPONENTS: Components = {
   ol: ({ children }) => <ol className="mb-2 list-decimal pl-4 last:mb-0">{children}</ol>,
   li: ({ children }) => <li className="mb-0.5">{children}</li>,
   code: ({ children }) => (
-    <code className="rounded bg-stone/40 px-1 font-mono text-[0.75rem]">{children}</code>
+    <code className="rounded bg-surface-sunken px-1 font-mono text-[0.75rem]">{children}</code>
   ),
   pre: ({ children }) => (
-    <pre className="mb-2 overflow-x-auto rounded bg-stone/30 p-2 text-[0.75rem] last:mb-0">
+    <pre className="mb-2 overflow-x-auto rounded bg-surface-sunken p-2 text-[0.75rem] last:mb-0">
       {children}
     </pre>
   ),
@@ -45,7 +45,7 @@ const COMPONENTS: Components = {
   h1: ({ children }) => <p className="mb-2 font-semibold last:mb-0">{children}</p>,
   h2: ({ children }) => <p className="mb-2 font-semibold last:mb-0">{children}</p>,
   h3: ({ children }) => <p className="mb-2 font-semibold last:mb-0">{children}</p>,
-  hr: () => <hr className="my-2 border-stone" />,
+  hr: () => <hr className="my-2 border-border" />,
 };
 
 export default function Markdown({ children }: { children: string }) {

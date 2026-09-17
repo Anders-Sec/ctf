@@ -116,7 +116,7 @@ export default function ZoneGatePanel({
     <div
       role="dialog"
       aria-label={`${zone.name} gates`}
-      className="fixed inset-y-0 right-0 z-40 w-full max-w-md overflow-y-auto border-l border-stone bg-parchment p-5 shadow-xl"
+      className="fixed inset-y-0 right-0 z-40 w-full max-w-md overflow-y-auto border-l border-border bg-surface p-5 shadow-xl"
     >
       <div className="flex items-start justify-between gap-3">
         <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold">
@@ -126,7 +126,7 @@ export default function ZoneGatePanel({
           Close
         </button>
       </div>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 text-sm text-content-muted">
         {zone.published_challenges} published{" "}
         {zone.published_challenges === 1 ? "challenge" : "challenges"}
       </p>
@@ -134,23 +134,23 @@ export default function ZoneGatePanel({
       {eventRunning && (
         // Worth saying plainly: this is a pre-event tool, and a gate added now
         // re-seals a zone for players who already had it open.
-        <p className="mt-3 rounded border border-torch/40 bg-torch/10 px-3 py-2 text-sm">
+        <p className="mt-3 rounded border border-accent/40 bg-accent/10 px-3 py-2 text-sm">
           The event is running. Changing gates now re-locks zones for players who
           have already opened them.
         </p>
       )}
 
       {!zone.reachable && (
-        <p className="mt-3 rounded border border-stone bg-white/50 px-3 py-2 text-sm">
+        <p className="mt-3 rounded border border-border bg-surface-raised px-3 py-2 text-sm">
           No path reaches this zone from a starting zone, so nobody can open it.
         </p>
       )}
 
-      <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-muted">
+      <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-content-muted">
         Opens when
       </h3>
       {zone.gates.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-sm text-content-muted">
           Nothing — this zone is open from the start.
         </p>
       ) : (
@@ -158,12 +158,12 @@ export default function ZoneGatePanel({
           {zone.gates.map((gate) => (
             <li
               key={gate.id}
-              className="flex items-start justify-between gap-3 rounded border border-stone bg-white/50 px-3 py-2"
+              className="flex items-start justify-between gap-3 rounded border border-border bg-surface-raised px-3 py-2"
             >
               <span className="text-sm">
                 {gate.description}
                 {gate.source_has_no_challenges && (
-                  <em className="mt-1 block not-italic text-xs text-muted">
+                  <em className="mt-1 block not-italic text-xs text-content-muted">
                     {gate.required_category_name} has nothing published, so this
                     can never be met.
                   </em>
@@ -182,7 +182,7 @@ export default function ZoneGatePanel({
         </ul>
       )}
 
-      <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted">
+      <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-content-muted">
         Add a gate
       </h3>
       <form
@@ -193,14 +193,14 @@ export default function ZoneGatePanel({
         }}
       >
         <label className="block text-sm">
-          <span className="mb-1 block text-muted">Condition</span>
+          <span className="mb-1 block text-content-muted">Condition</span>
           <select
             value={kind}
             onChange={(event) => {
               setKind(event.target.value as RequirementKind);
               setSourceId("");
             }}
-            className="w-full rounded border border-stone bg-white/70 px-2 py-1.5"
+            className="w-full rounded border border-border bg-surface-raised px-2 py-1.5"
             aria-label="Condition"
           >
             {OFFERED.map((option) => (
@@ -213,11 +213,11 @@ export default function ZoneGatePanel({
 
         {needs.source === "zone" && (
           <label className="block text-sm">
-            <span className="mb-1 block text-muted">Source zone</span>
+            <span className="mb-1 block text-content-muted">Source zone</span>
             <select
               value={sourceId}
               onChange={(event) => setSourceId(event.target.value)}
-              className="w-full rounded border border-stone bg-white/70 px-2 py-1.5"
+              className="w-full rounded border border-border bg-surface-raised px-2 py-1.5"
               aria-label="Source zone"
             >
               <option value="">Choose a zone…</option>
@@ -233,11 +233,11 @@ export default function ZoneGatePanel({
 
         {needs.source === "skill" && (
           <label className="block text-sm">
-            <span className="mb-1 block text-muted">Skill</span>
+            <span className="mb-1 block text-content-muted">Skill</span>
             <select
               value={sourceId}
               onChange={(event) => setSourceId(event.target.value)}
-              className="w-full rounded border border-stone bg-white/70 px-2 py-1.5"
+              className="w-full rounded border border-border bg-surface-raised px-2 py-1.5"
               aria-label="Skill"
             >
               <option value="">Choose a skill…</option>
@@ -252,13 +252,13 @@ export default function ZoneGatePanel({
 
         {needs.threshold && (
           <label className="block text-sm">
-            <span className="mb-1 block text-muted">{needs.threshold}</span>
+            <span className="mb-1 block text-content-muted">{needs.threshold}</span>
             <input
               type="number"
               min={1}
               value={threshold}
               onChange={(event) => setThreshold(event.target.value)}
-              className="w-full rounded border border-stone bg-white/70 px-2 py-1.5"
+              className="w-full rounded border border-border bg-surface-raised px-2 py-1.5"
               aria-label={needs.threshold}
             />
           </label>
@@ -268,7 +268,7 @@ export default function ZoneGatePanel({
             ours: it names the loop, and "invalid requirement" would leave an
             admin hunting through 22 zones for it. */}
         {add.error instanceof ApiError && add.error.code === "requirement_cycle" ? (
-          <p role="alert" className="rounded border border-torch bg-torch/15 px-3 py-2 text-sm">
+          <p role="alert" className="rounded border border-danger bg-danger/15 px-3 py-2 text-sm">
             {add.error.message}
           </p>
         ) : (
@@ -278,7 +278,7 @@ export default function ZoneGatePanel({
         <button
           type="submit"
           disabled={add.isPending || Boolean(incomplete)}
-          className="rounded border border-stone px-4 py-2 text-sm disabled:opacity-50"
+          className="rounded border border-border px-4 py-2 text-sm disabled:opacity-50"
         >
           {add.isPending ? "Adding…" : "Add gate"}
         </button>

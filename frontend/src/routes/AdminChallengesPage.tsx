@@ -113,14 +113,14 @@ export default function AdminChallengesPage() {
     <main className="mx-auto max-w-[1600px] p-6">
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-3xl font-semibold tracking-tight">Challenges</h1>
-        <span className="text-muted">
+        <span className="text-content-muted">
           {rows.length}
           {hasFilters(filters) ? " matching" : " total"}
         </span>
       </header>
 
       {!canWrite && (
-        <p className="mt-4 rounded border border-stone bg-white/40 px-3 py-2 text-sm text-muted">
+        <p className="mt-4 rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
           You have read-only access. Only admins can change challenges.
         </p>
       )}
@@ -237,13 +237,13 @@ function FilterBar({
         onChange={(e) => set("search", e.target.value)}
         placeholder="Search title or description…"
         aria-label="Search challenges"
-        className="w-64 rounded border border-stone px-3 py-2"
+        className="w-64 rounded border border-border px-3 py-2"
       />
       <select
         value={filters.category_id ?? ""}
         aria-label="Area"
         onChange={(e) => set("category_id", e.target.value)}
-        className="rounded border border-stone px-2 py-2"
+        className="rounded border border-border px-2 py-2"
       >
         <option value="">All areas</option>
         {zones.map((zone) => (
@@ -256,7 +256,7 @@ function FilterBar({
         value={filters.state ?? ""}
         aria-label="State"
         onChange={(e) => set("state", e.target.value as ChallengeState)}
-        className="rounded border border-stone px-2 py-2"
+        className="rounded border border-border px-2 py-2"
       >
         <option value="">Any state</option>
         {STATES.map((state) => (
@@ -269,7 +269,7 @@ function FilterBar({
         value={filters.difficulty ?? ""}
         aria-label="Difficulty"
         onChange={(e) => set("difficulty", e.target.value as Difficulty)}
-        className="rounded border border-stone px-2 py-2"
+        className="rounded border border-border px-2 py-2"
       >
         <option value="">Any difficulty</option>
         {DIFFICULTIES.map((difficulty) => (
@@ -287,7 +287,7 @@ function FilterBar({
             e.target.value === "" ? undefined : e.target.value === "true",
           )
         }
-        className="rounded border border-stone px-2 py-2"
+        className="rounded border border-border px-2 py-2"
       >
         <option value="">Bosses and not</option>
         <option value="true">Bosses only</option>
@@ -297,7 +297,7 @@ function FilterBar({
         value={filters.problem ?? ""}
         aria-label="Problems"
         onChange={(e) => set("problem", e.target.value as Problem)}
-        className="rounded border border-stone px-2 py-2"
+        className="rounded border border-border px-2 py-2"
       >
         <option value="">Anything</option>
         {PROBLEMS.map((problem) => (
@@ -307,7 +307,7 @@ function FilterBar({
         ))}
       </select>
       {hasFilters(filters) && (
-        <button onClick={() => onChange({})} className="text-muted underline">
+        <button onClick={() => onChange({})} className="text-content-muted underline">
           Clear filters
         </button>
       )}
@@ -346,24 +346,24 @@ function ChallengeDrawer({
   return (
     <>
       <div
-        className="fixed inset-0 z-20 bg-ink/20"
+        className="fixed inset-0 z-20 bg-content/20"
         onClick={close}
         aria-hidden
       />
       <aside
         role="dialog"
         aria-label="Edit challenge"
-        className="fixed inset-y-0 right-0 z-30 w-full max-w-xl overflow-y-auto border-l border-stone bg-parchment shadow-2xl"
+        className="fixed inset-y-0 right-0 z-30 w-full max-w-xl overflow-y-auto border-l border-border bg-surface shadow-2xl"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone bg-parchment px-4 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-4 py-3">
           <h2 className="font-semibold">
             Edit challenge
-            {dirty && <span className="ml-2 text-xs text-torch">unsaved</span>}
+            {dirty && <span className="ml-2 text-xs text-warning">unsaved</span>}
           </h2>
           <button
             onClick={close}
             aria-label="Close editor"
-            className="rounded border border-stone px-2 py-1 text-sm"
+            className="rounded border border-border px-2 py-1 text-sm"
           >
             Close
           </button>
@@ -391,7 +391,7 @@ function Collapsible({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <section className="mt-3 rounded border border-stone bg-white/40">
+    <section className="mt-3 rounded border border-border bg-surface-raised">
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
@@ -400,10 +400,10 @@ function Collapsible({
         <span aria-hidden>{open ? "▾" : "▸"}</span>
         {title}
         {count !== undefined && (
-          <span className="text-xs font-normal text-muted">({count})</span>
+          <span className="text-xs font-normal text-content-muted">({count})</span>
         )}
       </button>
-      {open && <div className="border-t border-stone/60 p-3">{children}</div>}
+      {open && <div className="border-t border-border/60 p-3">{children}</div>}
     </section>
   );
 }
@@ -442,7 +442,7 @@ function CreateChallengeForm() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-4 rounded bg-ink px-4 py-2 text-sm text-parchment"
+        className="mt-4 rounded bg-content px-4 py-2 text-sm text-surface"
       >
         New challenge
       </button>
@@ -451,7 +451,7 @@ function CreateChallengeForm() {
 
   return (
     <form
-      className="mt-4 rounded-lg border border-stone bg-white/60 p-5"
+      className="mt-4 rounded-lg border border-border bg-surface-raised p-5"
       onSubmit={(event) => {
         event.preventDefault();
         create.mutate();
@@ -474,7 +474,7 @@ function CreateChallengeForm() {
                   .replace(/^-|-$/g, ""),
               );
             }}
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           />
         </label>
         <label className="text-sm">
@@ -484,7 +484,7 @@ function CreateChallengeForm() {
             pattern="[a-z0-9-]+"
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
-            className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+            className="mt-1 w-full rounded border border-border px-3 py-2 font-mono"
           />
         </label>
         <label className="text-sm sm:col-span-2">
@@ -495,7 +495,7 @@ function CreateChallengeForm() {
             value={category}
             onChange={(event) => setCategory(event.target.value)}
             placeholder="Type a category — an existing one is reused, a new one is created"
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           />
           <datalist id="category-options">
             {(categories.data ?? []).map((c) => (
@@ -505,7 +505,7 @@ function CreateChallengeForm() {
         </label>
       </div>
 
-      <p className="mt-3 text-xs text-muted">
+      <p className="mt-3 text-xs text-content-muted">
         Created as a draft. Nothing goes live until you publish it.
       </p>
 
@@ -513,7 +513,7 @@ function CreateChallengeForm() {
         <button
           type="submit"
           disabled={create.isPending}
-          className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+          className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
         >
           Create
         </button>
@@ -570,7 +570,7 @@ function ChallengeEditor({
       <div className="flex items-baseline justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">{challenge.title}</h3>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-content-muted">
             {challenge.category.name} · {challenge.current_value} XP now ·{" "}
             {challenge.solve_count} solves
           </p>
@@ -580,7 +580,7 @@ function ChallengeEditor({
 
       {canWrite && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted">State:</span>
+          <span className="text-sm text-content-muted">State:</span>
           {STATES.map((state) => (
             <button
               key={state}
@@ -588,8 +588,8 @@ function ChallengeEditor({
               disabled={changeState.isPending || challenge.state === state}
               className={`rounded px-3 py-1 text-sm ${
                 challenge.state === state
-                  ? "bg-ink text-parchment"
-                  : "border border-stone"
+                  ? "bg-content text-surface"
+                  : "border border-border"
               }`}
             >
               {state}
@@ -677,7 +677,7 @@ function DeleteButton({
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="shrink-0 rounded border border-torch px-3 py-1 text-sm text-torch hover:bg-torch/10"
+        className="shrink-0 rounded border border-danger px-3 py-1 text-sm text-danger hover:bg-danger/10"
       >
         Delete
       </button>
@@ -685,25 +685,25 @@ function DeleteButton({
   }
 
   return (
-    <div className="shrink-0 rounded border border-torch bg-parchment p-3 text-sm">
+    <div className="shrink-0 rounded border border-danger bg-surface p-3 text-sm">
       <p>
         Delete <strong>{challenge.title}</strong>, with its flags and hints?
       </p>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-xs text-content-muted">
         If it is the last challenge in {challenge.category.name}, that area goes
         too.
       </p>
       <div className="mt-2 flex justify-end gap-2">
         <button
           onClick={() => setConfirming(false)}
-          className="rounded border border-stone px-3 py-1"
+          className="rounded border border-border px-3 py-1"
         >
           Cancel
         </button>
         <button
           onClick={() => remove.mutate()}
           disabled={remove.isPending}
-          className="rounded bg-torch px-3 py-1 text-parchment disabled:opacity-50"
+          className="rounded bg-danger px-3 py-1 text-accent-content disabled:opacity-50"
         >
           {remove.isPending ? "Deleting…" : "Delete"}
         </button>
@@ -762,10 +762,10 @@ function AnswerRules({
 
   return (
     <section className="mt-5">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
         Accepted answers ({challenge.answers.length})
       </h3>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-xs text-content-muted">
         A submission is correct if any one of these matches.
       </p>
 
@@ -773,19 +773,19 @@ function AnswerRules({
         {challenge.answers.map((answer) => (
           <li
             key={answer.id}
-            className="flex items-center gap-3 rounded border border-stone bg-parchment px-3 py-2"
+            className="flex items-center gap-3 rounded border border-border bg-surface px-3 py-2"
           >
-            <span className="rounded bg-stone px-2 py-0.5 text-xs">
+            <span className="rounded bg-surface-sunken px-2 py-0.5 text-xs">
               {answer.match_type}
             </span>
             <code className="flex-1 truncate text-sm">{answer.value}</code>
             {answer.label && (
-              <span className="text-xs text-muted">{answer.label}</span>
+              <span className="text-xs text-content-muted">{answer.label}</span>
             )}
             {canWrite && (
               <button
                 onClick={() => remove.mutate(answer.id)}
-                className="text-xs text-torch underline"
+                className="text-xs text-danger underline"
               >
                 Remove
               </button>
@@ -793,7 +793,7 @@ function AnswerRules({
           </li>
         ))}
         {challenge.answers.length === 0 && (
-          <li className="text-sm text-torch">
+          <li className="text-sm text-danger">
             No answers yet — nobody can solve this challenge.
           </li>
         )}
@@ -813,7 +813,7 @@ function AnswerRules({
               onChange={(event) =>
                 setMatchType(event.target.value as MatchType)
               }
-              className="rounded border border-stone px-3 py-2 text-sm"
+              className="rounded border border-border px-3 py-2 text-sm"
               aria-label="Match type"
             >
               {MATCH_TYPES.map((type) => (
@@ -828,12 +828,12 @@ function AnswerRules({
               onChange={(event) => setValue(event.target.value)}
               placeholder={hint}
               aria-label="Answer value"
-              className="rounded border border-stone px-3 py-2 font-mono text-sm"
+              className="rounded border border-border px-3 py-2 font-mono text-sm"
             />
             <button
               type="submit"
               disabled={add.isPending}
-              className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+              className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
             >
               Add
             </button>
@@ -842,14 +842,14 @@ function AnswerRules({
               onChange={(event) => setLabel(event.target.value)}
               placeholder="Note (optional) — e.g. accepts the British spelling"
               aria-label="Answer note"
-              className="rounded border border-stone px-3 py-2 text-sm sm:col-span-3"
+              className="rounded border border-border px-3 py-2 text-sm sm:col-span-3"
             />
           </form>
           <ErrorMessage error={add.error ?? remove.error} />
 
-          <div className="mt-4 rounded border border-dashed border-stone p-3">
+          <div className="mt-4 rounded border border-dashed border-border p-3">
             <h4 className="text-sm font-medium">Try an answer</h4>
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-1 text-xs text-content-muted">
               Checks against the rules above without recording anything. Test a
               pattern here rather than discovering it mid-event.
             </p>
@@ -864,13 +864,13 @@ function AnswerRules({
                 value={candidate}
                 onChange={(event) => setCandidate(event.target.value)}
                 aria-label="Candidate answer"
-                className="flex-1 rounded border border-stone px-3 py-2 font-mono text-sm"
+                className="flex-1 rounded border border-border px-3 py-2 font-mono text-sm"
                 placeholder="What would a player type?"
               />
               <button
                 type="submit"
                 disabled={test.isPending || candidate === ""}
-                className="rounded border border-ink px-4 py-2 text-sm disabled:opacity-50"
+                className="rounded border border-content px-4 py-2 text-sm disabled:opacity-50"
               >
                 Test
               </button>
@@ -886,10 +886,10 @@ function AnswerRules({
                     .
                   </span>
                 ) : (
-                  <span className="text-torch">No rule matches that.</span>
+                  <span className="text-danger">No rule matches that.</span>
                 )}
                 {test.data.errors.length > 0 && (
-                  <span className="mt-1 block text-xs text-torch">
+                  <span className="mt-1 block text-xs text-danger">
                     Rule problems: {test.data.errors.join("; ")}
                   </span>
                 )}
@@ -972,13 +972,13 @@ function ChallengeSettingsForm({
 
   return (
     <form
-      className="mt-4 rounded border border-stone bg-white/40 p-4"
+      className="mt-4 rounded border border-border bg-surface-raised p-4"
       onSubmit={(e) => {
         e.preventDefault();
         save.mutate();
       }}
     >
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
         Settings
       </h3>
 
@@ -989,7 +989,7 @@ function ChallengeSettingsForm({
           onChange={(e) => set("body", e.target.value)}
           rows={4}
           placeholder="What should the player do?"
-          className="mt-1 w-full rounded border border-stone px-3 py-2"
+          className="mt-1 w-full rounded border border-border px-3 py-2"
         />
       </label>
 
@@ -999,7 +999,7 @@ function ChallengeSettingsForm({
           <select
             value={form.difficulty}
             onChange={(e) => set("difficulty", e.target.value as Difficulty)}
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           >
             {DIFFICULTIES.map((d) => (
               <option key={d} value={d}>
@@ -1015,7 +1015,7 @@ function ChallengeSettingsForm({
             onChange={(e) =>
               set("boss_tier", (e.target.value || null) as BossTier | null)
             }
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           >
             {/* One boss per zone; the server refuses a second and names the
                 challenge already holding the slot. */}
@@ -1034,7 +1034,7 @@ function ChallengeSettingsForm({
             onChange={(e) =>
               set("scoring", e.target.value as "dynamic" | "static")
             }
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           >
             <option value="dynamic">Dynamic (decays)</option>
             <option value="static">Static (fixed)</option>
@@ -1053,7 +1053,7 @@ function ChallengeSettingsForm({
               )
             }
             placeholder="unlimited"
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           />
         </label>
         {/* Typed, not derived (spec 040). Changing difficulty above leaves this
@@ -1071,7 +1071,7 @@ function ChallengeSettingsForm({
               )
             }
             placeholder={String(DIFFICULTY_XP[form.difficulty ?? challenge.difficulty])}
-            className="mt-1 w-full rounded border border-stone px-3 py-2"
+            className="mt-1 w-full rounded border border-border px-3 py-2"
           />
         </label>
         {form.scoring === "dynamic" && (
@@ -1088,7 +1088,7 @@ function ChallengeSettingsForm({
                 )
               }
               placeholder="40% of XP"
-              className="mt-1 w-full rounded border border-stone px-3 py-2"
+              className="mt-1 w-full rounded border border-border px-3 py-2"
             />
           </label>
         )}
@@ -1101,7 +1101,7 @@ function ChallengeSettingsForm({
                 onChange={(e) =>
                   set("decay_basis", e.target.value as "players" | "teams")
                 }
-                className="mt-1 w-full rounded border border-stone px-3 py-2"
+                className="mt-1 w-full rounded border border-border px-3 py-2"
               >
                 <option value="players">Players</option>
                 <option value="teams">Teams</option>
@@ -1114,7 +1114,7 @@ function ChallengeSettingsForm({
                 min={2}
                 value={form.decay_threshold ?? 40}
                 onChange={(e) => set("decay_threshold", Number(e.target.value))}
-                className="mt-1 w-full rounded border border-stone px-3 py-2"
+                className="mt-1 w-full rounded border border-border px-3 py-2"
               />
             </label>
           </>
@@ -1125,18 +1125,18 @@ function ChallengeSettingsForm({
         <button
           type="submit"
           disabled={save.isPending || !dirty}
-          className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+          className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
         >
           Save settings
         </button>
-        {dirty && <span className="text-sm text-torch">Unsaved changes</span>}
+        {dirty && <span className="text-sm text-warning">Unsaved changes</span>}
         {!dirty && save.isSuccess && (
-          <span className="text-sm text-muted">Saved.</span>
+          <span className="text-sm text-content-muted">Saved.</span>
         )}
       </div>
       <ErrorMessage error={save.error} />
 
-      <div className="mt-5 border-t border-stone pt-4">
+      <div className="mt-5 border-t border-border pt-4">
         <ChallengeSkills challenge={challenge} />
       </div>
     </form>
@@ -1222,8 +1222,8 @@ function HintList({
   });
 
   return (
-    <section className="mt-4 rounded border border-stone bg-white/40 p-4">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+    <section className="mt-4 rounded border border-border bg-surface-raised p-4">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
         Hints
       </h3>
       <ul className="mt-2 space-y-2">
@@ -1234,9 +1234,9 @@ function HintList({
           >
             <span className="flex-1">
               <span className="font-medium">{hint.title}</span>
-              <span className="block text-muted">{hint.body}</span>
+              <span className="block text-content-muted">{hint.body}</span>
             </span>
-            <label className="text-xs text-muted">
+            <label className="text-xs text-content-muted">
               cost
               <input
                 type="number"
@@ -1247,19 +1247,19 @@ function HintList({
                   if (next !== hint.cost)
                     setCostFor.mutate({ id: hint.id, next });
                 }}
-                className="ml-1 w-20 rounded border border-stone px-2 py-1"
+                className="ml-1 w-20 rounded border border-border px-2 py-1"
               />
             </label>
             <button
               onClick={() => remove.mutate(hint.id)}
-              className="text-xs text-torch underline"
+              className="text-xs text-danger underline"
             >
               Delete
             </button>
           </li>
         ))}
         {(hints.data ?? []).length === 0 && (
-          <li className="text-sm text-muted">No hints yet.</li>
+          <li className="text-sm text-content-muted">No hints yet.</li>
         )}
       </ul>
 
@@ -1275,26 +1275,26 @@ function HintList({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Hint title"
-          className="rounded border border-stone px-2 py-1 text-sm"
+          className="rounded border border-border px-2 py-1 text-sm"
         />
         <input
           required
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="Hint text (withheld until unlocked)"
-          className="rounded border border-stone px-2 py-1 text-sm"
+          className="rounded border border-border px-2 py-1 text-sm"
         />
         <input
           type="number"
           min={0}
           value={cost}
           onChange={(e) => setCost(Number(e.target.value))}
-          className="w-24 rounded border border-stone px-2 py-1 text-sm"
+          className="w-24 rounded border border-border px-2 py-1 text-sm"
         />
         <button
           type="submit"
           disabled={add.isPending}
-          className="rounded bg-ink px-3 py-1 text-sm text-parchment disabled:opacity-50"
+          className="rounded bg-content px-3 py-1 text-sm text-surface disabled:opacity-50"
         >
           Add hint
         </button>
@@ -1322,8 +1322,8 @@ function ContainerAssignment({
   });
 
   return (
-    <section className="mt-4 rounded border border-stone bg-white/40 p-4">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+    <section className="mt-4 rounded border border-border bg-surface-raised p-4">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
         Live container
       </h3>
       <label className="mt-2 block text-sm">
@@ -1333,7 +1333,7 @@ function ContainerAssignment({
           onChange={(e) =>
             assign.mutate(e.target.value === "" ? null : e.target.value)
           }
-          className="mt-1 w-full rounded border border-stone px-3 py-2"
+          className="mt-1 w-full rounded border border-border px-3 py-2"
         >
           <option value="">None (static challenge)</option>
           {(templates.data ?? []).map((t) => (
@@ -1343,7 +1343,7 @@ function ContainerAssignment({
           ))}
         </select>
       </label>
-      <p className="mt-2 text-xs text-muted">
+      <p className="mt-2 text-xs text-content-muted">
         Manage templates on the Containers page. Assigning one lets players spin
         up their own instance once the challenge is published.
       </p>
@@ -1384,11 +1384,11 @@ function Prerequisites({
   );
 
   return (
-    <section className="mt-4 rounded border border-stone bg-white/40 p-4">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+    <section className="mt-4 rounded border border-border bg-surface-raised p-4">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
         Unlock requirements
       </h3>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-xs text-content-muted">
         Players must solve all of these before this challenge unlocks for them.
       </p>
       <ul className="mt-2 space-y-1">
@@ -1397,14 +1397,14 @@ function Prerequisites({
             <span className="flex-1">{p.title}</span>
             <button
               onClick={() => remove.mutate(p.challenge_id)}
-              className="text-xs text-torch underline"
+              className="text-xs text-danger underline"
             >
               Remove
             </button>
           </li>
         ))}
         {challenge.prerequisites.length === 0 && (
-          <li className="text-sm text-muted">
+          <li className="text-sm text-content-muted">
             No prerequisites — unlocked for everyone.
           </li>
         )}
@@ -1419,7 +1419,7 @@ function Prerequisites({
         <select
           value={pick}
           onChange={(e) => setPick(e.target.value)}
-          className="flex-1 rounded border border-stone px-3 py-2 text-sm"
+          className="flex-1 rounded border border-border px-3 py-2 text-sm"
         >
           <option value="">Require a challenge…</option>
           {options.map((c) => (
@@ -1431,7 +1431,7 @@ function Prerequisites({
         <button
           type="submit"
           disabled={!pick || add.isPending}
-          className="rounded bg-ink px-3 py-1 text-sm text-parchment disabled:opacity-50"
+          className="rounded bg-content px-3 py-1 text-sm text-surface disabled:opacity-50"
         >
           Add
         </button>

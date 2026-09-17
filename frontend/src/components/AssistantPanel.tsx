@@ -103,9 +103,9 @@ export default function AssistantPanel() {
       {open && (
         <section
           aria-label="System AI"
-          className="mb-2 flex h-[28rem] w-[22rem] flex-col rounded-lg border border-stone bg-parchment shadow-lg"
+          className="mb-2 flex h-[28rem] w-[22rem] flex-col rounded-lg border border-border bg-surface shadow-lg"
         >
-          <header className="flex items-center gap-2 border-b border-stone px-3 py-2">
+          <header className="flex items-center gap-2 border-b border-border px-3 py-2">
             <h2 className="text-sm font-semibold">System AI</h2>
             {maxLevel > 0 ? (
               <>
@@ -118,7 +118,7 @@ export default function AssistantPanel() {
                   disabled={chooseLevel.isPending}
                   onChange={(event) => chooseLevel.mutate(Number(event.target.value))}
                   title="Which defences you face. Changing this clears the conversation."
-                  className="rounded border border-stone bg-white/60 px-1 py-0.5 text-xs"
+                  className="rounded border border-border bg-surface-raised px-1 py-0.5 text-xs"
                 >
                   {Array.from({ length: maxLevel + 1 }, (_, value) => (
                     <option key={value} value={value}>
@@ -128,13 +128,13 @@ export default function AssistantPanel() {
                 </select>
               </>
             ) : (
-              <span className="text-xs text-muted">
+              <span className="text-xs text-content-muted">
                 {challengeId ? "watching this challenge" : "watching"}
               </span>
             )}
             <button
               onClick={() => reset.mutate()}
-              className="ml-auto text-xs text-muted hover:underline"
+              className="ml-auto text-xs text-content-muted hover:underline"
             >
               New conversation
             </button>
@@ -145,22 +145,22 @@ export default function AssistantPanel() {
           ) : (
           <>
           <div ref={transcriptRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
-            {conversation.isPending && <p className="text-sm text-muted">Booting…</p>}
+            {conversation.isPending && <p className="text-sm text-content-muted">Booting…</p>}
             {justLevelled && messages.length === 0 && (
-              <p role="status" className="rounded border border-torch/40 bg-torch/10 px-3 py-2 text-sm">
+              <p role="status" className="rounded border border-accent/40 bg-accent/10 px-3 py-2 text-sm">
                 You levelled up. The System AI has been reset — it is running level{" "}
                 {level} defences now, and remembers nothing you said to the last one.
               </p>
             )}
             {!conversation.isPending && !justLevelled && messages.length === 0 && (
-              <p className="text-sm text-muted">
+              <p className="text-sm text-content-muted">
                 Ask for a nudge. The System AI built these challenges and won't hand you the
                 answer — but it might point you somewhere if you show your work.
               </p>
             )}
             {messages.map((message) =>
               message.role === "user" ? (
-                <p key={message.id} className="ml-6 rounded bg-stone/40 px-3 py-2 text-sm">
+                <p key={message.id} className="ml-6 rounded bg-surface-sunken px-3 py-2 text-sm">
                   {message.content}
                 </p>
               ) : (
@@ -168,8 +168,8 @@ export default function AssistantPanel() {
                   key={message.id}
                   className={
                     message.error
-                      ? "mr-6 rounded border border-torch/40 bg-torch/10 px-3 py-2 text-sm"
-                      : "mr-6 rounded bg-white/60 px-3 py-2 text-sm"
+                      ? "mr-6 rounded border border-accent/40 bg-accent/10 px-3 py-2 text-sm"
+                      : "mr-6 rounded bg-surface-raised px-3 py-2 text-sm"
                   }
                 >
                   <Markdown>{message.content}</Markdown>
@@ -177,24 +177,24 @@ export default function AssistantPanel() {
               ),
             )}
             {send.isPending && (
-              <p className="mr-6 px-3 text-sm text-muted" role="status">
+              <p className="mr-6 px-3 text-sm text-content-muted" role="status">
                 Thinking…
               </p>
             )}
             {rateLimited && (
-              <p role="alert" className="text-sm text-muted">
+              <p role="alert" className="text-sm text-content-muted">
                 Slow down — one at a time.
               </p>
             )}
             {unavailable && (
-              <p role="alert" className="text-sm text-muted">
+              <p role="alert" className="text-sm text-content-muted">
                 The System AI is offline right now.
               </p>
             )}
           </div>
 
           <form
-            className="flex gap-2 border-t border-stone p-2"
+            className="flex gap-2 border-t border-border p-2"
             onSubmit={(event) => {
               event.preventDefault();
               const content = draft.trim();
@@ -210,12 +210,12 @@ export default function AssistantPanel() {
               onChange={(event) => setDraft(event.target.value)}
               maxLength={2000}
               placeholder="Ask for a nudge…"
-              className="flex-1 rounded border border-stone bg-white/60 px-2 py-1 text-sm"
+              className="flex-1 rounded border border-border bg-surface-raised px-2 py-1 text-sm"
             />
             <button
               type="submit"
               disabled={send.isPending || draft.trim().length === 0}
-              className="rounded bg-torch px-3 py-1 text-sm text-parchment disabled:opacity-50"
+              className="rounded bg-accent px-3 py-1 text-sm text-accent-content disabled:opacity-50"
             >
               Ask
             </button>
@@ -226,7 +226,7 @@ export default function AssistantPanel() {
             Spec 035 — the transcript is readable by staff, and saying so once at
             the start is not the same as saying so where they are typing.
           */}
-          <p className="border-t border-stone px-3 py-1.5 text-[0.7rem] text-muted">
+          <p className="border-t border-border px-3 py-1.5 text-[0.7rem] text-content-muted">
             Visible to event staff. Not a private chat.
           </p>
           </>
@@ -237,7 +237,7 @@ export default function AssistantPanel() {
       <button
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
-        className="rounded-full border border-stone bg-white/80 px-4 py-2 text-sm shadow"
+        className="rounded-full border border-border bg-surface-overlay px-4 py-2 text-sm shadow"
       >
         {open ? "Close" : "Ask the System AI"}
       </button>

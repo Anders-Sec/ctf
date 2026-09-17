@@ -81,7 +81,7 @@ export default function PuzzleEditor({
 
   if (challenge.answers.length > 0 && !existing) {
     return (
-      <p className="text-sm text-muted">
+      <p className="text-sm text-content-muted">
         This challenge has {challenge.answers.length}{" "}
         {challenge.answers.length === 1 ? "flag" : "flags"}. A puzzle is played rather than
         answered — remove the flags first.
@@ -98,7 +98,7 @@ export default function PuzzleEditor({
         id="puzzle-kind"
         value={kind}
         onChange={(event) => chooseKind(event.target.value as PuzzleKind | "")}
-        className="mt-1 rounded border border-stone px-3 py-2"
+        className="mt-1 rounded border border-border px-3 py-2"
       >
         <option value="">None — an ordinary challenge</option>
         {KINDS.map((option) => (
@@ -109,10 +109,10 @@ export default function PuzzleEditor({
       </select>
 
       {existing && (
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-sm text-content-muted">
           {existing.sessions} played · {existing.solved} solved · {existing.failed} lost
           {existing.sessions > 4 && existing.solved === 0 && (
-            <strong className="ml-1 text-torch">
+            <strong className="ml-1 text-warning">
               Nobody has finished this one.
             </strong>
           )}
@@ -130,7 +130,7 @@ export default function PuzzleEditor({
       )}
 
       {badField && (
-        <p className="mt-3 text-sm text-torch">
+        <p className="mt-3 text-sm text-danger">
           Problem in <code>{badField}</code>.
         </p>
       )}
@@ -138,7 +138,7 @@ export default function PuzzleEditor({
       <ErrorMessage error={clear.error} />
 
       {notes.length > 0 && (
-        <ul className="mt-3 space-y-1 text-sm text-muted">
+        <ul className="mt-3 space-y-1 text-sm text-content-muted">
           {notes.map((note) => (
             <li key={note}>{note}</li>
           ))}
@@ -151,7 +151,7 @@ export default function PuzzleEditor({
             type="button"
             onClick={() => save.mutate()}
             disabled={save.isPending}
-            className="rounded bg-ink px-4 py-2 text-sm font-medium text-parchment disabled:opacity-50"
+            className="rounded bg-content px-4 py-2 text-sm font-medium text-surface disabled:opacity-50"
           >
             {save.isPending ? "Checking…" : "Save puzzle"}
           </button>
@@ -169,7 +169,7 @@ export default function PuzzleEditor({
                 clear.mutate();
               }
             }}
-            className="rounded border border-torch px-4 py-2 text-sm text-torch"
+            className="rounded border border-danger px-4 py-2 text-sm text-danger"
           >
             Remove puzzle
           </button>
@@ -204,7 +204,7 @@ function WordleFields({
           value={config.answer ?? ""}
           onChange={(event) => set({ answer: event.target.value.toUpperCase() })}
           maxLength={5}
-          className="mt-1 w-40 rounded border border-stone px-3 py-2 font-mono uppercase"
+          className="mt-1 w-40 rounded border border-border px-3 py-2 font-mono uppercase"
         />
       </div>
       <div>
@@ -218,14 +218,14 @@ function WordleFields({
           max={12}
           value={config.max_guesses ?? 6}
           onChange={(event) => set({ max_guesses: Number(event.target.value) })}
-          className="mt-1 w-24 rounded border border-stone px-3 py-2"
+          className="mt-1 w-24 rounded border border-border px-3 py-2"
         />
       </div>
       <div>
         <label className="block text-sm font-medium" htmlFor="wordle-extra">
           Extra accepted guesses
         </label>
-        <p className="text-xs text-muted">
+        <p className="text-xs text-content-muted">
           Security terms the shipped word list has never heard of. Comma separated; five letters
           each. The answer itself is always accepted.
         </p>
@@ -240,7 +240,7 @@ function WordleFields({
                 .filter(Boolean),
             })
           }
-          className="mt-1 w-full rounded border border-stone px-3 py-2 font-mono"
+          className="mt-1 w-full rounded border border-border px-3 py-2 font-mono"
         />
       </div>
       <label className="flex items-center gap-2 text-sm">
@@ -273,12 +273,12 @@ function ConnectionsFields({
 
   return (
     <div className="mt-4 space-y-4">
-      <p className="text-xs text-muted">
+      <p className="text-xs text-content-muted">
         Four groups of four. Level 1 is the gentlest and 4 the trap — that is the order they are
         revealed in. All sixteen tiles must be different.
       </p>
       {groups.map((group, index) => (
-        <div key={group.level} className="rounded border border-stone p-3">
+        <div key={group.level} className="rounded border border-border p-3">
           <label className="block text-sm font-medium" htmlFor={`group-${index}`}>
             Level {group.level} — what connects them
           </label>
@@ -286,7 +286,7 @@ function ConnectionsFields({
             id={`group-${index}`}
             value={group.name}
             onChange={(event) => update(index, { name: event.target.value })}
-            className="mt-1 w-full rounded border border-stone px-3 py-1.5"
+            className="mt-1 w-full rounded border border-border px-3 py-1.5"
           />
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[0, 1, 2, 3].map((slot) => (
@@ -300,7 +300,7 @@ function ConnectionsFields({
                   );
                   update(index, { members });
                 }}
-                className="rounded border border-stone px-2 py-1.5 text-sm"
+                className="rounded border border-border px-2 py-1.5 text-sm"
               />
             ))}
           </div>
@@ -322,7 +322,7 @@ function ConnectionsFields({
               max_mistakes: Number(event.target.value),
             } as unknown as Record<string, unknown>)
           }
-          className="mt-1 w-24 rounded border border-stone px-3 py-2"
+          className="mt-1 w-24 rounded border border-border px-3 py-2"
         />
       </div>
     </div>
@@ -373,7 +373,7 @@ function CrosswordFields({
               max={7}
               value={config[dimension] ?? 5}
               onChange={(event) => set({ [dimension]: Number(event.target.value) })}
-              className="mt-1 w-20 rounded border border-stone px-3 py-2"
+              className="mt-1 w-20 rounded border border-border px-3 py-2"
             />
           </div>
         ))}
@@ -388,14 +388,14 @@ function CrosswordFields({
             max={10}
             value={config.max_checks ?? 3}
             onChange={(event) => set({ max_checks: Number(event.target.value) })}
-            className="mt-1 w-20 rounded border border-stone px-3 py-2"
+            className="mt-1 w-20 rounded border border-border px-3 py-2"
           />
         </div>
       </div>
 
       <div>
         <p className="text-sm font-medium">Grid</p>
-        <p className="text-xs text-muted">Click a cell to make it a block.</p>
+        <p className="text-xs text-content-muted">Click a cell to make it a block.</p>
         <div
           className="mt-2 grid gap-0.5"
           style={{ gridTemplateColumns: `repeat(${width}, 2rem)` }}
@@ -410,8 +410,8 @@ function CrosswordFields({
                 }`}
                 aria-pressed={isBlock(row, col)}
                 onClick={() => toggleBlock(row, col)}
-                className={`h-8 w-8 border border-stone ${
-                  isBlock(row, col) ? "bg-ink" : "bg-white"
+                className={`h-8 w-8 border border-border ${
+                  isBlock(row, col) ? "bg-content" : "bg-surface-raised"
                 }`}
               />
             )),
@@ -440,7 +440,7 @@ function CrosswordFields({
                 ],
               })
             }
-            className="rounded border border-stone px-2 py-1 text-sm"
+            className="rounded border border-border px-2 py-1 text-sm"
           >
             Add entry
           </button>
@@ -448,9 +448,9 @@ function CrosswordFields({
 
         <ul className="mt-2 space-y-2">
           {entries.map((entry, index) => (
-            <li key={index} className="rounded border border-stone p-2">
+            <li key={index} className="rounded border border-border p-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="w-8 text-sm text-muted">{entry.number || "—"}</span>
+                <span className="w-8 text-sm text-content-muted">{entry.number || "—"}</span>
                 <select
                   value={entry.direction}
                   aria-label={`Entry ${index + 1} direction`}
@@ -466,7 +466,7 @@ function CrosswordFields({
                       ),
                     })
                   }
-                  className="rounded border border-stone px-2 py-1 text-sm"
+                  className="rounded border border-border px-2 py-1 text-sm"
                 >
                   <option value="across">across</option>
                   <option value="down">down</option>
@@ -487,7 +487,7 @@ function CrosswordFields({
                         ),
                       })
                     }
-                    className="w-16 rounded border border-stone px-2 py-1 text-sm"
+                    className="w-16 rounded border border-border px-2 py-1 text-sm"
                   />
                 ))}
                 <input
@@ -503,7 +503,7 @@ function CrosswordFields({
                       ),
                     })
                   }
-                  className="w-28 rounded border border-stone px-2 py-1 font-mono text-sm uppercase"
+                  className="w-28 rounded border border-border px-2 py-1 font-mono text-sm uppercase"
                 />
                 <button
                   type="button"
@@ -511,7 +511,7 @@ function CrosswordFields({
                   onClick={() =>
                     set({ entries: entries.filter((_, position) => position !== index) })
                   }
-                  className="text-sm text-torch"
+                  className="text-sm text-danger"
                 >
                   Remove
                 </button>
@@ -527,13 +527,13 @@ function CrosswordFields({
                     ),
                   })
                 }
-                className="mt-2 w-full rounded border border-stone px-2 py-1 text-sm"
+                className="mt-2 w-full rounded border border-border px-2 py-1 text-sm"
               />
             </li>
           ))}
         </ul>
         {entries.length === 0 && (
-          <p className="mt-2 text-sm text-muted">No entries yet.</p>
+          <p className="mt-2 text-sm text-content-muted">No entries yet.</p>
         )}
       </div>
     </div>

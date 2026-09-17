@@ -31,9 +31,9 @@ export default function SampleDataPanel() {
   const summary = generate.data;
 
   return (
-    <section className="mt-8 rounded border border-stone bg-white/40 p-4">
+    <section className="mt-8 rounded border border-border bg-surface-raised p-4">
       <h2 className="text-lg font-semibold">Sample data</h2>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 text-sm text-content-muted">
         Two shapes, one purge. <strong>Standalone</strong> builds a
         self-contained four-zone event of its own, for working on the platform in
         isolation. <strong>Fill the dungeon</strong> puts sample challenges into
@@ -46,25 +46,25 @@ export default function SampleDataPanel() {
         <button
           onClick={() => generate.mutate("standalone")}
           disabled={generate.isPending || purge.isPending}
-          className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+          className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
         >
           {generate.isPending ? "Generating…" : "Generate sample data"}
         </button>
         <button
           onClick={() => generate.mutate("dungeon")}
           disabled={generate.isPending || purge.isPending}
-          className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50"
+          className="rounded bg-content px-4 py-2 text-sm text-surface disabled:opacity-50"
         >
           {generate.isPending ? "Generating…" : "Fill the dungeon"}
         </button>
         <button
           onClick={() => purge.mutate()}
           disabled={generate.isPending || purge.isPending}
-          className="rounded border border-stone px-4 py-2 text-sm disabled:opacity-50"
+          className="rounded border border-border px-4 py-2 text-sm disabled:opacity-50"
         >
           {purge.isPending ? "Removing…" : "Remove sample data"}
         </button>
-        {purge.isSuccess && <span className="text-sm text-muted">Removed.</span>}
+        {purge.isSuccess && <span className="text-sm text-content-muted">Removed.</span>}
       </div>
 
       {summary && (
@@ -83,7 +83,7 @@ export default function SampleDataPanel() {
             ] as const
           ).map(([label, value]) => (
             <div key={label}>
-              <dt className="text-muted">{label}</dt>
+              <dt className="text-content-muted">{label}</dt>
               <dd className="text-lg font-semibold tabular-nums">{value}</dd>
             </div>
           ))}
