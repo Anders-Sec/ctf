@@ -84,7 +84,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 055 | `055-email-delivery-log.md` | Phase 3 — persist every outbound send so "the guest never got their link" is answerable; status band and test-send | **done** |
 | 056 | `056-event-export.md` | Phase 3 — results out: standings, awards sheet, solves, submissions (redacted by default), full archive | **done** |
 | 057 | `057-platform-health.md` | Phase 3 — one staff-facing screen for dependency, connection, build and load state; explicitly not observability | **done** |
-| 058 | `058-content-admin-consistency.md` | Phase 3 QoL — one shape for all four Content pages: New button, search and filters, grouped lists with a drawer, full CRUD and bulk actions; achievement rewards become editable, and **secret themes unlock by achievement** (resolves 048 §11.4) | **draft** |
+| 058 | `058-content-admin-consistency.md` | Phase 3 QoL — one shape for all four Content pages: New button, search and filters, grouped lists with a drawer, full CRUD and bulk actions; achievement rewards become editable, and **secret themes unlock by achievement** (resolves 048 §11.4) | **approved** (2026-09-17) |
 
 ## Phase 3 sequencing
 

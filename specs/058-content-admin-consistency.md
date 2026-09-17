@@ -1,6 +1,6 @@
 # Spec 058 — Content Admin Consistency
 
-Status: **draft**
+Status: **approved** (2026-09-17)
 Phase: 3 (Polish & Operability) — the first quality-of-life item
 Depends on: 041/042 (the Challenges page this copies), 049 (the Content group)
 Resolves: spec 048 §11.4 — how a secret theme is unlocked
@@ -183,8 +183,23 @@ already-visible ones excluded — granting somebody Parchment is not a reward.
 One thing this deliberately does not do: **retroactive granting**. Spec 028's
 rule is that an achievement created after the fact awards nothing for work
 already done, and attaching a theme to an existing achievement follows the same
-rule. If a theme needs handing to people who already earned something, that is
-an admin action on the roster, not a side effect of editing a row.
+rule. Handing a theme to somebody who already earned something is §5.1's job —
+a deliberate admin action, never a silent side effect of editing a row.
+
+### 5.1 The manual grant
+
+The user detail drawer (spec 052) gains a **theme toggle per secret theme**: on
+means the player holds it, off means they do not.
+
+Granting and revoking are both `Admin` and both audited, and a revoke that takes
+away the theme a player is currently wearing falls them back to the event
+default rather than leaving them on something they no longer hold — which is
+exactly what spec 048 §5's unknown-theme fallback already does, now reached by a
+second route.
+
+Rows carry their source: `achievement` or `admin`. An admin grant for a theme
+the player later earns legitimately is not a conflict — the row already exists
+and the award is idempotent.
 
 ## 6. Colour and navigation aids
 
@@ -243,14 +258,13 @@ would be a fifth thing to contrast-test.
 
 ## 9. Open questions
 
-1. **Should Classes group by rarity, or by preference target?** Rarity is the
-   authoring axis and splits 48 into six; preference target (STR/DEX/…) is how
-   a player meets them. Recommend rarity, with preference target as a filter.
-2. **Does a theme unlock deserve its own notification, separate from the
-   achievement's?** Spec 028 already fires one per achievement. Recommend
-   folding it into that line — "and the dungeon looks different now" — rather
-   than sending two, which would make one achievement feel like two events.
-3. **Should an admin be able to grant a theme directly to one player**, outside
-   an achievement? It is the obvious escape hatch for the retroactive case in
-   §5. Recommend adding it to the user detail drawer (spec 052) rather than
-   here, if it is wanted at all.
+Signed off 2026-09-17. All three decided as below.
+
+1. ~~**Rarity or preference target for Classes?**~~ **Rarity**, as recommended.
+   Preference target stays a filter.
+2. ~~**Its own notification for a theme unlock?**~~ **No.** It is an achievement
+   notification and nothing more — two messages would make one achievement feel
+   like two events.
+3. ~~**A direct admin grant?**~~ **Yes, in the Users page.** A per-theme toggle
+   in the user detail drawer (spec 052), so a theme can be handed to one player
+   without inventing an achievement for them. See §5.1.
