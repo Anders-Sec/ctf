@@ -202,7 +202,30 @@ bookmarked. Still cheap to be kind: the two moved routes
 path to the new one for the rest of the phase. Everything else keeps its URL —
 the renames in §3 are label changes, not route changes, except where marked.
 
-## 10. Testing
+## 10. What implementation changed
+
+Recorded per `CLAUDE.md`.
+
+1. **Six placeholder pages, rather than six sidebar entries that navigate
+   nowhere.** 050–057 are specced but unbuilt, and the catch-all route would
+   have bounced a click to the dashboard silently. Each unbuilt section renders
+   a page naming its spec. The information architecture is this spec's
+   deliverable, so the shape is visible now and later specs drop into it.
+2. **The staff gate moved to the shell.** `RequireAuth staffOnly` was repeated
+   on fourteen routes; nesting them under one guarded layout route makes it one
+   gate instead of fourteen chances to forget it on the fifteenth page.
+3. **Approvals keeps `/admin/users`** rather than moving to
+   `/admin/users/approvals`. Spec 052 replaces that page with the full roster
+   and settles its routing; moving it here would be churning a path twice.
+4. **`AdminDataPage` was built, not just routed.** §3 lists `/admin/data` but
+   the page did not exist — the reset and sample-data panels were components
+   hosted on Operations and the dashboard.
+5. **§9's claim that the existing `AppLayout` tests pass unchanged was wrong.**
+   The player-nav markup is unchanged, but three tests asserted on the admin tab
+   row this spec removes, and one asserted on a Player view button that moved to
+   the sidebar. They were rewritten; the player-nav assertions are untouched.
+
+## 11. Testing
 
 - The sidebar renders every item in §3, in the right group, in the listed order.
 - The active item is marked, and marked for a nested route
@@ -218,10 +241,11 @@ the renames in §3 are label changes, not route changes, except where marked.
 - `/admin/instances` no longer renders container templates, and `/admin/templates`
   does.
 
-## 11. Open questions
+## 12. Open questions
 
 Signed off 2026-09-17. Each recommendation below was accepted as written
-unless a **Decision** line says otherwise.
+unless a **Decision** line says otherwise. Both were implemented as
+recommended.
 
 1. **Does "Data & Reset" belong in Settings, or is it dangerous enough to want its
    own separated placement?** It holds the play-data reset from spec 043, which is
