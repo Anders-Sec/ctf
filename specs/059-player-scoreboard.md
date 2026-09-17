@@ -234,3 +234,48 @@ Signed off 2026-09-17.
 2. **"Show all" renders all 200.** Virtualising is machinery for a problem
    nobody has yet.
 3. **A tie shares the place**, on both boards — see §4.1.
+
+## 10. As built
+
+Built 2026-09-17. Three additions and one correction worth recording.
+
+### A star carries four fields, not two
+
+§6 said `stars` would be "slug and tier per star". It is
+`{slug, tier, level, title}`:
+
+- **`level`** (1 Neighborhood → 6 Floor) so the run orders itself highest-tier
+  first without the client re-deriving `BOSS_TIER_LEVEL`. That map already exists
+  on the backend; copying it into the frontend would be two places to change when
+  a tier is added.
+- **`title`** because §3 asks each pip to name its boss on hover, and a slug is
+  not a name. `the-gatekeeper` is the identity; *The Gatekeeper* is what a player
+  reads.
+
+### Where `score` is stripped
+
+§6 says `score` is removed from the response and §8 says the socket is untouched;
+both hold, but they need one mechanism between them. `score` stays on the
+internal entry and in the Redis **cache**, because rank derives from it and the
+admin board splits it. `scoreboard_cache.public_view` removes it at every exit:
+the two REST boards, the socket's opening message, and — the one that matters for
+cost — **what gets published to the Redis channel**, so it runs once per recompute
+rather than once per connected client.
+
+### `/scoreboard/me` lost its numbers too
+
+Not mentioned in this spec. It returned `score` and `team_score`, and nothing
+renders either today — which is precisely what makes a live party-XP field the
+one that gets rendered by accident later, the reason §6 gives for removing rather
+than ignoring. It now returns ranks, levels and counts.
+
+### Four existing tests changed, and why that is correct
+
+`test_scoreboard_api.py` asserted `score` on the public boards and on
+`/scoreboard/me`. Those assertions described the behaviour this spec removes, so
+they were rewritten rather than preserved. The union rule's test is the
+interesting one: it used to compare two party scores, and now asserts the two
+parties **share rank 1** and hold the same level — which tests the union rule and
+§4.1 at once, without publishing the number.
+
+*No other test in either suite needed changing.*
