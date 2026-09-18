@@ -207,3 +207,32 @@ Signed off 2026-09-18.
 2. **`secret_count` is hidden when it is zero.** A player who has found no
    secrets should not get a line pointing that out, and the blurred rows already
    carry the signal whenever there are any.
+
+## 10. As built
+
+Built 2026-09-18. Three notes.
+
+### The Discovered filter is derived, not switched off
+
+§3 says the public stats panel drops it. Rather than a variant flag,
+`StatsPanel` looks at its own data: if no row is undiscovered there is nothing
+for the filter to do, so it is not rendered. That is true for the public sheet
+by construction — and also for a player who has found every skill on their own
+sheet, where the filter was always a control that did nothing.
+
+### Two tests from the 060 pass were rewritten, and one of them said so
+
+`test_neither_field_reaches_somebody_else_s_sheet` and the frontend's *"is
+untouched by spec 060"* both existed to pin a boundary this spec was always
+going to cross — one of them carried the comment *"the public one is the next
+pass"*. Rewriting them is the point of them having existed.
+
+The third, `test_a_public_sheet_omits_rank_and_progress`, becomes
+`..._omits_every_form_of_xp`: rank arrives here, XP still never does, and the
+assertion now scans every key rather than naming one field.
+
+### `FeatsPanel` shares the trophy case's query
+
+Both need the achievement count. Rather than prop-drilling it through the page
+or fetching twice, both call `useQuery` on the same key and React Query serves
+the second from cache. One request, no shared state to keep in step.

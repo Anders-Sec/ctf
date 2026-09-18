@@ -87,7 +87,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 058 | `058-content-admin-consistency.md` | Phase 3 QoL — one shape for all four Content pages: New button, search and filters, grouped lists with a drawer, full CRUD and bulk actions; achievement rewards become editable, and **secret themes unlock by achievement** (resolves 048 §11.4) | **done** |
 | 059 | `059-player-scoreboard.md` | Phase 3 QoL — the player and party boards rebuilt: no XP anywhere, boss stars deduplicated and coloured, loot titles and class surfaced, top-ten-plus-you framing, search, party panel and click-through to a character sheet | **done** |
 | 060 | `060-character-sheet.md` | Phase 3 QoL — the player's own sheet laid out like a 5e character sheet: identity across the top, stats left, achievements and loot right, every panel a fixed height with search and filters | **done** |
-| 061 | `061-public-character-sheet.md` | Phase 3 QoL — somebody else's sheet, mirroring 060 without XP or loot: secrets blurred server-side, achievements as a trophy case, and a Feats block of stars, counters and a zone breakdown | **approved** (2026-09-18) |
+| 061 | `061-public-character-sheet.md` | Phase 3 QoL — somebody else's sheet, mirroring 060 without XP or loot: secrets blurred server-side, achievements as a trophy case, and a Feats block of stars, counters and a zone breakdown | **done** |
 
 ## Phase 3 sequencing
 
@@ -127,7 +127,7 @@ of a manual walkthrough of every surface rather than up front. In progress:
   see 059 §10 for what the star payload carries and where `score` is stripped.
 
 - **060** — The player's own character sheet. **Done.**
-- **061** — Somebody else's character sheet. **Approved**, in build.
+- **061** — Somebody else's character sheet. **Done.**
 
 Still to spec, from the same walkthrough: System AI chat usability on mobile,
 challenge navigation losing its place after a solve.
