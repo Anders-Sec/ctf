@@ -1,6 +1,6 @@
 # Spec 073 — Avatars: Sigils, Accessories and the Editor
 
-Status: **draft**
+Status: **done**
 Phase: 3 (Polish & Operability) — feature
 Depends on: 016/024 (classes), 029 (achievements), 038 (loot), 052 (the avatar endpoint)
 First of two: **073** the parts that need no GPU, 074 the generation service.
@@ -152,13 +152,43 @@ which is one button and is much easier to add now than mid-event.
   face untouched.
 - **No animation, no frames beyond the `frame` slot.**
 
-## 11. Open questions
+## 11. Decisions
 
-1. **Sigil style** — heraldic crest, arcane rune, or geometric? Recommend
-   **crest**: the most legible at 40px and the most obviously themed.
-2. **Is a new accessory visible immediately, or is there a publish step?**
-   Recommend **immediately**. It is a flex; making people confirm a flex is
-   friction with no upside.
-3. **Does an accessory survive a class change?** Recommend **yes — earned is
-   earned.** Revoking cosmetics for changing class punishes the experimentation
-   that 024's recommender exists to encourage.
+1. **Heraldic crest.** Shield, division, charge and two colours, all indexed off
+   a SHA-256 of the user id — 4 divisions x 8 charges x 12 tinctures x 4 metals,
+   which is ample for 200 players and legible at 40px.
+2. **Visible immediately**, no publish step.
+3. **An accessory survives a class change** — earned is earned.
+
+## 12. What the build changed
+
+- **`avatar_blob` needed splitting in two.** The spec said it stays as the
+  rendered result, which is right, but it was also holding the Entra photo the
+  render *starts from*. Keeping both in one column meant either re-compositing
+  a 2048px canvas on every one of 200 roster rows, or losing the original the
+  moment a hat went on. `avatar_base` holds the source; `avatar_blob` is the
+  cache, dropped by `invalidate()` when the recipe changes.
+- **SHA-256, not `hash()`.** Python salts `hash()` per process, so a crest
+  would have differed on every API pod — a player refreshing would watch their
+  own sigil change.
+- **Three errors in the authored roster, all caught by tests that now guard
+  them:**
+  - it invented a **Paladin** class, which is not one of the 48;
+  - it invented a **`boss_first_kill`** achievement, which is not one of the 94;
+  - it used **`mythic`** as a loot rarity, which is the top of the *class*
+    ladder — the loot ladder ends at `celestial`. Two ladders, two
+    vocabularies, confused in one list.
+  Each would have been an accessory nobody could ever earn, with nothing to say
+  so. `test_roster` now checks every `unlock_ref` against the real class roster,
+  the registered achievement triggers, and the loot rarities.
+- **The crescent charge was drawn wrong** — it punched a transparent hole
+  through the shield instead of biting a curve out of a disc, so the page showed
+  through. Charges are composited on their own layer now.
+- **Seeded at boot, not by migration.** The class roster seeds by migration
+  (0027), but migrations in this repo never import from `app` — they are frozen
+  snapshots — so a migration would have meant a second copy of the roster in
+  SQL. A best-effort startup seed keeps it in one place.
+- **`Avatar` lost `hasAvatar` entirely**, from six call sites, along with
+  `initialsColor` and the whole fallback branch.
+- **Counts:** 28 accessories authored, 48 avatar tests, backend 1630 passing,
+  frontend 680.

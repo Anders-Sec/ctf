@@ -99,8 +99,8 @@ lore, art, a wider tone pass) is intentionally not started.
 | 070 | `070-settings.md` | Phase 3 QoL — settings grows notification muting, the tour reset, and a display name for the accounts that can actually keep one | **done** |
 | 071 | `071-dialog-focus.md` | Phase 3 QoL — dialogs move focus in, keep it, and give it back; one hook in place of nine hand-rolled Escape handlers | **done** |
 | 072 | `072-party-page-tests.md` | Phase 3 QoL — the party page's first tests, and the two dead paths they found | **done** |
-| 073 | `073-avatars-and-accessories.md` | Phase 3 — procedural sigils, class/loot accessory overlays and the fit editor; one Pillow renderer, no GPU | draft |
-| 074 | `074-avatar-generation.md` | Phase 3 — portrait generation from authored trait enums via a local SDXL Turbo host, queued, budgeted and optional | draft |
+| 073 | `073-avatars-and-accessories.md` | Phase 3 — procedural sigils, class/loot accessory overlays and the fit editor; one Pillow renderer, no GPU | **done** |
+| 074 | `074-avatar-generation.md` | Phase 3 — portrait generation from authored trait enums via a local SDXL Turbo host, queued, budgeted and optional | **done** |
 
 ## Phase 3 sequencing
 

@@ -1,6 +1,6 @@
 # Spec 074 — Avatar Generation
 
-Status: **draft**
+Status: **done**
 Phase: 3 (Polish & Operability) — feature
 Depends on: 073 (the renderer, storage and accessory layers), 010 (the model-client pattern)
 Second of two: 073 the parts that need no GPU, **074** this.
@@ -133,16 +133,45 @@ nothing re-renders against the model.
   system is unaffected.
 - No test calls the real host; the client is faked the way the AI client's are.
 
-## 9. Open questions
+## 9. Decisions
 
-1. **Can a player portray a class that is not theirs?** Recommend **any class
-   they have unlocked**, defaulting to their current one — it rewards
-   progression without freezing a choice they are encouraged to revisit.
-2. **48 class fragments is real authoring work.** Recommend writing all 48
-   anyway, with an archetype fallback for any left blank, because the class
-   fragment is the axis doing the most work.
-3. **Starting budget of three, and does a reroll of the same traits cost one?**
-   Recommend **three**, and **yes** — otherwise the grid is a slot machine.
-4. **Does the operator want candidates kept after a pick?** Recommend a short
-   TTL and no gallery. Storing every rejected portrait of every player for five
-   days buys nothing.
+1. **Any class, defaulting to your own.** The builder pre-selects the player's
+   real class and the axis is otherwise open — unlock-gating it would have meant
+   a second unlock system for a costume, and the default already does the work
+   of tying a portrait to progression.
+2. **All 48 fragments written**, and the archetype fallback turned out to be
+   unnecessary — see §10.
+3. **Three, and yes**, a reroll costs one. Loot grants more, so the reroll
+   spiral gets a tap rather than a wall.
+4. **A 24-hour TTL and no gallery.** Picking one deletes the rest of its grid
+   immediately; `purge_expired` sweeps anything nobody chose.
+
+## 10. What the build changed
+
+- **The archetype fallback was a bad idea and is not there.** Writing it would
+  have hidden the actual bug: the first pass shortened the four mythic class
+  names and omitted four classes outright, so **eight of the 48** would have
+  silently fallen through the "default to your class" lookup — and a fallback
+  would have made that invisible rather than loud. `class_look` labels now match
+  migration 0027 exactly, and a test asserts the two sets are equal in both
+  directions.
+- **A safety refusal must not open the circuit breaker.** A 422 from the service
+  is a *working* host saying no to one combination. Treating it as a failure
+  would let one unlucky set of traits take generation down for everybody for two
+  minutes.
+- **A failed job does not spend the budget.** Charging a player for our own
+  downtime would be an unpleasant surprise, so `generations_used` counts only
+  jobs that reached the model.
+- **A dark host stops after one attempt, not four.** There is no point asking a
+  switched-off box three more times.
+- **Jobs run inline**, not through a worker. One GPU, a hard concurrency limit
+  of one in the client, and a job of a few seconds — a second player gets `busy`
+  back rather than piling onto the card. The seam for a real queue is one
+  function, named in its docstring.
+- **Candidate bytes live in Postgres, not object storage.** They are small,
+  short-lived, and always fetched one at a time by the one player who owns them;
+  a bucket round trip would have been the slow part of showing the grid.
+- **`StartJobRequest` has no field for prose**, asserted directly rather than
+  inferred from the endpoint — the endpoint test would pass whatever the schema
+  did, since no host is configured in CI.
+- **Counts:** 8 axes, 118 authored options, 37 backend tests, 12 frontend tests.
