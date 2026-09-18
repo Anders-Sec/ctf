@@ -1,13 +1,27 @@
 import { api } from "./client";
 
-/** What produced a notification. Drives the icon, never the delivery. */
-export type NotificationKind =
-  | "achievement"
-  | "class_unlocked"
-  | "zone_unlocked"
-  | "level_up"
-  | "ability_milestone"
-  | "system";
+/**
+ * What produced a notification. Drives the icon and the grouping, never the
+ * delivery.
+ *
+ * **All nine the backend defines.** This listed six until spec 065 — `boss_kill`,
+ * `announcement` and `dispatch` were missing, so anything built from this union
+ * would have silently omitted announcements. A backend test asserts the two
+ * lists match rather than trusting them to.
+ */
+export const NOTIFICATION_KINDS = [
+  "achievement",
+  "class_unlocked",
+  "zone_unlocked",
+  "level_up",
+  "ability_milestone",
+  "boss_kill",
+  "announcement",
+  "dispatch",
+  "system",
+] as const;
+
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 export interface AppNotification {
   id: string;
@@ -31,6 +45,15 @@ export const markAllRead = () =>
 
 export const markRead = (id: string) =>
   api.post<{ message: string }>(`/notifications/${id}/read`);
+
+/** Clear one row from the inbox. A soft dismiss server-side (spec 065 §4). */
+export const dismissOne = (id: string) =>
+  api.post<{ message: string }>(`/notifications/${id}/dismiss`);
+
+/** Clear everything, or everything of the given kinds. Scoped so one tab's
+ *  clear-all cannot take the other tab's rows with it. */
+export const dismissMany = (kinds: NotificationKind[] = []) =>
+  api.post<{ message: string }>("/notifications/dismiss", { kinds });
 
 /** Null until earned — redacted server-side, so there is nothing here to
  *  un-blur in devtools (spec 028). */
