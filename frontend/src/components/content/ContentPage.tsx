@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
+
+import { useDialogFocus } from "../../hooks/useDialogFocus";
 
 /**
  * The shape every Content page shares (spec 058 §2).
@@ -294,16 +296,12 @@ export function ContentDrawer({
     onClose();
   };
 
-  // Deliberately re-bound every render, with no dependency array: `dirty`
-  // changes as the admin types, and a handler bound once would go on seeing the
-  // value it closed over — discarding an edit it believed was clean.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  });
+  // `close` checks `dirty`, which changes as the admin types. The hook holds
+  // the callback in a ref and calls the current one, so this keeps the property
+  // the old hand-rolled version needed a missing dependency array to get: the
+  // handler never discards an edit because it closed over a stale `dirty`.
+  const panel = useRef<HTMLElement>(null);
+  useDialogFocus(panel, { onClose: close });
 
   return (
     <>
@@ -313,7 +311,10 @@ export function ContentDrawer({
         aria-hidden
       />
       <aside
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
+        aria-modal="true"
         aria-label={`Edit ${title}`}
         className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col overflow-y-auto border-l border-border-strong bg-surface-overlay shadow-xl"
       >

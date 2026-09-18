@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { listChallenges } from "../api/challenges";
 import type { Zone } from "../api/dungeon";
 import { KIND_LABEL } from "../api/puzzles";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import ErrorMessage from "./ErrorMessage";
 import Spinner from "./Spinner";
 
@@ -25,16 +26,10 @@ export default function ZonePanel({
   const panel = useRef<HTMLDivElement>(null);
   const challenges = useQuery({ queryKey: ["challenges"], queryFn: listChallenges });
 
-  useEffect(() => {
-    // Focus moves in on open and Escape always gets you out — a panel you can
-    // tab behind is worse than no panel.
-    panel.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Focus in, trapped, and handed back on close (spec 071). This used to move
+  // focus in and listen for Escape, which was half of it: you could still tab
+  // out into the map behind, under an `aria-modal` that said you could not.
+  useDialogFocus(panel, { onClose });
 
   const rows = (challenges.data ?? []).filter((c) => c.category.id === zone.id);
   const condition = zone.unlock_requirements.map((r) => r.description).join(", ");

@@ -144,7 +144,7 @@ describe("BulkToolbar", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Delete…" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "Confirm delete" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Confirm delete" });
     // The consequence that is invisible from the selection itself.
     expect(dialog).toHaveTextContent("This empties Networking");
     expect(dialog).toHaveTextContent("6 skills are kept");
@@ -163,7 +163,7 @@ describe("BulkToolbar", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Delete…" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "Confirm delete" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Confirm delete" });
     expect(dialog).toHaveTextContent("1 cannot be deleted");
     // The button offers the count that will actually go, not the selection size.
     expect(screen.getByRole("button", { name: "Delete 9" })).toBeInTheDocument();
@@ -173,7 +173,7 @@ describe("BulkToolbar", () => {
     const fetchMock = setup();
 
     await userEvent.click(screen.getByRole("button", { name: "Delete…" }));
-    await screen.findByRole("dialog", { name: "Confirm delete" });
+    await screen.findByRole("alertdialog", { name: "Confirm delete" });
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     // The preview request carries action "delete" too, so the assertion has to
@@ -200,7 +200,7 @@ describe("BulkToolbar", () => {
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Delete…" }));
-    await screen.findByRole("dialog", { name: "Confirm delete" });
+    await screen.findByRole("alertdialog", { name: "Confirm delete" });
     await userEvent.click(screen.getByRole("button", { name: /^Delete \d/ }));
 
     const status = await screen.findByRole("status");

@@ -1,4 +1,6 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
+import { useDialogFocus } from "../hooks/useDialogFocus";
 
 /**
  * The furniture, explained once (spec 066 §3.2).
@@ -124,14 +126,10 @@ export default function Tour() {
     };
   }, [step]);
 
-  useEffect(() => {
-    if (step === null) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  });
+  // `active` rather than an early return, because the hook has to be called on
+  // every render whether or not the tour is showing.
+  const panel = useRef<HTMLDivElement>(null);
+  useDialogFocus(panel, { onClose: close, active: step !== null });
 
   if (step === null) return null;
 
@@ -160,6 +158,8 @@ export default function Tour() {
       )}
 
       <div
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`Tour: ${stop.title}`}

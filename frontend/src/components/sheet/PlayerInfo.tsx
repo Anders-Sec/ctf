@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { getClasses, setMyClass, type CharacterSheet } from "../../api/character";
+import { useDialogFocus } from "../../hooks/useDialogFocus";
 import Avatar from "../Avatar";
 import ErrorMessage from "../ErrorMessage";
 import { RARITY_TEXT } from "../classRarity";
@@ -139,20 +140,18 @@ function ClassDialog({ sheet, onClose }: { sheet: CharacterSheet; onClose: () =>
     },
   });
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const panel = useRef<HTMLDivElement>(null);
+  useDialogFocus(panel, { onClose });
 
   return (
     <>
       <div className="fixed inset-0 z-30 bg-content/30" onClick={onClose} aria-hidden />
       <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
         <div
+          ref={panel}
+          tabIndex={-1}
           role="dialog"
+          aria-modal="true"
           aria-label="Choose a class"
           className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-lg border border-border-strong bg-surface-overlay p-5 shadow-xl"
         >

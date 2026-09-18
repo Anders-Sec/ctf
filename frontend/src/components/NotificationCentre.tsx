@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -9,6 +9,7 @@ import {
   type AppNotification,
   type NotificationKind,
 } from "../api/notifications";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import { useNotifications } from "../hooks/useNotifications";
 import { KINDS_IN, metaFor, type InboxTab } from "./notificationKinds";
 
@@ -33,6 +34,11 @@ export default function NotificationCentre() {
   const [tab, setTab] = useState<InboxTab>("yours");
   const [kind, setKind] = useState<string>("");
   const queryClient = useQueryClient();
+  const panel = useRef<HTMLDivElement>(null);
+
+  // The inbox had no Escape and no focus handling at all: it opened, and the
+  // keyboard stayed on the button behind it.
+  useDialogFocus(panel, { onClose: () => setOpen(false), active: open });
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -82,7 +88,10 @@ export default function NotificationCentre() {
 
       {open && (
         <div
+          ref={panel}
+          tabIndex={-1}
           role="dialog"
+          aria-modal="true"
           aria-label="Inbox"
           // Anchored left since spec 064: on the right it opened over the
           // assistant panel and the rest of the busy corner.

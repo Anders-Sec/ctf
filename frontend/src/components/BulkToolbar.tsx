@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { listSkills } from "../api/adminSkills";
 
@@ -11,6 +11,7 @@ import {
   type DeletePreview,
 } from "../api/adminChallenges";
 import type { ChallengeState, Difficulty } from "../api/challenges";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import ErrorMessage from "./ErrorMessage";
 
 /**
@@ -273,9 +274,19 @@ function DeleteConfirm({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  // **Not modal, and it never was.** This renders inline under the toolbar
+  // rather than over the page, so `role="dialog"` overstated it and trapping
+  // focus here would strand an admin in a strip of the page they can still see
+  // past. `alertdialog` is what it actually is — a destructive confirmation —
+  // and focus moves to it without being held (spec 071 §4, amending §8.2).
+  const panel = useRef<HTMLDivElement>(null);
+  useDialogFocus(panel, { onClose: onCancel, trap: false });
+
   return (
     <div
-      role="dialog"
+      ref={panel}
+      tabIndex={-1}
+      role="alertdialog"
       aria-label="Confirm delete"
       className="mt-3 rounded border border-danger bg-surface p-3 text-sm"
     >

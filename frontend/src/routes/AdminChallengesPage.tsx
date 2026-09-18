@@ -46,6 +46,7 @@ import ErrorMessage from "../components/ErrorMessage";
 import PuzzleEditor from "../components/PuzzleEditor";
 import SkillPicker from "../components/SkillPicker";
 import Spinner from "../components/Spinner";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 
 const MATCH_TYPES: { value: MatchType; label: string; hint: string }[] = [
   {
@@ -345,6 +346,9 @@ function ChallengeDrawer({
     onClose();
   };
 
+  const panel = useRef<HTMLElement>(null);
+  useDialogFocus(panel, { onClose: close });
+
   return (
     <>
       <div
@@ -353,7 +357,10 @@ function ChallengeDrawer({
         aria-hidden
       />
       <aside
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
+        aria-modal="true"
         aria-label="Edit challenge"
         className="fixed inset-y-0 right-0 z-30 w-full max-w-xl overflow-y-auto border-l border-border bg-surface shadow-2xl"
       >

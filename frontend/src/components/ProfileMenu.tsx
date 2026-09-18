@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../api/auth";
 import { getMyStanding } from "../api/scoreboard";
 import { useSession } from "../auth/session";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import Avatar from "./Avatar";
 import { openTour } from "./Tour";
 
@@ -49,22 +50,21 @@ export default function ProfileMenu({
     },
   });
 
-  // Escape and an outside click, as well as choosing something. All three,
-  // because a menu that only closes on its own button is one people leave open.
+  // **A menu is not a dialog** (spec 071 §4): focus moves in and Escape gives it
+  // back, but Tab is *not* trapped. Tab walks out of a menu everywhere else on
+  // the web, and a menu that swallowed it would be the odd one out.
+  const menu = useRef<HTMLDivElement>(null);
+  useDialogFocus(menu, { onClose: () => setOpen(false), trap: false, active: open });
+
+  // An outside click closes it too, because a menu that only closes on its own
+  // button is one people leave open.
   useEffect(() => {
     if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
     const onPointerDown = (event: MouseEvent) => {
       if (!wrapper.current?.contains(event.target as Node)) setOpen(false);
     };
-    window.addEventListener("keydown", onKeyDown);
     document.addEventListener("mousedown", onPointerDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("mousedown", onPointerDown);
-    };
+    return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open]);
 
   if (!me) return null;
@@ -106,6 +106,8 @@ export default function ProfileMenu({
 
       {open && (
         <div
+          ref={menu}
+          tabIndex={-1}
           role="menu"
           aria-label="Profile"
           className="absolute right-0 top-full z-40 mt-1 w-64 rounded border border-border-strong bg-surface-overlay p-3 shadow-xl"

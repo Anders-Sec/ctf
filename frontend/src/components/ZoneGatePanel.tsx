@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   addCategoryGate,
@@ -9,6 +9,7 @@ import {
 } from "../api/dungeon";
 import type { Skill } from "../api/adminSkills";
 import { ApiError } from "../api/client";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import ErrorMessage from "./ErrorMessage";
 
 /**
@@ -67,7 +68,7 @@ export default function ZoneGatePanel({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const heading = useRef<HTMLHeadingElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
 
   const [kind, setKind] = useState<RequirementKind>("percent_in_category");
   const [sourceId, setSourceId] = useState("");
@@ -95,17 +96,9 @@ export default function ZoneGatePanel({
     onSuccess: refresh,
   });
 
-  useEffect(() => {
-    heading.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Was focus-in plus Escape, which left you able to tab out into the editor
+  // behind it. The hook adds the trap and gives focus back on close.
+  useDialogFocus(panel, { onClose });
 
   const needs = NEEDS[kind];
   const others = zones.filter((z) => z.id !== zone.id);
@@ -114,12 +107,15 @@ export default function ZoneGatePanel({
 
   return (
     <div
+      ref={panel}
+      tabIndex={-1}
       role="dialog"
+      aria-modal="true"
       aria-label={`${zone.name} gates`}
       className="fixed inset-y-0 right-0 z-40 w-full max-w-md overflow-y-auto border-l border-border bg-surface p-5 shadow-xl"
     >
       <div className="flex items-start justify-between gap-3">
-        <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold">
+        <h2 className="text-xl font-semibold">
           {zone.name}
         </h2>
         <button onClick={onClose} className="text-sm hover:underline" aria-label="Close">

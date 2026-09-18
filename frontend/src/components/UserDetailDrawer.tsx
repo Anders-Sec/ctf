@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -15,6 +15,7 @@ import {
 import type { UserRole } from "../api/auth";
 import { listDeliveries } from "../api/adminEmail";
 import { useSession } from "../auth/session";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import { themeById } from "../theme/themes";
 import DeliveryTable from "./DeliveryTable";
 import ErrorMessage from "./ErrorMessage";
@@ -94,13 +95,8 @@ export default function UserDetailDrawer({
     onSuccess: refresh,
   });
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const panel = useRef<HTMLElement>(null);
+  useDialogFocus(panel, { onClose });
 
   const error =
     detail.error ??
@@ -119,7 +115,10 @@ export default function UserDetailDrawer({
     <>
       <div className="fixed inset-0 z-30 bg-content/30" onClick={onClose} aria-hidden />
       <aside
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
+        aria-modal="true"
         aria-label="User detail"
         className="fixed inset-y-0 right-0 z-40 w-full max-w-lg overflow-y-auto border-l border-border bg-surface-overlay p-5 shadow-xl"
       >

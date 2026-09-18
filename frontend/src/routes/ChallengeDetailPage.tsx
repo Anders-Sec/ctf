@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { DIFFICULTY_LABEL, artifactUrl, getChallenge, submitAnswer } from "../api/challenges";
@@ -11,6 +11,7 @@ import InstancePanel from "../components/InstancePanel";
 import PuzzlePanel from "../components/puzzle/PuzzlePanel";
 import ReportChallenge from "../components/ReportChallenge";
 import Spinner from "../components/Spinner";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 
 /**
  * One challenge, as an overlay over the board (spec 062 §5).
@@ -29,14 +30,6 @@ export default function ChallengeDetailPage() {
   // Back rather than a push, so opening and closing ten challenges does not
   // leave ten entries to walk out through.
   const close = () => navigate("/challenges");
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  });
 
   const challenge = useQuery({
     queryKey: ["challenge", challengeId],
@@ -275,11 +268,18 @@ function Overlay({
   label: string;
   children: React.ReactNode;
 }) {
+  // On the overlay rather than on the page, so Escape and the focus trap live
+  // with the thing that is actually modal.
+  const panel = useRef<HTMLDivElement>(null);
+  useDialogFocus(panel, { onClose });
+
   return (
     <>
       <div className="fixed inset-0 z-30 bg-content/40" onClick={onClose} aria-hidden />
       <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto sm:p-6">
         <div
+          ref={panel}
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-label={label}

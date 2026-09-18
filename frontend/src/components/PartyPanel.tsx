@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { getPartyPanel } from "../api/scoreboard";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import Avatar from "./Avatar";
 import { BossStarBreakdown } from "./BossStars";
 import ErrorMessage from "./ErrorMessage";
@@ -31,13 +32,8 @@ export default function PartyPanel({
     queryFn: () => getPartyPanel(teamId),
   });
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const dialog = useRef<HTMLElement>(null);
+  useDialogFocus(dialog, { onClose });
 
   const data = panel.data;
 
@@ -45,7 +41,10 @@ export default function PartyPanel({
     <>
       <div className="fixed inset-0 z-30 bg-content/20" onClick={onClose} aria-hidden />
       <aside
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
+        aria-modal="true"
         aria-label="Party detail"
         className="fixed inset-y-0 right-0 z-40 w-full max-w-sm overflow-y-auto border-l border-border-strong bg-surface-overlay p-5 shadow-xl"
       >

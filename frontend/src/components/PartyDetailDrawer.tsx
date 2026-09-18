@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -14,6 +14,7 @@ import {
   transferLeadership,
   updateParty,
 } from "../api/adminParties";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import ErrorMessage from "./ErrorMessage";
 import Spinner from "./Spinner";
 
@@ -92,13 +93,8 @@ export default function PartyDetailDrawer({
     onSuccess: refresh,
   });
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const panel = useRef<HTMLElement>(null);
+  useDialogFocus(panel, { onClose });
 
   const data = party.data;
   const active = data?.members.filter((member) => member.removed_at === null) ?? [];
@@ -121,7 +117,10 @@ export default function PartyDetailDrawer({
     <>
       <div className="fixed inset-0 z-30 bg-content/30" onClick={onClose} aria-hidden />
       <aside
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
+        aria-modal="true"
         aria-label="Party detail"
         className="fixed inset-y-0 right-0 z-40 w-full max-w-xl overflow-y-auto border-l border-border bg-surface-overlay p-5 shadow-xl"
       >
