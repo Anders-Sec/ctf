@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { DIFFICULTY_LABEL, artifactUrl, getChallenge, submitAnswer } from "../api/challenges";
 import { ApiError } from "../api/client";
+import ChallengeBody from "../components/ChallengeBody";
 import ErrorMessage from "../components/ErrorMessage";
 import HintList from "../components/HintList";
 import InstancePanel from "../components/InstancePanel";
@@ -147,8 +148,13 @@ export default function ChallengeDetailPage() {
       )}
 
       {detail.body !== null && detail.body !== "" && (
-        <section className="mt-6 whitespace-pre-wrap rounded-lg border border-border bg-surface-raised p-5">
-          {detail.body}
+        <section className="mt-6 rounded-lg border border-border bg-surface-raised p-5">
+          <ChallengeBody
+            artifacts={detail.artifacts}
+            urlFor={(artifactId) => artifactUrl(detail.id, artifactId)}
+          >
+            {detail.body}
+          </ChallengeBody>
         </section>
       )}
 
