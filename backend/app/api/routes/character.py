@@ -19,9 +19,12 @@ from app.schemas.character import (
     CharacterSheetResponse,
     ClassResponse,
     PartyBriefResponse,
+    PublicAchievementResponse,
+    PublicAchievementsResponse,
     PublicCharacterResponse,
     SetClassRequest,
     SkillRowResponse,
+    ZoneSolvesResponse,
 )
 from app.schemas.notifications import (
     AchievementResponse,
@@ -142,15 +145,39 @@ async def my_stars(db: DbSession, current: Player) -> list[StarResponse]:
     ]
 
 
+@router.get("/{user_id}/achievements")
+async def public_achievements(
+    user_id: UUID, db: DbSession, current: Player
+) -> PublicAchievementsResponse:
+    """Somebody else's trophy case (spec 061 §4).
+
+    Only what they earned, no descriptions, and **a secret the viewer has not
+    earned themselves arrives with no name and no rarity** — redacted here rather
+    than blurred in CSS, so there is nothing to read in devtools.
+    """
+    user = await db.get(User, user_id)
+    if user is None or user.status != UserStatus.ACTIVE:
+        raise NotFoundError("No such player.")
+
+    roster = await achievement_service.public_roster_for(db, user_id, current.user.id)
+    return PublicAchievementsResponse(
+        earned=roster.earned,
+        secret_count=roster.secret_count,
+        items=[PublicAchievementResponse(**vars(row)) for row in roster.items],
+        rarest=[PublicAchievementResponse(**vars(row)) for row in roster.rarest],
+    )
+
+
 @router.get("/{user_id}")
 async def public_character(
-    user_id: UUID, db: DbSession, current: Player
+    user_id: UUID, db: DbSession, redis: RedisClient, current: Player
 ) -> PublicCharacterResponse:
     user = await db.get(User, user_id)
     if user is None or user.status != UserStatus.ACTIVE:
         raise NotFoundError("No such player.")
 
     sheet = await character_service.build_sheet(db, user)
+    zones = await character_service.zone_solves(db, user_id)
     return PublicCharacterResponse(
         user_id=sheet.user_id,
         display_name=sheet.display_name,
@@ -161,4 +188,20 @@ async def public_character(
         # there is nothing to tease a stranger with.
         skills=[SkillRowResponse(**vars(s)) for s in sheet.skills if s.discovered],
         character_class=_class_response(sheet.character_class),
+        # Null for anybody the board does not hold. Staff are excluded from it by
+        # design, and "no rank" is the honest answer for them — every other field
+        # below is computed directly and is correct for anybody.
+        rank=await _rank_of(db, redis, user_id),
+        party=(
+            PartyBriefResponse(id=sheet.party.id, name=sheet.party.name) if sheet.party else None
+        ),
+        equipped_title=sheet.equipped_title,
+        skills_total=len(sheet.skills),
+        stars=[
+            StarResponse(**vars(star)) for star in await achievement_service.stars_for(db, user_id)
+        ],
+        # Derived from the same grouped query, so the count and the breakdown
+        # cannot disagree.
+        solve_count=sum(zone.solves for zone in zones),
+        zones=[ZoneSolvesResponse(**vars(zone)) for zone in zones],
     )

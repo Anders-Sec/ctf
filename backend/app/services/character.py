@@ -13,14 +13,15 @@ Board rank is layered on by the route from the cached scoreboard.
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.errors import AppError, NotFoundError
-from app.models.challenge import Ability
+from app.models.challenge import Ability, Category, Challenge
 from app.models.character_class import CharacterClass
 from app.models.notification import LootItem
+from app.models.play import Solve
 from app.models.player_event import PlayerEventKind
 from app.models.skill import Skill
 from app.models.team import Team, TeamMembership
@@ -164,6 +165,41 @@ async def _party_of(db: AsyncSession, user_id: UUID) -> PartyBrief | None:
         )
     ).first()
     return PartyBrief(id=row[0], name=row[1]) if row else None
+
+
+@dataclass(frozen=True)
+class ZoneSolves:
+    """Where a player hunts (spec 061 §5)."""
+
+    zone_name: str
+    solves: int
+
+
+async def zone_solves(db: AsyncSession, user_id: UUID) -> list[ZoneSolves]:
+    """Solves per zone, biggest first.
+
+    Counts only — never XP, and never a per-zone total that would be XP wearing
+    a different hat (spec 061 §5).
+
+    Zones with no solves are omitted: the block is a portrait, not an audit, and
+    "where they have not been" is a different and less generous statement than
+    "where they hunt" (§9.1).
+    """
+    rows = (
+        await db.execute(
+            select(Category.name, func.count(Solve.id))
+            .join(Challenge, Challenge.category_id == Category.id)
+            .join(Solve, Solve.challenge_id == Challenge.id)
+            .where(Solve.user_id == user_id)
+            .group_by(Category.name)
+        )
+    ).all()
+    return sorted(
+        (ZoneSolves(zone_name=name, solves=int(count)) for name, count in rows),
+        # Biggest first, then by name so two equal zones do not swap between
+        # loads.
+        key=lambda zone: (-zone.solves, zone.zone_name),
+    )
 
 
 async def _equipped_title(db: AsyncSession, user: User) -> str | None:
