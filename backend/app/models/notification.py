@@ -105,6 +105,12 @@ class Notification(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: Where the message points, if anywhere: a zone, the sheet, a challenge.
     link: Mapped[str | None] = mapped_column(String(500), nullable=True)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Cleared from the player's inbox (spec 065 §4).
+    #:
+    #: A soft dismiss rather than a delete: somebody who clears the announcement
+    #: with the lunch time in it has not destroyed it, and an organiser can still
+    #: see it existed. The feed and the unread count both skip these.
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     #: Set on the rows an admin announcement fanned out to (spec 054), so a read
     #: count is a count over these rather than a second number stored on the

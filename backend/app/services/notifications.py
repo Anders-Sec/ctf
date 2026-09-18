@@ -100,8 +100,14 @@ async def notify(
 async def backlog(
     db: AsyncSession, user_id: UUID, *, limit: int = 50, unread_only: bool = False
 ) -> list[NotificationView]:
-    """Newest first — the feed is read from the top."""
-    stmt = select(Notification).where(Notification.user_id == user_id)
+    """Newest first — the feed is read from the top.
+
+    Cleared rows are skipped (spec 065 §4), which is what makes the 50-row cap
+    mean something: it is a cap on what the player has not already dealt with.
+    """
+    stmt = select(Notification).where(
+        Notification.user_id == user_id, Notification.dismissed_at.is_(None)
+    )
     if unread_only:
         stmt = stmt.where(Notification.read_at.is_(None))
     stmt = stmt.order_by(Notification.created_at.desc()).limit(limit)
@@ -109,13 +115,50 @@ async def backlog(
 
 
 async def unread_count(db: AsyncSession, user_id: UUID) -> int:
+    """Unread *and* not cleared.
+
+    A badge that counts rows the player can no longer reach is worse than no
+    badge, which is why clearing also marks read — see :func:`dismiss`.
+    """
     return (
         await db.scalar(
             select(func.count(Notification.id)).where(
-                Notification.user_id == user_id, Notification.read_at.is_(None)
+                Notification.user_id == user_id,
+                Notification.read_at.is_(None),
+                Notification.dismissed_at.is_(None),
             )
         )
     ) or 0
+
+
+async def dismiss(
+    db: AsyncSession,
+    user_id: UUID,
+    *,
+    notification_id: UUID | None = None,
+    kinds: list[NotificationKind] | None = None,
+) -> int:
+    """Clear one row, or every row of the given kinds. Returns how many changed.
+
+    **Clearing marks read as well.** Otherwise the badge keeps counting things
+    the player can no longer open, and a badge that lies is worse than no badge.
+
+    A stamp rather than a delete: recoverable, and an organiser can still see
+    that an announcement existed after somebody cleared it.
+    """
+    now = datetime.now(UTC)
+    stmt = (
+        update(Notification)
+        .where(Notification.user_id == user_id, Notification.dismissed_at.is_(None))
+        .values(dismissed_at=now, read_at=func.coalesce(Notification.read_at, now))
+    )
+    if notification_id is not None:
+        stmt = stmt.where(Notification.id == notification_id)
+    if kinds:
+        stmt = stmt.where(Notification.kind.in_(kinds))
+    result = await db.execute(stmt)
+    await db.flush()
+    return result.rowcount or 0
 
 
 async def mark_read(db: AsyncSession, user_id: UUID, notification_id: UUID | None = None) -> int:

@@ -320,3 +320,114 @@ class TestProgressAnnouncements:
             select(func.count(Notification.id)).where(Notification.user_id == user.id)
         )
         assert stored == 1
+
+
+class TestClearing:
+    """Soft dismiss, not delete (spec 065 §4)."""
+
+    async def _notify(self, db_session, user, kind, title="Something"):
+        from app.services import notifications as notification_service
+
+        return await notification_service.notify(
+            db_session, user_id=user.id, kind=kind, title=title, body="Body."
+        )
+
+    async def test_a_cleared_row_leaves_the_feed_and_the_count(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        user = await player(db_session, client, sign_in)
+        view = await self._notify(db_session, user, NotificationKind.LEVEL_UP)
+
+        before = (await client.get("/api/notifications")).json()
+        assert before["unread"] == 1
+
+        await client.post(f"/api/notifications/{view.id}/dismiss")
+        after = (await client.get("/api/notifications")).json()
+
+        assert after["items"] == []
+        # A badge that counts rows the player can no longer open is worse than
+        # no badge, so clearing marks read too.
+        assert after["unread"] == 0
+
+    async def test_clearing_an_already_read_row_keeps_its_read_stamp(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Dismiss must not rewrite when it was read."""
+        from sqlalchemy import select
+
+        from app.models.notification import Notification
+
+        user = await player(db_session, client, sign_in)
+        view = await self._notify(db_session, user, NotificationKind.LEVEL_UP)
+        await client.post(f"/api/notifications/{view.id}/read")
+        read_at = await db_session.scalar(
+            select(Notification.read_at).where(Notification.id == view.id)
+        )
+
+        await client.post(f"/api/notifications/{view.id}/dismiss")
+
+        assert (
+            await db_session.scalar(select(Notification.read_at).where(Notification.id == view.id))
+            == read_at
+        )
+
+    async def test_it_is_a_stamp_rather_than_a_delete(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Somebody who clears an announcement has not destroyed it."""
+        from sqlalchemy import select
+
+        from app.models.notification import Notification
+
+        user = await player(db_session, client, sign_in)
+        view = await self._notify(db_session, user, NotificationKind.ANNOUNCEMENT)
+
+        await client.post(f"/api/notifications/{view.id}/dismiss")
+
+        row = await db_session.scalar(select(Notification).where(Notification.id == view.id))
+        assert row is not None
+        assert row.dismissed_at is not None
+
+    async def test_clear_all_takes_everything_when_unscoped(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        user = await player(db_session, client, sign_in)
+        await self._notify(db_session, user, NotificationKind.LEVEL_UP)
+        await self._notify(db_session, user, NotificationKind.BOSS_KILL)
+
+        await client.post("/api/notifications/dismiss", json={"kinds": []})
+
+        assert (await client.get("/api/notifications")).json()["items"] == []
+
+    async def test_clear_all_scoped_by_kind_spares_the_other_tab(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Clearing the event news must not throw away a player's own record."""
+        user = await player(db_session, client, sign_in)
+        await self._notify(db_session, user, NotificationKind.LEVEL_UP, title="You levelled")
+        await self._notify(db_session, user, NotificationKind.BOSS_KILL, title="Rin felled it")
+        await self._notify(db_session, user, NotificationKind.DISPATCH, title="Day two")
+
+        await client.post(
+            "/api/notifications/dismiss",
+            json={"kinds": ["boss_kill", "dispatch", "announcement", "system"]},
+        )
+
+        items = (await client.get("/api/notifications")).json()["items"]
+        assert [item["title"] for item in items] == ["You levelled"]
+
+    async def test_one_player_cannot_clear_another(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+        other = await make_user(db_session, status=UserStatus.ACTIVE)
+        view = await self._notify(db_session, other, NotificationKind.LEVEL_UP)
+
+        await client.post(f"/api/notifications/{view.id}/dismiss")
+
+        from sqlalchemy import select
+
+        from app.models.notification import Notification
+
+        row = await db_session.scalar(select(Notification).where(Notification.id == view.id))
+        assert row.dismissed_at is None

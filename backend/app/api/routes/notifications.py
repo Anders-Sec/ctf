@@ -13,7 +13,11 @@ from app.db import get_sessionmaker
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.redis import get_redis
 from app.schemas.auth import MessageResponse
-from app.schemas.notifications import NotificationFeed, NotificationResponse
+from app.schemas.notifications import (
+    DismissRequest,
+    NotificationFeed,
+    NotificationResponse,
+)
 from app.services import notifications as notification_service
 from app.services.capabilities import resolve_capabilities
 from app.services.cookies import ACCESS_COOKIE
@@ -54,6 +58,24 @@ async def mark_all_read(db: DbSession, current: Player) -> MessageResponse:
 async def mark_one_read(notification_id: UUID, db: DbSession, current: Player) -> MessageResponse:
     await notification_service.mark_read(db, current.user.id, notification_id)
     return MessageResponse(message="Marked read.")
+
+
+@router.post("/notifications/dismiss")
+async def dismiss_many(payload: DismissRequest, db: DbSession, current: Player) -> MessageResponse:
+    """Clear everything, or everything of the given kinds (spec 065 §4).
+
+    Scoped by kind so "clear all" on one inbox tab cannot take the other tab's
+    rows with it — clearing the event news must not throw away a player's own
+    record of what they achieved.
+    """
+    changed = await notification_service.dismiss(db, current.user.id, kinds=payload.kinds)
+    return MessageResponse(message=f"Cleared {changed}.")
+
+
+@router.post("/notifications/{notification_id}/dismiss")
+async def dismiss_one(notification_id: UUID, db: DbSession, current: Player) -> MessageResponse:
+    await notification_service.dismiss(db, current.user.id, notification_id=notification_id)
+    return MessageResponse(message="Cleared.")
 
 
 @router.websocket("/ws/notifications")

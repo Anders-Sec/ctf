@@ -5,6 +5,18 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.models.notification import NotificationKind
+
+
+class DismissRequest(BaseModel):
+    """What to clear (spec 065 §4).
+
+    Empty means everything. A kind list scopes it, so "clear all" on one inbox
+    tab cannot take the other tab's rows with it.
+    """
+
+    kinds: list[NotificationKind] = []
+
 
 class NotificationResponse(BaseModel):
     id: UUID
