@@ -77,7 +77,13 @@ export default function AppLayout() {
 
               <div className="hidden items-center gap-4 md:flex">
                 {links.map((link) => (
-                  <NavLink key={link.to} to={link.to} className="text-sm hover:underline">
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    // The tour points at these two by name (spec 066 §3.2).
+                    data-tour={link.to === "/challenges" ? "board" : link.to === "/character" ? "character" : undefined}
+                    className="text-sm hover:underline"
+                  >
                     {link.label}
                   </NavLink>
                 ))}

@@ -235,6 +235,7 @@ export default function AssistantPanel() {
       )}
 
       <button
+        data-tour="assistant"
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         className="rounded-full border border-border bg-surface-overlay px-4 py-2 text-sm shadow"

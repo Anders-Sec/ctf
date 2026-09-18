@@ -65,6 +65,7 @@ export default function NotificationCentre() {
   return (
     <>
       <button
+        data-tour="inbox"
         onClick={() => setOpen((was) => !was)}
         aria-label={unread ? `Inbox, ${unread} unread` : "Inbox"}
         // A plain icon with its count beside it (spec 064 §2). The box made an
