@@ -26,6 +26,7 @@ Two things it does that the platform cannot:
 import io
 import os
 
+import numpy as np
 import torch
 import uvicorn
 from fastapi import FastAPI, Response, status
@@ -160,13 +161,24 @@ def generate(payload: GenerateRequest) -> Response:
     if checker is not None:
         model, processor = checker
         inputs = processor(images=image, return_tensors="pt").to(model.device)
+        # **numpy, not PIL.** The checker blacks out anything it flags, in
+        # place, with `images[idx] = np.zeros(images[idx].shape)` — so a PIL
+        # Image raises AttributeError, and only on the flagged path, which is
+        # the worst place to find out. We want the verdict, not the blacked
+        # array, so what goes in is a throwaway copy.
         _, flagged = model(
-            images=[image], clip_input=inputs.pixel_values.to(model.dtype)
+            images=[np.array(image)], clip_input=inputs.pixel_values.to(model.dtype)
         )
         if any(flagged):
+            # Logged because otherwise its false-positive rate is invisible.
+            # This classifier is known to be trigger-happy on stylised art, and
+            # if it starts refusing ordinary dwarves you want to see that in the
+            # log rather than infer it from players complaining.
+            print(f"refused seed={payload.seed}: {payload.prompt[:120]}")
             # 422 rather than 500: the platform reads this as "refused", leaves
             # its circuit breaker shut, and tells the player to try other
-            # choices rather than reporting the host as broken.
+            # choices rather than reporting the host as broken. It also has
+            # three other seeds in flight, so one refusal is not a dead job.
             return Response(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
     buffer = io.BytesIO()

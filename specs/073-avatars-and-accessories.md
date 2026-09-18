@@ -202,5 +202,15 @@ which is one button and is much easier to add now than mid-event.
   a UI that masks every avatar to a circle. Now a roundel that fills the frame,
   with a test asserting the opaque area is ~72% of the canvas — the old shield
   measured 55%, so the test rejects it.
+- **The avatar URL is not content-addressed, so it could not be cached hard.**
+  `/api/users/{id}/avatar` is the same string before and after a player changes
+  their face. With `max-age=3600` a new portrait appeared **only** in the
+  editor's preview — the one place carrying its own `?v=` — and every other
+  avatar in the app kept the old crest for an hour. Now `max-age=60,
+  must-revalidate` (the ETag makes a no-op revalidation a 304), plus a shared
+  client-side version that the editor and the portrait picker bump, so the
+  person who made the change sees it immediately everywhere. Putting the version
+  in the URL would allow a long cache again, but it would have to reach every
+  payload that renders an `Avatar`; noted rather than built.
 - **Counts:** 28 accessories authored, 48 avatar tests, backend 1630 passing,
   frontend 680.

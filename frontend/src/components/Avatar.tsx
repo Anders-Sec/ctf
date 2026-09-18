@@ -1,4 +1,5 @@
 import { avatarUrl } from "../api/auth";
+import { useAvatarVersion, versionedAvatarUrl } from "./avatarVersion";
 
 /**
  * One image, because there is now only one rendering path (spec 073 §3).
@@ -21,9 +22,13 @@ export default function Avatar({
   displayName: string;
   size?: number;
 }) {
+  // Re-renders when the current user changes their own avatar, so a new
+  // portrait appears here and not only in the editor's preview.
+  const version = useAvatarVersion();
+
   return (
     <img
-      src={avatarUrl(userId)}
+      src={versionedAvatarUrl(avatarUrl(userId), version)}
       // Decorative wherever it sits beside the name it belongs to, which is
       // everywhere it is currently used — a roster row reading "Grix, Grix" is
       // worse for a screen reader than one that reads "Grix".

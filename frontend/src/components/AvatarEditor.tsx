@@ -14,6 +14,7 @@ import {
 } from "../api/avatar";
 import { avatarUrl } from "../api/auth";
 import { useSession } from "../auth/session";
+import { bumpAvatars, useAvatarVersion, versionedAvatarUrl } from "./avatarVersion";
 import ErrorMessage from "./ErrorMessage";
 import PortraitBuilder from "./PortraitBuilder";
 import Spinner from "./Spinner";
@@ -54,9 +55,6 @@ export default function AvatarEditor() {
   const [layers, setLayers] = useState<AvatarLayer[] | null>(null);
   const [source, setSource] = useState<AvatarSource>("sigil");
   const [selected, setSelected] = useState<string | null>(null);
-  // Bumped on save: every <img> in the app points at the same avatar URL,
-  // and nothing else would tell them the bytes behind it changed.
-  const [cacheBust, setCacheBust] = useState(() => Date.now());
 
   // Seeded once from the server, then owned here until saved — otherwise a
   // background refetch would yank a half-finished adjustment away.
@@ -71,7 +69,7 @@ export default function AvatarEditor() {
   const afterSave = async () => {
     await refresh();
     await queryClient.invalidateQueries({ queryKey: ["avatar"] });
-    setCacheBust(Date.now());
+    bumpAvatars();
   };
 
   const save = useMutation({
@@ -146,7 +144,6 @@ export default function AvatarEditor() {
         </h3>
         <Preview
           userId={me.user.id}
-          cacheBust={cacheBust}
           layers={layers}
           bySlug={bySlug}
           selected={selected}
@@ -265,14 +262,12 @@ export default function AvatarEditor() {
 
 function Preview({
   userId,
-  cacheBust,
   layers,
   bySlug,
   selected,
   onMove,
 }: {
   userId: string;
-  cacheBust: number;
   layers: AvatarLayer[];
   bySlug: Map<string, Accessory>;
   selected: string | null;
@@ -280,6 +275,7 @@ function Preview({
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const version = useAvatarVersion();
 
   useEffect(() => {
     if (!dragging) return;
@@ -309,7 +305,7 @@ function Preview({
       {/* The composite as the server last rendered it. Accessory art is drawn
           over the top so a drag is instant; on save the two agree again. */}
       <img
-        src={`${avatarUrl(userId)}?v=${cacheBust}`}
+        src={versionedAvatarUrl(avatarUrl(userId), version)}
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
       />

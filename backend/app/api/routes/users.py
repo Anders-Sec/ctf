@@ -44,5 +44,16 @@ async def get_avatar(
     return Response(
         content=rendered,
         media_type="image/png",
-        headers={"ETag": etag, "Cache-Control": "private, max-age=3600"},
+        headers={
+            "ETag": etag,
+            # **Short, and revalidated.** This URL is not content-addressed —
+            # it is the same string before and after a player changes their
+            # face — so an hour of max-age meant a new portrait was invisible
+            # everywhere except the one preview carrying its own `?v=`.
+            #
+            # The ETag makes revalidation cheap: an unchanged avatar costs a
+            # 304 and no body. The player's own browser does not even wait for
+            # this, because saving bumps a client-side version.
+            "Cache-Control": "private, max-age=60, must-revalidate",
+        },
     )

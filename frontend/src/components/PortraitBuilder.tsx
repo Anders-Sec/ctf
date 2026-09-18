@@ -11,6 +11,7 @@ import {
   type Job,
   type TraitAxis,
 } from "../api/portraits";
+import { bumpAvatars } from "./avatarVersion";
 import ErrorMessage from "./ErrorMessage";
 import Spinner from "./Spinner";
 
@@ -65,6 +66,9 @@ export default function PortraitBuilder() {
       setJob(null);
       await queryClient.invalidateQueries({ queryKey: ["portraits"] });
       await queryClient.invalidateQueries({ queryKey: ["avatar"] });
+      // The rendered avatar changed behind an unchanged URL. Without this the
+      // new portrait shows up in the editor preview and nowhere else.
+      bumpAvatars();
     },
   });
 
