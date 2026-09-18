@@ -1,6 +1,6 @@
 # Spec 061 — Somebody Else's Character Sheet
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 060 (the own sheet this mirrors), 028/030 (achievement redaction),
 031 (boss stars), 059 (rank, the party panel, and the XP rule)
@@ -197,12 +197,13 @@ declared above the `/{user_id}` catch-all regardless.
 - **Add a follow/compare feature.** Two sheets side by side is a different
   product; the scoreboard is where comparison belongs.
 
-## 9. Open questions
+## 9. Decisions
 
-1. **Should the zone breakdown show zones with no solves?** Showing `Crypto 0`
-   says where somebody has *not* been, which is arguably as interesting and
-   arguably unkind. Recommend **omitting zeroes** — the block is a portrait, not
-   an audit.
-2. **Should `secret_count` appear when it is zero?** Recommend **no**: a player
-   who has found no secrets should not have a line drawing attention to it,
-   and the blurred rows already carry the signal when there are any.
+Signed off 2026-09-18.
+
+1. **Zones with no solves are omitted.** The block is a portrait, not an audit,
+   and "where they have not been" is a different and less generous statement
+   than "where they hunt".
+2. **`secret_count` is hidden when it is zero.** A player who has found no
+   secrets should not get a line pointing that out, and the blurred rows already
+   carry the signal whenever there are any.
