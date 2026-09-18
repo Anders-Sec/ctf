@@ -2,8 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { getPlayerBoard, getTeamBoard, type PlayerEntry, type TeamEntry } from "../api/scoreboard";
+import {
+  getActivity,
+  getPlayerBoard,
+  getTeamBoard,
+  type PlayerEntry,
+  type TeamEntry,
+} from "../api/scoreboard";
 import { useSession } from "../auth/session";
+import ActivityTicker from "../components/ActivityTicker";
 import Avatar from "../components/Avatar";
 import BossStars from "../components/BossStars";
 import ErrorMessage from "../components/ErrorMessage";
@@ -46,6 +53,13 @@ export default function ScoreboardPage() {
   const teams = useQuery({
     queryKey: ["scoreboard", "teams"],
     queryFn: getTeamBoard,
+    enabled: boards === null,
+  });
+  // The socket carries the ticker with the boards; this is the same fallback
+  // the boards use for the moment before it connects.
+  const activity = useQuery({
+    queryKey: ["activity"],
+    queryFn: getActivity,
     enabled: boards === null,
   });
 
@@ -115,6 +129,8 @@ export default function ScoreboardPage() {
       </div>
 
       <ErrorMessage error={error} />
+
+      <ActivityTicker items={boards?.activity ?? activity.data?.items ?? []} />
 
       {loading ? (
         <Spinner label="Reading the ledger…" />

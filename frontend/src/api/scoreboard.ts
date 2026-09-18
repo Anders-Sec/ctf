@@ -58,10 +58,28 @@ export interface TeamEntry {
   stars: BossStar[];
 }
 
+/**
+ * One line of the ticker (spec 069).
+ *
+ * `challenge_title` and `tier` are null unless `kind` is `"boss"` — the server
+ * enforces it, because a title the client is asked to hide is a title in the
+ * payload.
+ */
+export interface ActivityItem {
+  kind: "solve" | "boss";
+  display_name: string;
+  zone_name: string;
+  challenge_title: string | null;
+  tier: BossTier | null;
+  tier_level: number | null;
+  at: string;
+}
+
 export interface Boards {
   generated_at: string;
   players: PlayerEntry[];
   teams: TeamEntry[];
+  activity: ActivityItem[];
 }
 
 export interface MyStanding {
@@ -116,6 +134,9 @@ export const getTeamBoard = () =>
   );
 
 export const getMyStanding = () => api.get<MyStanding>("/scoreboard/me");
+
+/** Recent solves and boss kills. Served from the board's own payload. */
+export const getActivity = () => api.get<{ items: ActivityItem[] }>("/activity");
 
 export const getPartyPanel = (teamId: string) =>
   api.get<PartyPanel>(`/scoreboard/teams/${teamId}`);
