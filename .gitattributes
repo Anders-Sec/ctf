@@ -1,0 +1,13 @@
+# Shell scripts must keep LF endings.
+#
+# `core.autocrlf` is on for this checkout, which is right for most of the tree
+# and wrong for anything with a shebang: a `#!/usr/bin/env bash` line ending in
+# CRLF fails on Linux with "bad interpreter: ... ^M". These run in CI and in
+# the containers, so pin them.
+*.sh text eol=lf
+backend/docker-entrypoint.sh text eol=lf
+
+# Same argument, different interpreter.
+Dockerfile text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

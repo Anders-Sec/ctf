@@ -55,6 +55,12 @@ lands on.
   merging does.
 - **Never commit secrets, connection strings, or the local AI model's network
   address** into this repo — those belong in config/environment, not source.
+- **Run `scripts/verify.sh` before pushing.** CI only runs the suites a change
+  can affect — a frontend-only commit does not run the ~10 minute backend suite
+  — so the pipeline is no longer proof that everything still passes. The script
+  runs what CI used to: `scripts/verify.sh` for all of it, `scripts/verify.sh
+  changed` for just what you touched, or `frontend` / `backend` / `instances` by
+  name.
 
 ## Notes
 

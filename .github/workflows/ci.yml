@@ -20,7 +20,65 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which suites this change can actually affect.
+  #
+  # The backend suite is ~10 minutes and the frontend is ~2, so a CSS tweak used
+  # to cost twelve minutes to prove it had not broken Postgres. This job decides
+  # what is worth running; `scripts/verify.sh` is what runs *everything*, locally,
+  # before you push.
+  #
+  # Deliberately a `git diff` rather than a third-party paths-filter action: it
+  # is fifteen lines, it is auditable in place, and this repository does not need
+  # another supply chain.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      instances: ${{ steps.filter.outputs.instances }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Shallow clones cannot diff against the base commit.
+          fetch-depth: 0
+
+      - id: filter
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          everything() {
+            echo "backend=true"   >> "$GITHUB_OUTPUT"
+            echo "frontend=true"  >> "$GITHUB_OUTPUT"
+            echo "instances=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          # A new branch reports an all-zero "before", a dispatch reports none,
+          # and a force-push can leave a base we no longer have. **Run
+          # everything when in doubt** — the failure mode of guessing wrong is a
+          # regression reaching main, and the cost of guessing right is ten
+          # minutes.
+          case "$BASE" in
+            ""|0000000000000000000000000000000000000000) everything ;;
+          esac
+          git cat-file -e "$BASE^{commit}" 2>/dev/null || everything
+
+          FILES=$(git diff --name-only "$BASE" HEAD)
+          echo "Changed:"; echo "$FILES" | sed 's/^/  /'
+
+          # The workflow deciding what to skip is not a thing to skip on.
+          if echo "$FILES" | grep -q '^\.github/workflows/'; then everything; fi
+
+          match() { echo "$FILES" | grep -q "$1" && echo true || echo false; }
+          {
+            echo "backend=$(match '^backend/')"
+            echo "frontend=$(match '^frontend/')"
+            echo "instances=$(match '^deploy/instances/')"
+          } >> "$GITHUB_OUTPUT"
+
   backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -83,6 +141,8 @@ jobs:
   # that must stay shut are still shut, so a regression fails a build rather
   # than an event.
   challenge-images:
+    needs: changes
+    if: needs.changes.outputs.instances == 'true'
     runs-on: ubuntu-latest
 
     strategy:
@@ -114,6 +174,8 @@ jobs:
         run: python -m pytest -q
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -152,13 +214,27 @@ jobs:
     runs-on: ubuntu-latest
     # Only publish what already passed lint and tests — including the proof
     # that each challenge image is still solvable.
-    needs: [backend, frontend, challenge-images]
+    needs: [changes, backend, frontend, challenge-images]
+    # A *skipped* test job must not skip this one. GitHub propagates "skipped"
+    # down `needs` by default, so gating the suites above would otherwise stop
+    # images publishing — and since deploy/ pins sha-<gitsha>, the next manifest
+    # bump would point at a tag that was never built. That is precisely the
+    # ImagePullBackOff this job's comment above exists to prevent.
+    #
+    # So: run unless something actually **failed** or the run was cancelled.
+    # Skipped is a pass here; failed is never one.
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
 
     permissions:
       contents: read
       # GITHUB_TOKEN is read-only by default, so pushing to GHCR fails without this.
       packages: write
 
+    # **Every image, every time — the gating above is on tests, not on
+    # publishing.** deploy/ pins sha-<gitsha> for each component independently,
+    # so a frontend-only commit must still produce a backend image at that sha
+    # or bumping backend.yaml to it lands in ImagePullBackOff. The unchanged
+    # contexts are cache hits and cost seconds.
     strategy:
       fail-fast: false
       matrix:
