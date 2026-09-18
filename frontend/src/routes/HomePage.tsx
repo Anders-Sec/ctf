@@ -6,6 +6,7 @@ import { getMyScore, listChallenges, type ChallengeListItem } from "../api/chall
 import { getMyStanding } from "../api/scoreboard";
 import { useSession } from "../auth/session";
 import EventCountdown from "../components/EventCountdown";
+import EventEnding from "../components/EventEnding";
 import FirstSteps, { buildSteps } from "../components/FirstSteps";
 import Spinner from "../components/Spinner";
 import Tour from "../components/Tour";
@@ -85,11 +86,9 @@ export default function HomePage() {
         </GateCard>
       )}
 
-      {capabilities.blocked_reason === "event_ended" && (
-        <GateCard title="The crawl is over">
-          <p>Thanks for playing. The scoreboard stands as its final record.</p>
-        </GateCard>
-      )}
+      {/* Not a gate card any more: five days deserve an ending (spec 068). The
+          board stays readable after the end, so nothing had to be frozen. */}
+      {capabilities.blocked_reason === "event_ended" && <EventEnding me={me} />}
 
       {canPlay && (
         <>
