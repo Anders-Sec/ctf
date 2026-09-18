@@ -10,6 +10,13 @@ from app.models.assistant import AssistantConversation, AssistantMessage, Messag
 from app.models.audit import AuditLog
 from app.models.auth import AuthSession, MagicLinkToken
 from app.models.avatar import AccessorySlot, AvatarAccessory, UnlockKind
+from app.models.avatar_trait import (
+    AvatarCandidate,
+    AvatarJob,
+    AvatarTrait,
+    JobState,
+    TraitAxis,
+)
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.challenge import (
     Ability,
@@ -87,8 +94,13 @@ __all__ = [
     "AnnouncementAudience",
     "AccessorySlot",
     "AvatarAccessory",
+    "AvatarCandidate",
+    "AvatarJob",
+    "AvatarTrait",
     "AvatarSource",
     "AuditLog",
+    "JobState",
+    "TraitAxis",
     "UnlockKind",
     "UnlockSource",
     "UserThemeUnlock",

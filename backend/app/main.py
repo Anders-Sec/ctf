@@ -35,6 +35,7 @@ from app.api.routes import (
     instances,
     loot,
     notifications,
+    portraits,
     scoreboard,
     signals,
     teams,
@@ -83,8 +84,8 @@ async def _purge_stale_conversations(settings: Settings) -> None:
         logger.warning("assistant_retention_purge_failed", extra={"error_type": type(exc).__name__})
 
 
-async def _seed_accessory_roster(settings: Settings) -> None:
-    """Put the authored avatar accessories in the table if they are not there.
+async def _seed_avatar_rosters(settings: Settings) -> None:
+    """Put the authored accessories and portrait traits in the tables.
 
     At boot rather than in a migration, which is a deliberate difference from
     the class roster (seeded by 0027). Migrations here never import from ``app``
@@ -98,13 +99,15 @@ async def _seed_accessory_roster(settings: Settings) -> None:
     try:
         sessionmaker = get_sessionmaker(settings)
         async with sessionmaker() as session, session.begin():
-            from app.services.accessory_roster import seed
+            from app.services.accessory_roster import seed as seed_accessories
+            from app.services.trait_roster import seed as seed_traits
 
-            added = await seed(session)
+            added = await seed_accessories(session)
+            added += await seed_traits(session)
         if added:
-            logger.info("accessory_roster_seeded", extra={"added": added})
+            logger.info("avatar_rosters_seeded", extra={"added": added})
     except Exception as exc:  # noqa: BLE001 - cosmetics must never block boot
-        logger.warning("accessory_roster_seed_failed", extra={"error_type": type(exc).__name__})
+        logger.warning("avatar_roster_seed_failed", extra={"error_type": type(exc).__name__})
 
 
 @asynccontextmanager
@@ -125,7 +128,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # accumulate stale transcripts just because nobody pressed it. Never fatal:
     # the assistant is optional and a failed purge must not stop the app serving.
     await _purge_stale_conversations(settings)
-    await _seed_accessory_roster(settings)
+    await _seed_avatar_rosters(settings)
     await _ensure_instance_isolation(app)
     # One dispatch loop per process. Several replicas run it; the broadcast
     # log decides which one actually sends (spec 032).
@@ -209,6 +212,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(instances.router)
     api.include_router(loot.router)
     api.include_router(notifications.router)
+    api.include_router(portraits.router)
     api.include_router(scoreboard.router)
     api.include_router(signals.router)
     api.include_router(teams.router)

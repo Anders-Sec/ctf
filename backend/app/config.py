@@ -171,6 +171,38 @@ class Settings(BaseSettings):
     ai_breaker_threshold: int = 5
     ai_breaker_cooldown_seconds: int = 60
 
+    # --- Avatar generation (spec 074) ----------------------------------------
+    #: A second local host, the same shape as the AI one: outside the cluster,
+    #: on a box whose uptime we do not control. A **secret**, never a manifest
+    #: value — the project rules keep these addresses out of a public repo.
+    #:
+    #: Everything here is optional. With no host configured the generation
+    #: entry point is simply not offered, and spec 073's crests and accessories
+    #: carry on with no GPU at all.
+    image_base_url: str | None = None
+    image_api_key: str | None = None
+    #: Informational, passed through to the service so it can pick a pipeline.
+    image_model: str = "sdxl-turbo"
+    image_enabled: bool = True
+    #: Four candidates on a busy card is not fast, and a timeout that fires
+    #: mid-generation has wasted the GPU time anyway.
+    image_timeout_seconds: float = 120.0
+    #: SDXL Turbo is distilled to work in very few steps; more is slower
+    #: without being better.
+    image_steps: int = 4
+    #: One GPU. The queue does the waiting; this stops us piling on.
+    image_max_concurrency: int = 1
+    #: How many portraits one job produces to choose between. One that has to
+    #: be right is worse than four and a choice.
+    image_candidates: int = 4
+    #: Generations a player gets before loot has to grant more (spec 074 §5).
+    image_budget: int = 3
+    #: How long an unpicked candidate sticks around. Storing every rejected
+    #: portrait of every player for five days buys nothing.
+    image_candidate_ttl_hours: int = 24
+    image_breaker_threshold: int = 3
+    image_breaker_cooldown_seconds: int = 120
+
     # --- Terms of use (spec 035) ---------------------------------------------
     #: The System AI's terms of use. A path rather than embedded copy so the
     #: wording can go through management review and be revised without a
@@ -296,6 +328,10 @@ class Settings(BaseSettings):
     @property
     def ai_configured(self) -> bool:
         return bool(self.ai_enabled and self.ai_base_url and self.ai_model)
+
+    @property
+    def image_configured(self) -> bool:
+        return bool(self.image_enabled and self.image_base_url and self.image_model)
 
     @model_validator(mode="after")
     def _check_production_secrets(self) -> "Settings":
