@@ -44,6 +44,8 @@ class StarResponse(BaseModel):
     """A boss kill (spec 031). Derived from the solve, never stored."""
 
     challenge_id: UUID
+    #: The stable key (spec 059 §3) — what a client keys a star on.
+    slug: str
     challenge_title: str
     zone_name: str
     tier: str

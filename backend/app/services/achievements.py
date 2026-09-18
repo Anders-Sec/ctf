@@ -1181,6 +1181,9 @@ class Star:
     """
 
     challenge_id: UUID
+    #: The stable key (spec 059 §3), so one component renders a sheet's stars and
+    #: a scoreboard's. Unique and unchanged by a re-import that reassigns ids.
+    slug: str
     challenge_title: str
     zone_name: str
     tier: str
@@ -1199,6 +1202,7 @@ async def stars_for(db: AsyncSession, user_id: UUID) -> list[Star]:
     stars = [
         Star(
             challenge_id=challenge.id,
+            slug=challenge.slug,
             challenge_title=challenge.title,
             zone_name=zone_name,
             tier=challenge.boss_tier.value,
@@ -1541,6 +1545,109 @@ async def roster_for(db: AsyncSession, user_id: UUID) -> list[AchievementRow]:
             )
         )
     return rows
+
+
+@dataclass(frozen=True)
+class PublicAchievement:
+    """One row of somebody else's trophy case (spec 061 §4).
+
+    No `description` and no `earned` flag: every row here is one they earned, and
+    the flavour line is gone from the public payload entirely.
+
+    `name` and `rarity` are both null when the row is redacted, which happens for
+    exactly one reason — see :func:`public_roster_for`.
+    """
+
+    id: UUID
+    name: str | None
+    rarity: float | None
+
+
+@dataclass(frozen=True)
+class PublicAchievements:
+    earned: int
+    #: Earned achievements the viewer may not see named. Rendered as a count so
+    #: a player's proudest finds are visibly *there*, just unreadable (§4.1).
+    secret_count: int
+    items: list[PublicAchievement]
+    rarest: list[PublicAchievement]
+
+
+async def public_roster_for(
+    db: AsyncSession, subject_id: UUID, viewer_id: UUID
+) -> PublicAchievements:
+    """What ``viewer_id`` may see of ``subject_id``'s achievements.
+
+    **Only what the subject earned** — a trophy case, not a progress bar. Their
+    progress is not the viewer's business, so unearned rows are absent entirely
+    rather than listed as blanks.
+
+    **A secret the viewer has not earned themselves is redacted here, on the
+    server.** It arrives with no name and no rarity, so there is nothing to
+    un-blur in devtools. That is spec 028's rule applied to a second reader: the
+    subject gets to show that they found something without showing what.
+
+    A secret both of them hold is named, because there is nothing left to spoil.
+    """
+    achievements = {
+        achievement.id: achievement
+        for achievement in (await db.execute(select(Achievement))).scalars().all()
+    }
+
+    subject_held = await _held_ids(db, subject_id)
+    viewer_held = await _held_ids(db, viewer_id)
+    rarity = await rarity_by_achievement(db)
+
+    rows: list[PublicAchievement] = []
+    secret_count = 0
+    for achievement_id in subject_held:
+        achievement = achievements.get(achievement_id)
+        if achievement is None:
+            # An award whose achievement was deleted. Spec 030 refuses that
+            # delete, so this is defence rather than a case we expect.
+            continue
+
+        hidden = achievement.secret and achievement_id not in viewer_held
+        if hidden:
+            secret_count += 1
+        rows.append(
+            PublicAchievement(
+                id=achievement.id,
+                name=None if hidden else achievement.name,
+                rarity=None if hidden else rarity.get(achievement.id),
+            )
+        )
+
+    # Display order, so the case reads the same way the subject's own sheet does.
+    rows.sort(key=lambda row: _display_key(achievements[row.id]))
+
+    # The five rarest the viewer can *see named*. A trophy case of five blurred
+    # squares brags about nothing and looks broken (§4.2).
+    nameable = [row for row in rows if row.name is not None]
+    rarest = sorted(nameable, key=lambda row: row.rarity if row.rarity is not None else 1.0)[:5]
+
+    return PublicAchievements(
+        earned=len(rows),
+        secret_count=secret_count,
+        items=rows,
+        rarest=rarest,
+    )
+
+
+def _display_key(achievement: Achievement) -> tuple[int, str]:
+    return (achievement.display_order, achievement.name)
+
+
+async def _held_ids(db: AsyncSession, user_id: UUID) -> set[UUID]:
+    return set(
+        (
+            await db.execute(
+                select(AchievementAward.achievement_id).where(AchievementAward.user_id == user_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
 
 async def rarity_by_achievement(db: AsyncSession) -> dict[UUID, float]:
