@@ -238,3 +238,35 @@ Signed off 2026-09-18.
    the point: it shows how much there is that you do not know yet. A player who
    wants the other view filters to discovered, which also answers "what level am
    I really" without a sort that reshuffles the list as they play.
+
+## 10. As built
+
+Built 2026-09-18. Four notes.
+
+### The old sections are gone, not left behind
+
+`LootSection`, `AchievementsSection` and `StarsSection` are deleted — 327 lines
+and 18 tests. Their tests still passed after nothing imported them, which is
+exactly why they had to go rather than stay: dead code with a green suite behind
+it reads as maintained and survives indefinitely. The stars rendering is in
+history if the public-sheet pass wants it back.
+
+### Every scroll region is named
+
+Not in §5, and it should have been. A sheet has four scrollable lists on it, and
+without an `aria-label` a screen reader meets four anonymous ones. `FilteredList`
+takes a `listLabel` for that reason, and it is what lets a test address one list
+rather than the whole panel — which mattered immediately, because the
+achievements filter deliberately does *not* touch the rarest-five cards above it.
+
+### The unearned label is rendered twice, on purpose
+
+Once blurred and `aria-hidden` so the shape of what is left to find is visible,
+once `sr-only` so a reader hears it. That is spec 028's behaviour carried across
+unchanged; it is written down here because it surprises anybody counting rows.
+
+### The public sheet's header is byte-for-byte what it was
+
+§8 says somebody else's sheet is untouched, and its test asserts a specific
+string (`Level 2 Rogue adventurer`). The rewrite briefly changed that header
+while moving code around; it is restored exactly, and that test passes unchanged.
