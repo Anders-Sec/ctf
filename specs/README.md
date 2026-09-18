@@ -88,6 +88,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 059 | `059-player-scoreboard.md` | Phase 3 QoL — the player and party boards rebuilt: no XP anywhere, boss stars deduplicated and coloured, loot titles and class surfaced, top-ten-plus-you framing, search, party panel and click-through to a character sheet | **done** |
 | 060 | `060-character-sheet.md` | Phase 3 QoL — the player's own sheet laid out like a 5e character sheet: identity across the top, stats left, achievements and loot right, every panel a fixed height with search and filters | **done** |
 | 061 | `061-public-character-sheet.md` | Phase 3 QoL — somebody else's sheet, mirroring 060 without XP or loot: secrets blurred server-side, achievements as a trophy case, and a Feats block of stars, counters and a zone breakdown | **done** |
+| 062 | `062-challenge-board.md` | Phase 3 QoL — the challenge list becomes the board: sticky zone sidebar, one row per challenge, stable authored ordering, sealed zones collapsed and sealed titles withheld server-side, and the challenge opens as an overlay so solving never costs your place | **draft** |
 
 ## Phase 3 sequencing
 
@@ -128,6 +129,7 @@ of a manual walkthrough of every surface rather than up front. In progress:
 
 - **060** — The player's own character sheet. **Done.**
 - **061** — Somebody else's character sheet. **Done.**
+- **062** — The challenge board. **Drafted**, awaiting sign-off.
 
 Still to spec, from the same walkthrough: System AI chat usability on mobile,
 challenge navigation losing its place after a solve.
