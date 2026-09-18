@@ -431,3 +431,77 @@ class TestClearing:
 
         row = await db_session.scalar(select(Notification).where(Notification.id == view.id))
         assert row.dismissed_at is None
+
+
+class TestMuting:
+    """A volume control, not a filter (spec 070 §4)."""
+
+    async def _notify(self, db_session, user, kind, title="Something"):
+        from app.services import notifications as notification_service
+
+        return await notification_service.notify(
+            db_session, user_id=user.id, kind=kind, title=title, body="Body."
+        )
+
+    async def test_a_muted_kind_leaves_the_count_but_stays_in_the_backlog(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """The rows still arrive. A notification the server sent is the record."""
+        user = await player(db_session, client, sign_in)
+        await self._notify(db_session, user, NotificationKind.BOSS_KILL, title="Rin felled it")
+        await self._notify(db_session, user, NotificationKind.LEVEL_UP, title="You levelled")
+
+        assert (await client.get("/api/notifications")).json()["unread"] == 2
+
+        await client.patch("/api/auth/me/notifications", json={"kinds": ["boss_kill"]})
+        body = (await client.get("/api/notifications")).json()
+
+        assert body["unread"] == 1
+        assert {item["title"] for item in body["items"]} == {"Rin felled it", "You levelled"}
+
+    async def test_unmuting_restores_the_count_without_resending(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        user = await player(db_session, client, sign_in)
+        await self._notify(db_session, user, NotificationKind.BOSS_KILL)
+        await client.patch("/api/auth/me/notifications", json={"kinds": ["boss_kill"]})
+        assert (await client.get("/api/notifications")).json()["unread"] == 0
+
+        await client.patch("/api/auth/me/notifications", json={"kinds": []})
+
+        assert (await client.get("/api/notifications")).json()["unread"] == 1
+
+    async def test_an_announcement_may_be_muted(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """A mute the platform refuses to honour is a worse lie than a missed
+        message, and the inbox still holds it (spec 070 §8.2)."""
+        user = await player(db_session, client, sign_in)
+        await self._notify(db_session, user, NotificationKind.ANNOUNCEMENT, title="Lunch")
+
+        response = await client.patch(
+            "/api/auth/me/notifications", json={"kinds": ["announcement"]}
+        )
+
+        assert response.status_code == 200
+        body = (await client.get("/api/notifications")).json()
+        assert body["unread"] == 0
+        assert [item["title"] for item in body["items"]] == ["Lunch"]
+
+    async def test_the_session_reports_what_is_muted(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+
+        await client.patch("/api/auth/me/notifications", json={"kinds": ["dispatch"]})
+
+        assert (await client.get("/api/auth/me")).json()["muted_notification_kinds"] == ["dispatch"]
+
+    async def test_an_unknown_kind_is_refused(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+
+        response = await client.patch("/api/auth/me/notifications", json={"kinds": ["not_a_kind"]})
+
+        assert response.status_code == 422

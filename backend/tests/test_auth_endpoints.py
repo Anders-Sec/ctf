@@ -484,3 +484,32 @@ class TestEntraConfiguration:
 
         assert response.status_code == 302
         assert "error=entra_failed" in response.headers["location"]
+
+
+class TestWhoMayRename:
+    """An SSO name comes from the directory (spec 070 §3).
+
+    `identity.py` rewrites `display_name` from the corporate profile on every
+    sign-in, so offering the field to an Entra account would tell somebody it
+    saved and then quietly revert them. Worse than not offering it.
+    """
+
+    async def test_a_guest_may_rename(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from app.models.user import UserSource
+
+        user = await make_user(db_session, status=UserStatus.ACTIVE, source=UserSource.GUEST)
+        await sign_in(client, user)
+
+        assert (await client.get("/api/auth/me")).json()["can_rename"] is True
+
+    async def test_a_directory_account_may_not(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from app.models.user import UserSource
+
+        user = await make_user(db_session, status=UserStatus.ACTIVE, source=UserSource.ENTRA)
+        await sign_in(client, user)
+
+        assert (await client.get("/api/auth/me")).json()["can_rename"] is False

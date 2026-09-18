@@ -115,20 +115,26 @@ async def backlog(
 
 
 async def unread_count(db: AsyncSession, user_id: UUID) -> int:
-    """Unread *and* not cleared.
+    """Unread, not cleared, and not muted.
 
     A badge that counts rows the player can no longer reach is worse than no
-    badge, which is why clearing also marks read — see :func:`dismiss`.
+    badge, which is why clearing also marks read — see :func:`dismiss`. Muting
+    is the same argument from the other side: a badge that counts what somebody
+    asked not to be told about is a badge they learn to ignore (spec 070 §4).
+
+    The rows themselves still arrive and still sit in the backlog. This is a
+    volume control, not a filter.
     """
-    return (
-        await db.scalar(
-            select(func.count(Notification.id)).where(
-                Notification.user_id == user_id,
-                Notification.read_at.is_(None),
-                Notification.dismissed_at.is_(None),
-            )
-        )
-    ) or 0
+    muted = (await db.scalar(select(User.muted_notification_kinds).where(User.id == user_id))) or []
+
+    stmt = select(func.count(Notification.id)).where(
+        Notification.user_id == user_id,
+        Notification.read_at.is_(None),
+        Notification.dismissed_at.is_(None),
+    )
+    if muted:
+        stmt = stmt.where(Notification.kind.not_in(muted))
+    return (await db.scalar(stmt)) or 0
 
 
 async def dismiss(

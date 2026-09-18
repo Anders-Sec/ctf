@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum, ForeignKey, Integer, LargeBinary, String
-from sqlalchemy.dialects.postgresql import CITEXT
+from sqlalchemy.dialects.postgresql import ARRAY, CITEXT
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -72,6 +72,14 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     #: Entra profile photos are not publicly fetchable — Graph requires a token —
     #: so the bytes are cached here and served through our own endpoint.
+    #: Notification kinds this player has turned down (spec 070 §4).
+    #:
+    #: A volume control, not a filter: a muted kind still arrives and still sits
+    #: in the inbox, it simply does not toast and does not count toward the
+    #: badge. A notification the server decided to send is part of the record.
+    muted_notification_kinds: Mapped[list[str]] = mapped_column(
+        ARRAY(String(40)), nullable=False, default=list, server_default="{}"
+    )
     avatar_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     avatar_updated_at: Mapped[datetime | None] = mapped_column(nullable=True)
 

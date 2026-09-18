@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.models.notification import NotificationKind
 from app.models.user import UserRole, UserSource, UserStatus
 from app.theme import FALLBACK_THEME
 
@@ -102,6 +103,25 @@ class MeResponse(BaseModel):
     total_xp: int = 0
     xp_into_level: int = 0
     xp_to_next: int = 0
+    #: Notification kinds this player has turned down (spec 070 §4). A volume
+    #: control, not a filter: muted kinds still arrive and still sit in the
+    #: inbox, they simply do not toast and do not count toward the badge.
+    muted_notification_kinds: list[str] = []
+    #: Whether this account may change its own name. False for an SSO account,
+    #: whose name comes from the directory and is rewritten on every sign-in —
+    #: offering the field would be a lie (spec 070 §3).
+    can_rename: bool = False
+
+
+class MutedKindsRequest(BaseModel):
+    """The complete set of muted kinds, replacing whatever was there.
+
+    The whole set rather than a toggle, so an admin never has to reason about
+    which of several calls left a player in their current state — the same shape
+    `PUT /admin/challenges/{id}/skills` uses.
+    """
+
+    kinds: list[NotificationKind] = []
 
 
 class EventSummary(BaseModel):

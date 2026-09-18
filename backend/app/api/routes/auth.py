@@ -10,12 +10,13 @@ from app.api.deps import (
     Authenticated,
     DbSession,
     EventCfg,
+    Player,
     RedisClient,
 )
 from app.config import Settings
 from app.errors import AppError, ConflictError
 from app.logging import get_logger
-from app.models.user import User
+from app.models.user import User, UserSource
 from app.schemas.auth import (
     CapabilitiesResponse,
     EventSummary,
@@ -23,6 +24,7 @@ from app.schemas.auth import (
     MagicLinkVerify,
     MeResponse,
     MessageResponse,
+    MutedKindsRequest,
     TeamSummary,
     UpdateHighContrastRequest,
     UpdateProfileRequest,
@@ -365,6 +367,11 @@ async def me(
             current.user.theme, event.default_theme if event else None, unlocked=set(held)
         ),
         unlocked_themes=held,
+        muted_notification_kinds=list(current.user.muted_notification_kinds or []),
+        # A guest owns their name. An SSO account's comes from the directory and
+        # identity.py rewrites it on every sign-in, so offering the field would
+        # tell somebody it saved and then quietly revert them (spec 070 §3).
+        can_rename=current.user.source == UserSource.GUEST,
         level=level,
         total_xp=total_xp,
         xp_into_level=xp_into_level,
@@ -461,6 +468,24 @@ async def update_me(
     current.user.display_name = payload.display_name.strip()
     await db.flush()
     return _user_response(current.user)
+
+
+@router.patch("/me/notifications")
+async def update_muted_kinds(
+    payload: MutedKindsRequest, current: Player, db: DbSession
+) -> MessageResponse:
+    """Turn some notification kinds down (spec 070 §4).
+
+    A volume control, not a filter. The rows still arrive and still sit in the
+    inbox — this only stops them toasting and stops them counting toward the
+    badge. A notification the server decided to send is part of the record.
+
+    Muting an announcement is allowed: a mute the platform refuses to honour is
+    a worse lie than a message somebody missed, and the inbox still holds it.
+    """
+    current.user.muted_notification_kinds = [kind.value for kind in payload.kinds]
+    await db.flush()
+    return MessageResponse(message="Saved.")
 
 
 __all__ = ["ACCESS_COOKIE", "router"]
