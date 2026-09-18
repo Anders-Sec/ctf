@@ -27,6 +27,12 @@ export interface ClassInfo {
   rarity: Rarity;
 }
 
+/** Just enough to name a party and link to it (spec 060 §6). */
+export interface PartyBrief {
+  id: string;
+  name: string;
+}
+
 export interface CharacterSheet {
   user_id: string;
   display_name: string;
@@ -45,6 +51,10 @@ export interface CharacterSheet {
   /** The nudge, already written in the System AI's voice (specs 013, 016). */
   suggested_class_line: string | null;
   class_unlock_level: number;
+  /** The party they are in, so the sheet describes the character on its own. */
+  party: PartyBrief | null;
+  /** The worn loot title — the name plate everybody else sees on the board. */
+  equipped_title: string | null;
 }
 
 export interface PublicCharacter {
