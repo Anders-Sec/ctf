@@ -136,3 +136,40 @@ describe("Tour", () => {
     expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
   });
 });
+
+describe("Tour focus (spec 071)", () => {
+  it("moves focus into the callout", async () => {
+    render(<Tour />);
+    const panel = await screen.findByRole("dialog", { name: /Your inbox/ });
+
+    expect(panel).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("keeps Tab on the callout rather than the page it is pointing at", async () => {
+    render(<Tour />);
+    const panel = await screen.findByRole("dialog", { name: /Your inbox/ });
+
+    for (let index = 0; index < 5; index += 1) {
+      await userEvent.tab();
+      expect(panel).toContainElement(document.activeElement as HTMLElement);
+    }
+  });
+
+  it("does not hold focus when the tour is not showing", async () => {
+    // The hook is called on every render; `active` is what stops a dismissed
+    // tour from grabbing the keyboard on an ordinary page.
+    localStorage.setItem("ctf.tour.seen", "1");
+    render(
+      <>
+        <button type="button">Somewhere else</button>
+        <Tour />
+      </>,
+    );
+
+    const button = screen.getByRole("button", { name: "Somewhere else" });
+    button.focus();
+
+    expect(button).toHaveFocus();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});

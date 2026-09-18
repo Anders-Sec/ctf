@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Route, Routes } from "react-router-dom";
+import { Link, Outlet, Route, Routes } from "react-router-dom";
 
 import ChallengeDetailPage from "./ChallengeDetailPage";
 import type { ChallengeDetail } from "../api/challenges";
@@ -168,5 +168,63 @@ describe("ChallengeDetailPage", () => {
 
     expect(await screen.findByText(/no such challenge/i)).toBeInTheDocument();
     expect(screen.getByText(/may not have been unsealed/i)).toBeInTheDocument();
+  });
+});
+
+describe("focus (spec 071)", () => {
+  it("moves focus into the overlay when it opens", async () => {
+    render(detail());
+    const panel = await screen.findByRole("dialog", { name: /packet puzzle/i });
+
+    expect(panel).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("keeps Tab inside the overlay rather than in the board behind it", async () => {
+    render(detail());
+    const panel = await screen.findByRole("dialog", { name: /packet puzzle/i });
+
+    // The complaint 071 was written for: the board underneath is still mounted
+    // and still focusable, under a sheet that says it is not.
+    for (let index = 0; index < 8; index += 1) {
+      await userEvent.tab();
+      expect(panel).toContainElement(document.activeElement as HTMLElement);
+    }
+  });
+
+  it("returns focus to the row that opened it", async () => {
+    // Spec 071 §8.1 asked whether to restore to the row or to the board
+    // container. Capturing whatever had focus at open time answers it without
+    // any per-caller code: the row is what had it.
+    stubFetch((path) => {
+      if (path.endsWith("/auth/me")) return { status: 200, body: me() };
+      return { status: 200, body: detail() };
+    });
+
+    // Nested exactly as App.tsx nests them: the board stays mounted behind the
+    // overlay, which is what lets the row still be there to focus afterwards.
+    renderApp(
+      <Routes>
+        <Route
+          path="/challenges"
+          element={
+            <>
+              <Link to="/challenges/c1">Packet Puzzle</Link>
+              <Outlet />
+            </>
+          }
+        >
+          <Route path=":challengeId" element={<ChallengeDetailPage />} />
+        </Route>
+      </Routes>,
+      { route: "/challenges" },
+    );
+
+    const row = await screen.findByRole("link", { name: "Packet Puzzle" });
+    await userEvent.click(row);
+    await screen.findByRole("dialog", { name: /packet puzzle/i });
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(await screen.findByRole("link", { name: "Packet Puzzle" })).toHaveFocus();
   });
 });

@@ -22,9 +22,15 @@ import { useEffect, useRef, type RefObject } from "react";
  * would be more to keep current than the code it replaced.
  */
 
-//: Everything natively focusable, minus anything explicitly taken out of the
-//: tab order. `:not([disabled])` matters more than it looks — a trap that can
-//: land on a disabled submit button is a trap you cannot get out of.
+//: Everything natively focusable, minus anything taken out of the tab order.
+//: `:not([disabled])` matters more than it looks — a trap that can land on a
+//: disabled submit button is a trap you cannot get out of.
+//:
+//: Deliberately a selector and not a visibility check. The first version
+//: filtered on `offsetParent !== null` to skip CSS-hidden controls, which is
+//: untestable under jsdom — it has no layout, so `offsetParent` is always null
+//: and the filter silently emptied this list. Nothing in these dialogs hides a
+//: focusable control with CSS anyway; they unmount it, the way React does.
 const FOCUSABLE = [
   "a[href]",
   "button:not([disabled])",
@@ -32,15 +38,12 @@ const FOCUSABLE = [
   "select:not([disabled])",
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])',
-].join(",");
+]
+  .map((selector) => `${selector}:not([hidden])`)
+  .join(",");
 
 function focusableWithin(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    // `offsetParent` is null for anything `display:none`, which is how the
-    // collapsed halves of these dialogs hide their controls. Tabbing to
-    // something invisible reads as the focus having vanished.
-    (element) => element.offsetParent !== null || element === document.activeElement,
-  );
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE));
 }
 
 export interface DialogFocusOptions {

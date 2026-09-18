@@ -289,3 +289,33 @@ describe("NotificationCentre", () => {
     });
   });
 });
+
+describe("focus (spec 071)", () => {
+  it("moves focus into the inbox when it opens", async () => {
+    render();
+    const panel = await openInbox();
+
+    expect(panel).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("closes on Escape and gives focus back to the inbox button", async () => {
+    render();
+    const button = await screen.findByRole("button", { name: /inbox/i });
+    await openInbox();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog", { name: "Inbox" })).not.toBeInTheDocument();
+    expect(button).toHaveFocus();
+  });
+
+  it("keeps Tab inside the inbox", async () => {
+    render();
+    const panel = await openInbox();
+
+    for (let index = 0; index < 8; index += 1) {
+      await userEvent.tab();
+      expect(panel).toContainElement(document.activeElement as HTMLElement);
+    }
+  });
+});

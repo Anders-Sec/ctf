@@ -275,7 +275,7 @@ function DeleteConfirm({
   onConfirm: () => void;
 }) {
   // **Not modal, and it never was.** This renders inline under the toolbar
-  // rather than over the page, so `role="dialog"` overstated it and trapping
+  // rather than over the page, so a plain dialog role overstated it and trapping
   // focus here would strand an admin in a strip of the page they can still see
   // past. `alertdialog` is what it actually is — a destructive confirmation —
   // and focus moves to it without being held (spec 071 §4, amending §8.2).

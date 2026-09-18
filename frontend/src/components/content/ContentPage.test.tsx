@@ -227,3 +227,46 @@ describe("ContentBulkBar", () => {
     expect(status.textContent?.match(/3 players hold it/g)).toHaveLength(1);
   });
 });
+
+describe("ContentDrawer focus (spec 071)", () => {
+  it("moves focus into the drawer", async () => {
+    render(
+      <ContentDrawer title="Injection" dirty={false} onClose={vi.fn()} footer={null}>
+        body
+      </ContentDrawer>,
+    );
+
+    const panel = screen.getByRole("dialog", { name: "Edit Injection" });
+    expect(panel).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("Escape still refuses to discard unsaved work", async () => {
+    // The hand-rolled handler needed a *missing* dependency array to avoid
+    // closing over a stale `dirty`. The hook calls the current callback, so the
+    // guard holds without that trick.
+    const onClose = vi.fn();
+    render(
+      <ContentDrawer title="Injection" dirty onClose={onClose} footer={null}>
+        body
+      </ContentDrawer>,
+    );
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText("Close without saving?")).toBeInTheDocument();
+  });
+
+  it("Escape closes when there is nothing to lose", async () => {
+    const onClose = vi.fn();
+    render(
+      <ContentDrawer title="Injection" dirty={false} onClose={onClose} footer={null}>
+        body
+      </ContentDrawer>,
+    );
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(onClose).toHaveBeenCalled();
+  });
+});
