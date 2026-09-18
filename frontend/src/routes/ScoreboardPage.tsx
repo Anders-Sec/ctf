@@ -130,8 +130,6 @@ export default function ScoreboardPage() {
 
       <ErrorMessage error={error} />
 
-      <ActivityTicker items={boards?.activity ?? activity.data?.items ?? []} />
-
       {loading ? (
         <Spinner label="Reading the ledger…" />
       ) : searching && shown.length === 0 ? (
@@ -172,6 +170,9 @@ export default function ScoreboardPage() {
           </button>
         </p>
       )}
+
+      {/* Below the boards: the ticker is a side item, not the main one. */}
+      {!loading && <ActivityTicker items={boards?.activity ?? activity.data?.items ?? []} />}
 
       {openParty && <PartyPanel teamId={openParty} onClose={() => setOpenParty(null)} />}
     </main>
