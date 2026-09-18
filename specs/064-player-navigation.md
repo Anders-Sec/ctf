@@ -1,6 +1,6 @@
 # Spec 064 — The Player Navigation Bar
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 048 (theme toggle), 049 (the admin shell this is the twin of)
 First of three: **064** the bar, 065 the inbox, 066 the landing page.
@@ -91,12 +91,13 @@ scoreboard into a comparison of numbers rather than of standing". That is about
 **other people's** XP, on a board. A player's own number, in their own chrome,
 is not the thing it was written to stop.
 
-Recommended reading, to be confirmed: **never anybody else's XP, and never on a
-board.** Your own, in your own furniture, is yours to see.
+**Decided (2026-09-18): XP is only ever visible to yourself.** The rule is about
+*whose* XP and *where* — never another player's, never on a board — not about
+one screen. A bar in your own nav was the intended feature all along.
 
-Under that reading the chip shows `Lv 7` on the bar, and the menu adds the
-progress bar with its numbers. Under the strict reading, the bar shows the level
-only and the menu shows a bar with no figures.
+059 §2 and 060 §3 are amended to say so, rather than leaving three specs
+disagreeing. The chip shows `Lv 7` with a progress bar on the bar itself, and the
+menu carries the figures.
 
 ## 4. Backend
 
@@ -134,13 +135,12 @@ already shaped for this.
   moving the inbox away from it.
 - **A mobile pass.** §2.3 fixes the bar because we are already inside it.
 
-## 7. Open questions
+## 7. Decisions
 
-1. **Does a player's own XP belong in their own chrome?** §3. Recommend
-   **yes**, narrowing 059's rule to "never anybody else's, never on a board",
-   and amending 059 §2 and 060 §3 to say so rather than leaving three specs
-   disagreeing.
-2. **Should the brand still read "CTF"?** It is the one piece of player-facing
-   text that never got the dungeon treatment. Recommend using the **event's
-   name**, which `/auth/me` already carries, and falling back to "CTF" when it
-   is unset.
+Signed off 2026-09-18.
+
+1. **A player's own XP belongs in their own chrome.** See §3 — 059 and 060 are
+   amended to state the rule as it was always meant: never anybody else's, never
+   on a board.
+2. **The brand reads the event's name**, which `/auth/me` already carries,
+   falling back to "CTF" when it is unset.

@@ -14,9 +14,14 @@ The page is 209 lines and four columns per board:
 
 > **Parties:** Party · Level · XP  **Players:** Player · Party · Level · XP
 
-- **It shows XP, which it should not.** XP is the player's own business — it
-  belongs on their character sheet and nowhere else. Publishing it turns a
-  scoreboard into a comparison of numbers rather than of standing.
+- **It shows XP, which it should not.** XP is the player's own business —
+  **theirs to see, and nobody else's.** It never appears for another player, and
+  never on a board. Publishing it turns a scoreboard into a comparison of
+  numbers rather than of standing.
+
+  *(Clarified 2026-09-18, spec 064 §7.1: the rule is about whose XP and where,
+  not about one screen. A player's own number in their own chrome — their sheet,
+  their nav — was never what this was written to stop.)*
 - **It shows nothing that was earned.** Boss stars (spec 031), loot titles
   (038) and class (016) are the things a player collects and wants seen. None of
   them appear.

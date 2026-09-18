@@ -94,7 +94,7 @@ the desktop layout. Panels keep their fixed heights; the page scrolls.
 | Worn title | **new** on the sheet | Beside the name. It is the name plate everybody else sees on the board (059), and today its owner can only find it inside the loot inventory. |
 | Class | `character_class` | **Static text**, with its rarity colour. Clicking it opens the class dialog (§4). |
 | Level | `level` | |
-| XP bar | `xp_into_level`, `xp_to_next`, `total_xp` | **With the numbers**, not just a bar. This is the one screen where 059's rule permits XP, so it should not be coy about it. |
+| XP bar | `xp_into_level`, `xp_to_next`, `total_xp` | **With the numbers**, not just a bar. 059's rule is about *other people's* XP and about boards; a player's own is theirs to see, here and in their own nav chrome (064). |
 | Party | **new** on the sheet | Name, linking to the party. |
 | Rank | `rank` | |
 
