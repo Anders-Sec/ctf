@@ -81,10 +81,9 @@ thinking. This is a bar-only fix and not the queued pass across every page.
 
 The brief asks for "a little XP/level indicator next to the profile".
 
-**Spec 059 §2 says XP "belongs on their character sheet and nowhere else", and
-060 §3 calls the sheet "the one screen where 059's rule permits XP".** A chip in
-the nav is not obviously either, so it needs deciding rather than assuming — see
-§7.1.
+**Spec 059 §2 said XP "belongs on their character sheet and nowhere else", and
+060 §3 called the sheet "the one screen where 059's rule permits XP".** A chip in
+the nav is neither, so it was raised rather than assumed.
 
 The rule's *purpose* is clear from 059's own wording: publishing XP "turns a
 scoreboard into a comparison of numbers rather than of standing". That is about
@@ -144,3 +143,20 @@ Signed off 2026-09-18.
    on a board.
 2. **The brand reads the event's name**, which `/auth/me` already carries,
    falling back to "CTF" when it is unset.
+
+## 8. As built
+
+Built 2026-09-18. Two notes.
+
+### Four fields on `/auth/me`, not one
+
+§4 said `level`. A progress bar needs both halves of the fraction and the menu
+shows the figures, so it carries `level`, `total_xp`, `xp_into_level` and
+`xp_to_next`. Still one scalar sum and a curve lookup — the cost §4 was actually
+weighing — and the nav now needs no second request to render.
+
+### An existing assertion caught a regression
+
+Rebuilding the bar dropped the `!showingAdmin` guard on the way into admin view,
+so the profile offered it while already inside — the confusing half of a toggle.
+Spec 049 put that guard there and its test still held it. Restored.

@@ -90,7 +90,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 061 | `061-public-character-sheet.md` | Phase 3 QoL — somebody else's sheet, mirroring 060 without XP or loot: secrets blurred server-side, achievements as a trophy case, and a Feats block of stars, counters and a zone breakdown | **done** |
 | 062 | `062-challenge-board.md` | Phase 3 QoL — the challenge list becomes the board: sticky zone sidebar, one row per challenge, stable authored ordering, sealed zones collapsed and sealed titles withheld server-side, and the challenge opens as an overlay so solving never costs your place | **done** |
 | 063 | `063-challenge-body-markdown.md` | Phase 3 QoL — challenge descriptions render as markdown with code blocks, `artifact:` references resolve to uploaded pictures, and the challenge editor grows a Files panel over the upload endpoint that already existed | **done** |
-| 064 | `064-player-navigation.md` | Phase 3 QoL — the player nav bar: inbox moves left, sign out and settings into a profile menu, plain icons, a level chip, and a bar that survives a narrow window | **approved** (2026-09-18) |
+| 064 | `064-player-navigation.md` | Phase 3 QoL — the player nav bar: inbox moves left, sign out and settings into a profile menu, plain icons, a level chip, and a bar that survives a narrow window | **done** |
 | 065 | `065-the-inbox.md` | Phase 3 QoL — notifications become an inbox: Yours and Event tabs, a kind filter, soft-dismiss clearing, colour with the kind named, and toasts that are quieter, shorter and unclickable | **draft** |
 | 066 | `066-landing-and-getting-started.md` | Phase 3 QoL — the landing page answers "how am I doing" and "what next": a server-offset countdown, where you left off, your standing, a derived first-steps checklist and a one-time tour | **draft** |
 
@@ -135,7 +135,8 @@ of a manual walkthrough of every surface rather than up front. In progress:
 - **061** — Somebody else's character sheet. **Done.**
 - **062** — The challenge board. **Done.** The map is untouched and no longer the default.
 - **063** — Markdown and pictures in a challenge. **Done.**
-- **064–066** — Player navigation, the inbox, and the landing page. One brief, split into three because they are separately reviewable. **Drafted**, awaiting sign-off; to be built in order.
+- **064** — The player nav bar. **Done.**
+- **065–066** — The inbox and the landing page. **Drafted**, awaiting sign-off.
 
 Still to spec, from the same walkthrough: System AI chat usability on mobile,
 and a pass across every page's mobile view.
