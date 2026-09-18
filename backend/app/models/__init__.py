@@ -9,6 +9,7 @@ from app.models.announcement import Announcement, AnnouncementAudience
 from app.models.assistant import AssistantConversation, AssistantMessage, MessageRole
 from app.models.audit import AuditLog
 from app.models.auth import AuthSession, MagicLinkToken
+from app.models.avatar import AccessorySlot, AvatarAccessory, UnlockKind
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.challenge import (
     Ability,
@@ -69,7 +70,7 @@ from app.models.team import (
     TeamMembership,
 )
 from app.models.theme_unlock import UnlockSource, UserThemeUnlock
-from app.models.user import User
+from app.models.user import AvatarSource, User
 
 __all__ = [
     "BroadcastLog",
@@ -84,7 +85,11 @@ __all__ = [
     "AssistantMessage",
     "Announcement",
     "AnnouncementAudience",
+    "AccessorySlot",
+    "AvatarAccessory",
+    "AvatarSource",
     "AuditLog",
+    "UnlockKind",
     "UnlockSource",
     "UserThemeUnlock",
     "AuthSession",

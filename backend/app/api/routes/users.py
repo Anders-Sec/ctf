@@ -8,16 +8,9 @@ from fastapi import APIRouter, Request, Response, status
 from app.api.deps import Authenticated, DbSession
 from app.errors import NotFoundError
 from app.models.user import User
+from app.services.avatars import rendered_for
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-#: A neutral 1x1 transparent PNG. Guests without an Entra photo get an identicon
-#: generated in the browser from their id; this is only the fallback for a user
-#: whose avatar was expected but is missing.
-_BLANK_PNG = bytes.fromhex(
-    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
-    "890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082"
-)
 
 
 @router.get("/{user_id}/avatar")
@@ -27,30 +20,29 @@ async def get_avatar(
     db: DbSession,
     _: Authenticated,
 ) -> Response:
-    """Serve a cached Entra profile photo.
+    """Serve the rendered avatar.
 
-    Graph will not serve these without a token, so the bytes are cached at login
-    and handed out from here instead of the browser fetching Microsoft directly.
+    Since spec 073 there is no "no avatar" case: a player with no photo and no
+    accessories still has a procedural crest, so the blank 1x1 PNG this used to
+    fall back to is gone, and with it the frontend's second rendering path.
+
+    ``avatar_blob`` is a **cache** of the render rather than an upload. When it
+    is empty the recipe is rendered here and stored. Two requests racing is
+    harmless: the render is deterministic, so they compute the same bytes.
     """
     user = await db.get(User, user_id)
     if user is None:
         raise NotFoundError("No such user.")
 
-    if user.avatar_blob is None:
-        return Response(
-            content=_BLANK_PNG,
-            media_type="image/png",
-            headers={"Cache-Control": "private, max-age=300"},
-        )
+    rendered = await rendered_for(db, user)
+    await db.commit()
 
-    # Derived from the content, so a changed photo invalidates the cache and an
-    # unchanged one costs a 304 rather than a download.
-    etag = f'"{hashlib.sha256(user.avatar_blob).hexdigest()[:32]}"'
+    etag = f'"{hashlib.sha256(rendered).hexdigest()[:32]}"'
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
 
     return Response(
-        content=user.avatar_blob,
-        media_type="image/jpeg",
+        content=rendered,
+        media_type="image/png",
         headers={"ETag": etag, "Cache-Control": "private, max-age=3600"},
     )

@@ -26,6 +26,7 @@ from app.api.routes import (
     admin_unlocks,
     assistant,
     auth,
+    avatar,
     challenges,
     character,
     dungeon,
@@ -81,6 +82,30 @@ async def _purge_stale_conversations(settings: Settings) -> None:
         logger.warning("assistant_retention_purge_failed", extra={"error_type": type(exc).__name__})
 
 
+async def _seed_accessory_roster(settings: Settings) -> None:
+    """Put the authored avatar accessories in the table if they are not there.
+
+    At boot rather than in a migration, which is a deliberate difference from
+    the class roster (seeded by 0027). Migrations here never import from ``app``
+    — they are frozen snapshots, and a migration that read an evolving roster
+    module would change meaning underneath itself. Seeding here keeps the roster
+    in exactly one place.
+
+    Idempotent by slug, and never fatal: an instance with no accessories still
+    gives everybody a sigil.
+    """
+    try:
+        sessionmaker = get_sessionmaker(settings)
+        async with sessionmaker() as session, session.begin():
+            from app.services.accessory_roster import seed
+
+            added = await seed(session)
+        if added:
+            logger.info("accessory_roster_seeded", extra={"added": added})
+    except Exception as exc:  # noqa: BLE001 - cosmetics must never block boot
+        logger.warning("accessory_roster_seed_failed", extra={"error_type": type(exc).__name__})
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
@@ -99,6 +124,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # accumulate stale transcripts just because nobody pressed it. Never fatal:
     # the assistant is optional and a failed purge must not stop the app serving.
     await _purge_stale_conversations(settings)
+    await _seed_accessory_roster(settings)
     await _ensure_instance_isolation(app)
     # One dispatch loop per process. Several replicas run it; the broadcast
     # log decides which one actually sends (spec 032).
@@ -174,6 +200,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(admin_skills.router)
     api.include_router(admin_unlocks.router)
     api.include_router(assistant.router)
+    api.include_router(avatar.router)
     api.include_router(challenges.router)
     api.include_router(character.router)
     api.include_router(dungeon.router)

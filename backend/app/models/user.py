@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum, ForeignKey, Integer, LargeBinary, String
-from sqlalchemy.dialects.postgresql import ARRAY, CITEXT
+from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,25 @@ class UserRole(enum.StrEnum):
     #: should not need an account that can silently rewrite scores.
     ORGANIZER = "organizer"
     ADMIN = "admin"
+
+
+class AvatarSource(enum.StrEnum):
+    """Which base the avatar renderer starts from (spec 073 §3).
+
+    The renderer does not care which: every one of these ends up as a PNG with
+    the unlocked accessory layers composited on top. That is the point — there
+    is one rendering path, so ``Avatar`` on the frontend is an ``<img>`` and
+    nothing else.
+    """
+
+    #: Procedural heraldic crest from the user id. The default, and the fallback
+    #: whenever generation is unavailable or declined — everybody has one on day
+    #: one with no GPU and no setup.
+    SIGIL = "sigil"
+    #: The cached Entra photo, for the accounts that have one.
+    ENTRA = "entra"
+    #: A portrait from the generation service (spec 074).
+    GENERATED = "generated"
 
 
 class UserStatus(enum.StrEnum):
@@ -70,8 +89,6 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
     )
 
-    #: Entra profile photos are not publicly fetchable — Graph requires a token —
-    #: so the bytes are cached here and served through our own endpoint.
     #: Notification kinds this player has turned down (spec 070 §4).
     #:
     #: A volume control, not a filter: a muted kind still arrives and still sits
@@ -80,8 +97,41 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     muted_notification_kinds: Mapped[list[str]] = mapped_column(
         ARRAY(String(40)), nullable=False, default=list, server_default="{}"
     )
+
+    #: The **rendered** avatar, and the only thing ``GET /users/{id}/avatar``
+    #: ever serves. Entra photos are not publicly fetchable — Graph requires a
+    #: token — so those bytes are cached here too.
+    #:
+    #: Spec 073 made this the output of a renderer rather than a stored upload:
+    #: ``avatar_source`` and ``avatar_config`` below are the recipe, and this is
+    #: what they composited to. Re-derivable, so it is cache rather than truth.
     avatar_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     avatar_updated_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    #: The **base** the renderer starts from: a cached Entra photo, or a
+    #: portrait from spec 074. Separate from ``avatar_blob`` because that is now
+    #: the composited output — keeping both in one column would mean either
+    #: re-compositing on every request (200 roster rows, 2048px canvases) or
+    #: losing the original the moment a hat was added.
+    #:
+    #: Null for a sigil, which is regenerated from the id rather than stored.
+    avatar_base: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+
+    #: Which base the renderer starts from (spec 073 §3).
+    avatar_source: Mapped[AvatarSource] = mapped_column(
+        Enum(AvatarSource, name="avatar_source", values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=AvatarSource.SIGIL,
+        server_default=AvatarSource.SIGIL.value,
+    )
+    #: ``{"layers": [{"accessory": slug, "x": .., "y": .., "scale": .., "rotation": ..}]}``
+    #:
+    #: The transform is stored rather than a flattened image, so unlocking a new
+    #: hat next Tuesday does not lose the fit of the glasses, and the avatar can
+    #: re-render at 40px and 200px from one recipe.
+    avatar_config: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
 
     #: Takes the dungeon master away from one person mid-event. Without it the
     #: only lever is the event-wide switch, and one player misbehaving should
