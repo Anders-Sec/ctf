@@ -1,6 +1,6 @@
 # Spec 065 — The Inbox
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 028 (notifications), 032 (boss broadcasts), 048 (colour rules),
 064 (where the bell now lives)
@@ -133,13 +133,12 @@ tab so a new one cannot quietly go missing.
 - **Add email.** Spec 055 owns that, and it stays about sign-in links.
 - **Hard delete.** §4, deliberately.
 
-## 9. Open questions
+## 9. Decisions
 
-1. **Should `system` sit in Event or Yours?** It is used for one-off platform
-   messages, which in practice are addressed to one player. Recommend
-   **Event**, on the grounds that anything not clearly *about your progress*
-   belongs with the news — and it keeps "Yours" meaning exactly one thing.
-2. **Should clearing be offered at all before the event ends?** A player who
-   clears everything on day two loses their own record of it. Recommend
-   **yes, but per-tab** — clearing "Event" is housekeeping; clearing "Yours"
-   throws away your own history, so that tab's clear-all asks first.
+Signed off 2026-09-18, both as recommended.
+
+1. **`system` sits in Event.** Anything not clearly *about your progress*
+   belongs with the news, and it keeps "Yours" meaning exactly one thing.
+2. **Clearing is offered, per tab, and "Yours" asks first.** Clearing "Event" is
+   housekeeping; clearing "Yours" throws away your own record of the event, so
+   that one confirms.
