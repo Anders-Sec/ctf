@@ -9,6 +9,26 @@ export type Difficulty =
   | "hard"
   | "very_hard"
   | "nearly_impossible";
+/** Read by a person, not a database. Defined once — the enum is a closed six. */
+export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+  very_easy: "Very Easy",
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+  very_hard: "Very Hard",
+  nearly_impossible: "Nearly Impossible",
+};
+
+/** Easiest first, matching the order the server sends the board in. */
+export const DIFFICULTY_ORDER: Difficulty[] = [
+  "very_easy",
+  "easy",
+  "medium",
+  "hard",
+  "very_hard",
+  "nearly_impossible",
+];
+
 export type ChallengeState = "draft" | "hidden" | "locked" | "published";
 export type MatchType =
   "exact" | "case_insensitive" | "regex" | "numeric" | "set" | "any_of";
@@ -31,8 +51,10 @@ export interface Artifact {
 
 export interface ChallengeListItem {
   id: string;
-  title: string;
-  slug: string;
+  /** Null while sealed — withheld server-side, so there is nothing to reveal. */
+  title: string | null;
+  /** Null while sealed too: a slug is the kebab-cased title. */
+  slug: string | null;
   category: Category;
   difficulty: Difficulty;
   state: ChallengeState;
