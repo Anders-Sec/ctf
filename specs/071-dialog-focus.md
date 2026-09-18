@@ -1,6 +1,6 @@
 # Spec 071 — Focus and the Keyboard in Dialogs
 
-Status: **draft**
+Status: **done**
 Phase: 3 (Polish & Operability) — quality of life
 Depends on: 058, 059, 060, 062, 064, 065, 066 — every spec that added a dialog
 First of two: **071** focus, 072 the party page's tests.
@@ -111,13 +111,46 @@ Plus:
 - **Add a focus-trap dependency.** It is about forty lines and a dependency
   would be a larger thing to keep current than the code it replaces.
 
-## 8. Open questions
+## 8. Decisions
 
-1. **Should the challenge overlay restore focus to the row, or to the board's
-   scroll position?** They are different: the row may have moved if the board
-   refetched. Recommend **the row by id, falling back to the board container**,
-   since spec 062's ordering is stable precisely so it will still be there.
-2. **Does `BulkToolbar` want this at all?** It is a bar rather than an overlay
-   and declares `role="dialog"` arguably wrongly. Recommend **changing its role
-   to `region`** instead of trapping focus in a toolbar the admin is using
-   alongside the table.
+1. **The challenge overlay restores focus to the row, and needed no code to do
+   it.** `App.tsx` nests the overlay *inside* the board, so the board never
+   unmounts and the row is still there; capturing `document.activeElement` at
+   open time lands on it. The fallback this question proposed is unnecessary.
+2. **`BulkToolbar` is an `alertdialog`, not a `region`** — amending this
+   spec's own recommendation. Reading it showed it is a destructive delete
+   confirmation rendered inline under the toolbar, not a landmark and not an
+   overlay. It gets focus moved to it and Escape to cancel, with **no trap**:
+   the page behind it genuinely is still usable, so holding focus would strand
+   an admin in a strip of a page they can see past. Its four existing tests
+   moved from `role="dialog"` to `role="alertdialog"`.
+
+## 9. What the build changed
+
+- **§1's table was wrong and was corrected before any code was written.** It
+  claimed two components already moved focus in, trapped it and restored it.
+  They only moved it in: there is no `activeElement` reference anywhere in
+  `src/`, so nothing trapped or restored anything.
+- **The hook holds `onClose` in a ref.** Callers pass an inline arrow almost
+  every time, which as a dependency re-ran the effect on every parent render —
+  re-capturing the opener and snapping focus back to the first field while
+  somebody was typing in the third. This also gives `ContentDrawer` the
+  property its hand-rolled handler needed a deliberately missing dependency
+  array to get: the Escape path always sees the current `dirty`.
+- **A visibility filter was written and then removed.** `offsetParent !== null`
+  is untestable under jsdom, which has no layout and reports null for
+  everything — the filter silently emptied the focusable list and made the hook
+  a no-op in every test. Nothing in these dialogs CSS-hides a focusable
+  control, so the selector now carries `:not([hidden])` and nothing more.
+- **§6's "same four assertions per dialog" became coverage plus depth.** Twelve
+  near-identical copies of the hook's own tests would assert the hook, not the
+  callers. Instead: the hook is tested once and thoroughly, a source-walking
+  guard proves every dialog uses it and that **every hook call names a ref that
+  is actually attached** — the silent failure, since a null ref makes the hook
+  do nothing with no error — and the dialogs with the interesting wiring
+  (`ChallengeDetailPage`, `NotificationCentre`, `ContentDrawer`, `Tour`) get
+  real behavioural tests. The guard was verified by sabotaging `ZonePanel` and
+  confirming it named the file.
+- **Counts, for the record:** 11 elements with `role="dialog"`, 1
+  `role="alertdialog"`, 1 `role="menu"`, 13 components using the hook, 636
+  frontend tests passing (up from 608).
