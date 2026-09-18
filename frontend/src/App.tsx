@@ -60,8 +60,12 @@ export default function App() {
         <Route path="/scoreboard" element={<ScoreboardPage />} />
         <Route path="/character" element={<CharacterSheetPage />} />
         <Route path="/character/:userId" element={<CharacterSheetPage />} />
-        <Route path="/challenges" element={<ChallengesPage />} />
-        <Route path="/challenges/:challengeId" element={<ChallengeDetailPage />} />
+        {/* The detail is a child route, so opening a challenge never unmounts
+            the board behind it (spec 062 §5). Scroll position survives by
+            construction, a deep link still works, and Back closes the overlay. */}
+        <Route path="/challenges" element={<ChallengesPage />}>
+          <Route path=":challengeId" element={<ChallengeDetailPage />} />
+        </Route>
 
         {/*
          * The admin area (spec 049). One staff gate on the shell rather than

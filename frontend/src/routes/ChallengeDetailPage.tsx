@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
-import { artifactUrl, getChallenge, submitAnswer } from "../api/challenges";
+import { DIFFICULTY_LABEL, artifactUrl, getChallenge, submitAnswer } from "../api/challenges";
 import { ApiError } from "../api/client";
 import ErrorMessage from "../components/ErrorMessage";
 import HintList from "../components/HintList";
@@ -11,10 +11,31 @@ import PuzzlePanel from "../components/puzzle/PuzzlePanel";
 import ReportChallenge from "../components/ReportChallenge";
 import Spinner from "../components/Spinner";
 
+/**
+ * One challenge, as an overlay over the board (spec 062 §5).
+ *
+ * A child route rather than a page of its own, so the list behind it never
+ * unmounts: scroll position survives by construction, a shared link still opens
+ * the right challenge, and Back closes it — which is what Back means to somebody
+ * looking at an overlay.
+ */
 export default function ChallengeDetailPage() {
   const { challengeId = "" } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [answer, setAnswer] = useState("");
+
+  // Back rather than a push, so opening and closing ten challenges does not
+  // leave ten entries to walk out through.
+  const close = () => navigate("/challenges");
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   const challenge = useQuery({
     queryKey: ["challenge", challengeId],
@@ -43,22 +64,28 @@ export default function ChallengeDetailPage() {
     },
   });
 
-  if (challenge.isPending) return <Spinner />;
-  if (challenge.isError) {
-    const notFound =
-      challenge.error instanceof ApiError && challenge.error.status === 404;
+  if (challenge.isPending) {
     return (
-      <main className="mx-auto max-w-2xl p-6">
+      <Overlay onClose={close} label="Challenge">
+        <Spinner />
+      </Overlay>
+    );
+  }
+
+  if (challenge.isError) {
+    const notFound = challenge.error instanceof ApiError && challenge.error.status === 404;
+    return (
+      <Overlay onClose={close} label="Challenge">
         <h1 className="text-2xl font-semibold">
           {notFound ? "No such challenge" : "Could not load that challenge"}
         </h1>
         <p className="mt-2 text-content-muted">
           {notFound && "It may not have been unsealed yet."}
         </p>
-        <Link to="/challenges" className="mt-4 inline-block underline">
+        <button type="button" onClick={close} className="mt-4 underline">
           Back to the board
-        </Link>
-      </main>
+        </button>
+      </Overlay>
     );
   }
 
@@ -67,20 +94,17 @@ export default function ChallengeDetailPage() {
   const outOfAttempts = detail.attempts_remaining === 0 && !detail.solved;
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <Link to="/challenges" className="text-sm underline">
-        ← Back to the board
-      </Link>
-
-      <header className="mt-4">
+    <Overlay onClose={close} label={detail.title ?? "Sealed challenge"}>
+      <header>
         <p className="text-sm uppercase tracking-wide text-content-muted">
           {detail.category.name}
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-          {detail.title}
+          {/* Null while sealed — the server sends no name for one (spec 062). */}
+          {detail.title ?? "Sealed"}
         </h1>
         <p className="mt-2 text-content-muted">
-          {detail.value} XP · {detail.difficulty} · {detail.solve_count}{" "}
+          {detail.value} XP · {DIFFICULTY_LABEL[detail.difficulty]} · {detail.solve_count}{" "}
           {detail.solve_count === 1 ? "solve" : "solves"}
         </p>
       </header>
@@ -224,6 +248,47 @@ export default function ChallengeDetailPage() {
       )}
 
       <ReportChallenge challengeId={detail.id} />
-    </main>
+    </Overlay>
+  );
+}
+
+/**
+ * The sheet itself.
+ *
+ * Full-screen below `sm` with an explicit close, because at phone width an
+ * overlay covering the list is indistinguishable from a page and Back should not
+ * be the only way out. A considered mobile pass across every page is queued
+ * separately; this is a reasonable default, not that pass.
+ */
+function Overlay({
+  onClose,
+  label,
+  children,
+}: {
+  onClose: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-30 bg-content/40" onClick={onClose} aria-hidden />
+      <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto sm:p-6">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={label}
+          className="min-h-full w-full max-w-2xl border-border-strong bg-surface p-5 shadow-xl sm:min-h-0 sm:rounded-lg sm:border"
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            className="mb-3 text-sm underline"
+          >
+            ← Back to the board
+          </button>
+          {children}
+        </div>
+      </div>
+    </>
   );
 }
