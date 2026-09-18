@@ -67,6 +67,22 @@ spec:
             - name: AI_MODEL
               value: "llama3.3-8b-instruct-thinking-heretic-uncensored-claude-4.5-opus-high-reasoning-i1"
 
+            # Portrait generation (spec 074). The same physical host as the
+            # model above — it runs tools/avatar-service beside LM Studio — so
+            # it reaches it through the same stable in-cluster name, on the port
+            # the platform session adds to the `ai` Endpoints. The real address
+            # stays out of this repo, exactly as it does for AI_BASE_URL.
+            #
+            # No /v1 suffix: this service's contract is POST /generate.
+            #
+            # Until the platform side exists this resolves to nothing, the
+            # client reports `unreachable`, and the builder is simply not
+            # offered — crests, accessories and the editor carry on without it.
+            - { name: IMAGE_BASE_URL, value: "http://ai.ctf.svc.cluster.local:8188" }
+            # A kill switch that does not need the URL edited out: false hides
+            # the generation UI and leaves the rest of the avatar system alone.
+            - { name: IMAGE_ENABLED, value: "true" }
+
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: ctf-secrets, key: database-url } }
             - name: REDIS_URL
@@ -112,6 +128,11 @@ spec:
             - name: AI_API_KEY
               valueFrom:
                 secretKeyRef: { name: ctf-secrets, key: ai-api-key, optional: true }
+            # Only if AVATAR_API_KEY was set on the service. Optional, so the pod
+            # starts either way.
+            - name: IMAGE_API_KEY
+              valueFrom:
+                secretKeyRef: { name: ctf-secrets, key: image-api-key, optional: true }
             # The event's own hosts, so the safety filter can tell an attack on
             # the crawl (fine) from one on the real company (not). Real internal
             # names must never enter this repo, so it arrives as a secret.
