@@ -46,9 +46,8 @@ To `event.ends_at`, and **offset against the server's clock**, not the browser's
 actually decides; the client's own is decorative"* — so the offset is taken once
 on load and the countdown ticks from there.
 
-`AdminLayout` already has an `EventClock` doing exactly this. It moves to
-`components/` and both use it; a second countdown would be a second thing to get
-wrong.
+`AdminLayout` has an `EventClock`, which this spec expected to reuse. It turned
+out to do a different job — see §8.
 
 Before the event, it counts to the start instead. After, it says so — and the
 gate card already covers that case, so the countdown simply stops.
@@ -174,3 +173,33 @@ Signed off 2026-09-18, both as recommended.
    left a party reads as an accusation.
 2. **Four tour steps.** The party is left to the checklist, which already links
    there and does it better.
+
+## 8. As built
+
+Built 2026-09-18. Two notes.
+
+### `EventClock` was not reusable, and §2.1 was wrong about it
+
+The spec said *"AdminLayout already has an EventClock doing exactly this"*. It
+does not: it prints the server's wall-clock **time** from `Dashboard["event"]`,
+a different payload with a `running` flag. A countdown to `ends_at` from
+`EventSummary` shares nothing with it but a name.
+
+So `EventCountdown` is new, and the admin one is untouched. The claim was made
+from the component's name rather than its body, which is the mistake worth
+recording.
+
+What *was* reusable is the thing that actually mattered: `server_time`, already
+on the payload, already documented as *"the clock that actually decides"*. A
+test sets the browser clock an hour fast and asserts the same figure comes out.
+
+### The XP test had to be narrowed, and the narrowing is the point
+
+"No XP on the page" first failed against the checklist's own hint — *"they
+appear as you earn XP in them"*. That is guidance about how skills are earned,
+not a score.
+
+The rule 059 states is about publishing **figures**, so the test asserts no
+`N XP` appears rather than that the letters never do. Writing it the blunt way
+would have forced the hint to be reworded into something worse to satisfy a
+test that was wrong.
