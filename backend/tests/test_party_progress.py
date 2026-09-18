@@ -7,7 +7,7 @@ is the one that matters most here.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -79,8 +79,14 @@ class TestCoverage:
 
         early = await record_solve(db_session, first, challenge, team=party)
         late = await record_solve(db_session, leader, challenge, team=party)
-        early.submitted_at = datetime.now(UTC).replace(tzinfo=None, microsecond=0)
-        late.submitted_at = early.submitted_at.replace(hour=(early.submitted_at.hour + 1) % 24)
+        # Both fixed and both in the past, an hour apart. This used to set the
+        # later one with `.replace(hour=(hour + 1) % 24)`, which at 23:00 wraps
+        # to midnight **the same day** — 23 hours earlier, not an hour later. It
+        # passed everywhere except a CI run that happened to start in the last
+        # hour of the UTC day.
+        base = datetime.now(UTC).replace(tzinfo=None, microsecond=0) - timedelta(hours=2)
+        early.submitted_at = base
+        late.submitted_at = base + timedelta(hours=1)
         await db_session.flush()
 
         body = (await client.get(f"/api/teams/{party.id}/progress")).json()
