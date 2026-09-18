@@ -54,6 +54,10 @@ export function me(overrides: Partial<Me> = {}): Me {
     high_contrast: false,
     base_theme: FALLBACK_THEME,
     unlocked_themes: [],
+    level: 1,
+    total_xp: 0,
+    xp_into_level: 0,
+    xp_to_next: 100,
     capabilities: capabilities(),
     event: {
       name: "Autumn Crawl",

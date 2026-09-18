@@ -89,6 +89,17 @@ export interface Me {
    * these beyond the everyday two; selecting anything else falls back.
    */
   unlocked_themes: ThemeId[];
+  /**
+   * Their own level and XP, for the nav chip (spec 064 §3).
+   *
+   * XP is only ever visible to yourself — never another player's, and never on
+   * a board. This is the caller's own session payload, which is the definition
+   * of their own chrome.
+   */
+  level: number;
+  total_xp: number;
+  xp_into_level: number;
+  xp_to_next: number;
 }
 
 export const getMe = () => api.get<Me>("/auth/me");
