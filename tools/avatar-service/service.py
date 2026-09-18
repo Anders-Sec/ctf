@@ -10,7 +10,7 @@ behind it can be swapped without the platform knowing:
 
     POST /generate  {"prompt": str, "seed": int, "steps": int, "model": str}
                  -> image/png, or 422 if the safety check refused it
-    GET  /health -> {"ok": true, "model": "..."}
+    GET  /health -> {"ok": true, "model": "...", "gpu": {...}}
 
 Setup is in README.md. Run it with:
 
@@ -54,6 +54,39 @@ class GenerateRequest(BaseModel):
     model: str = ""
 
 
+def _gpu() -> dict:
+    """What the GPU situation actually is, not just whether CUDA imported.
+
+    ``torch.cuda.is_available()`` returns **True on a card this build has no
+    kernels for** — an RTX 5090 is sm_120 and a cu124 wheel stops at sm_90. You
+    find out later, mid-generation, as ``CUDA error: no kernel image is
+    available for execution on the device``. So compare the device's compute
+    capability against the arch list the wheel was built with, and say so.
+    """
+    if not torch.cuda.is_available():
+        return {"cuda": False, "usable": False, "why": "no CUDA device visible"}
+
+    major, minor = torch.cuda.get_device_capability(0)
+    arch = f"sm_{major}{minor}"
+    supported = torch.cuda.get_arch_list()
+    usable = arch in supported
+    info = {
+        "cuda": True,
+        "usable": usable,
+        "device": torch.cuda.get_device_name(0),
+        "capability": arch,
+        "torch": torch.__version__,
+        "arch_list": supported,
+    }
+    if not usable:
+        info["why"] = (
+            f"this torch build has no kernels for {arch} "
+            f"(it supports {', '.join(supported)}). Install a CUDA build that "
+            "matches your card — see README.md."
+        )
+    return info
+
+
 def _load():
     """Loaded once, on the first request rather than at import.
 
@@ -66,8 +99,16 @@ def _load():
     from diffusers import AutoPipelineForText2Image
     from transformers import CLIPImageProcessor
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    gpu = _gpu()
+    if gpu["cuda"] and not gpu["usable"]:
+        # Refuse rather than falling back silently: a CPU fallback here is
+        # minutes per image, which looks like a hang rather than a downgrade.
+        raise RuntimeError(gpu["why"])
+
+    device = "cuda" if gpu["usable"] else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
+    if device == "cpu":
+        print("WARNING: no usable GPU — generating on CPU. This will be slow.")
 
     _pipe = AutoPipelineForText2Image.from_pretrained(
         MODEL_ID, torch_dtype=dtype, variant="fp16" if device == "cuda" else None
@@ -95,7 +136,8 @@ def _load():
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "model": MODEL_ID, "cuda": torch.cuda.is_available()}
+    gpu = _gpu()
+    return {"ok": True, "model": MODEL_ID, "gpu": gpu}
 
 
 @app.post("/generate")

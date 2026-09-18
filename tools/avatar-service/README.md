@@ -14,9 +14,57 @@ working with no GPU at all.
   and you will not enjoy it.
 - Python 3.11 or newer.
 
+### Give it its own virtualenv
+
+**Not the backend's.** Two reasons, and the second one bites:
+
+- torch and diffusers are several gigabytes and have nothing to do with the API.
+- `backend/.venv` is uv-managed and **has no `pip`**, so running `pip install`
+  with it active silently falls through to whatever other pip is on PATH —
+  usually your system Python. The install succeeds, `python service.py` then
+  runs the *venv's* interpreter, and you get `ModuleNotFoundError: No module
+  named 'torch'` for a package that installed perfectly well somewhere else.
+
+```powershell
+deactivate                      # if (ctf-backend) is showing in your prompt
+cd tools\avatar-service
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
-pip install torch --index-url https://download.pytorch.org/whl/cu124
-pip install diffusers transformers accelerate safetensors fastapi uvicorn pillow
+
+### Install torch for *your* GPU
+
+The CUDA build has to carry kernels for your card's compute capability. Pick the
+index URL to match — this is the one command you cannot copy blindly:
+
+| GPU generation | Compute capability | Index URL |
+| --- | --- | --- |
+| RTX 50-series (Blackwell) | sm_120 | `https://download.pytorch.org/whl/cu128` |
+| RTX 40-series (Ada) | sm_89 | `https://download.pytorch.org/whl/cu124` |
+| RTX 30-series (Ampere) | sm_86 | `https://download.pytorch.org/whl/cu124` |
+
+```powershell
+# torchvision comes from the same index — a mismatched pair is its own
+# class of confusing failure.
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements.txt
+```
+
+### Check it before you run it
+
+`torch.cuda.is_available()` returns **True on a card the build cannot actually
+use**, and the failure only shows up later as `CUDA error: no kernel image is
+available for execution on the device`. So check the arch list, not the flag:
+
+```powershell
+python -c "import torch; print(torch.cuda.get_arch_list()); print('sm_%d%d' % torch.cuda.get_device_capability(0))"
+```
+
+Your card's `sm_NNN` must appear in that list. If it does not, you have the
+wrong CUDA build — go back a step and change the index URL. `GET /health` on
+the running service reports the same thing.
+
+```powershell
 python service.py
 ```
 
