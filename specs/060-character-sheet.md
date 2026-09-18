@@ -1,6 +1,6 @@
 # Spec 060 — The Character Sheet
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 016/024 (classes), 018 (abilities and skills), 028 (achievements),
 038 (loot), 059 (rank, and the XP rule)
@@ -222,19 +222,19 @@ stays the only one.
   takes a choice, exactly as the current section does.
 - **Rework the avatar.** It renders as it does now.
 
-## 9. Open questions
+## 9. Decisions
 
-1. **Should the XP bar show total XP as well as progress into the level?** The
-   current sheet shows both (`450 / 1,200` *and* `8,400 XP total`). Recommend
-   **keeping both** — total XP is the number a player quotes at somebody, and
-   this is the only screen allowed to show it.
-2. **What happens to the panel that is empty at the start of the event?** On day
-   one a player has no achievements, no loot and no skills discovered, so three
-   of four panels are empty boxes. Recommend **keeping them at full height with
-   a line of copy in each**, because a sheet that grows blocks as you play is
-   the reflow this spec exists to remove — but it does mean the first impression
-   is a mostly-empty sheet.
-3. **Does the skills list need a level sort?** It is display-ordered today.
-   Recommend **leaving it** and revisiting if it feels wrong with real data;
-   sorting by level makes the list reshuffle as you play, which fights the
-   fixed-layout goal.
+Signed off 2026-09-18.
+
+1. **The XP bar shows both** — progress into the level *and* total XP. Total XP
+   is the number a player quotes at somebody, and this is the only screen
+   allowed to show it.
+2. **Day-one emptiness is the point, not a cost.** Four panels at full height on
+   Monday morning show a player everything there is to unlock before they have
+   unlocked any of it. The empty state is a glass half full, so it gets real
+   copy rather than an apology — and it is the same argument as the fixed
+   heights, one step further.
+3. **Skills stay display-ordered.** Scrolling past the locked ones is part of
+   the point: it shows how much there is that you do not know yet. A player who
+   wants the other view filters to discovered, which also answers "what level am
+   I really" without a sort that reshuffles the list as they play.
