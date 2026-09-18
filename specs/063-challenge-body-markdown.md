@@ -154,3 +154,30 @@ Signed off 2026-09-18.
    renders a picture; `[the capture](artifact:dump.pcap)` renders a download
    link. The same resolver answers both, and "download the file mentioned in
    this sentence" reads better than "see the list below".
+
+## 10. As built
+
+Built 2026-09-18. Two notes.
+
+### `react-markdown` strips the scheme, so it had to be asked
+
+Not anticipated by §3. `react-markdown` sanitises URLs by default and replaces
+an unknown scheme with an empty string *before any component sees it*, so
+`artifact:topology.png` arrived as `""` and resolved to nothing.
+
+`ChallengeBody` passes a `urlTransform` that lets exactly that one prefix
+through and sends everything else to `defaultUrlTransform` — so `javascript:` is
+refused precisely as it was. Worth recording because "why is the sanitiser
+bypassed here" is the right question for a reader to ask, and the answer is that
+it is not: one scheme is added, the default still handles the rest.
+
+### The two descriptions to re-read
+
+From §6, named so they get looked at rather than discovered:
+
+- **Order Of Operations**
+- **Nobody Needs The Password**
+
+`What It Actually Says` also has hard wraps, but they sit inside a fenced block
+where markdown preserves them exactly — it is the one that was already broken and
+is now fixed.
