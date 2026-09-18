@@ -30,16 +30,25 @@ const ABILITY_NAME: Record<string, string> = {
 export default function StatsPanel({
   abilities,
   skills,
+  skillsTotal,
 }: {
   abilities: AbilityScore[];
   skills: SkillRow[];
+  /** Defaults to the list length. Somebody else's sheet sends only discovered
+   *  rows, so it has to pass the roster size for `N of M` to be true. */
+  skillsTotal?: number;
 }) {
   const found = skills.filter((skill) => skill.discovered).length;
+  const total = skillsTotal ?? skills.length;
+  // On somebody else's sheet every row is discovered, so a Discovered filter
+  // would be a control that does nothing. Derived rather than passed in: it is
+  // also true for a player who has found everything on their own sheet.
+  const anyUndiscovered = found < skills.length;
 
   return (
     <SheetPanel
       title="Stats"
-      summary={`${found} of ${skills.length} skills discovered`}
+      summary={`${found} of ${total} skills discovered`}
       className="h-[38rem]"
     >
       {/* Score-in-a-box, six across two rows. No progress toward the next
@@ -69,7 +78,9 @@ export default function StatsPanel({
         items={skills}
         listLabel="Skills"
         searchLabel="Search skills"
-        searchHint="Only skills you have discovered can be found by name."
+        searchHint={
+          anyUndiscovered ? "Only discovered skills can be found by name." : undefined
+        }
         filters={[
           {
             id: "kind",
@@ -79,11 +90,15 @@ export default function StatsPanel({
               { value: "funny", label: "Funny" },
             ],
           },
-          {
-            id: "discovered",
-            label: "All skills",
-            options: [{ value: "yes", label: "Discovered only" }],
-          },
+          ...(anyUndiscovered
+            ? [
+                {
+                  id: "discovered",
+                  label: "All skills",
+                  options: [{ value: "yes", label: "Discovered only" }],
+                },
+              ]
+            : []),
         ]}
         match={(skill, { term, values }) => {
           if (values.kind && skill.kind !== values.kind) return false;

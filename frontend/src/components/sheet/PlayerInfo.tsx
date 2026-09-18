@@ -6,6 +6,7 @@ import { getClasses, setMyClass, type CharacterSheet } from "../../api/character
 import Avatar from "../Avatar";
 import ErrorMessage from "../ErrorMessage";
 import { RARITY_TEXT } from "../classRarity";
+import { Fact } from "./SheetPanel";
 
 /**
  * The identity block (spec 060 §3).
@@ -113,15 +114,6 @@ function progress(into: number, toNext: number): number {
   const span = into + toNext;
   if (span <= 0) return 100;
   return Math.min(100, Math.round((into / span) * 100));
-}
-
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-content-muted">{label}</dt>
-      <dd className="mt-0.5">{children}</dd>
-    </div>
-  );
 }
 
 /**

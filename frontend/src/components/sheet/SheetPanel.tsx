@@ -39,6 +39,16 @@ export function SheetPanel({
   );
 }
 
+/** A labelled value in an identity block. Shared so both sheets lay out alike. */
+export function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs uppercase tracking-wide text-content-muted">{label}</dt>
+      <dd className="mt-0.5">{children}</dd>
+    </div>
+  );
+}
+
 export interface ListFilter {
   id: string;
   label: string;
