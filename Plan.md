@@ -134,6 +134,18 @@ Done, not new features:
 | **Event export** | Challenge CSV exists; no export of final standings, solves and timings for awards and the write-up. |
 | **Staff platform health** | Only the public status page. No internal view of datastore, model-host or socket health. |
 
+### Carried forward, not built
+
+- **A real queue for portrait generation (spec 074 §5).** The spec describes a
+  job queue with a visible place in line and the finished grid delivered through
+  the inbox. What shipped runs the generation **inline in the request**: the
+  player waits on the page, and a second player generating at the same time gets
+  a failure rather than a place in line. Fine for a handful of people trying it
+  out; wrong for 200 on the first morning. Needs a worker (or an
+  `asyncio.Queue` plus the existing broadcaster loop), a `queued` state the
+  builder can poll, and an inbox notification on completion. Until then the
+  concurrency limit of 1 is doing the load-shedding, badly.
+
 ### Definition of Done — Phase 3
 
 - No component references a raw colour; every preset theme passes an automated

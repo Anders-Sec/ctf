@@ -71,8 +71,15 @@ avatar**, so there is no second rendering path to keep consistent.
 ## 4. Sigils
 
 The current default is a coloured circle with one letter. The replacement is a
-**procedural heraldic crest** derived from the user id — shield shape, division,
-charge, and a two-colour scheme, all indexed off the same hash.
+**procedural heraldic roundel** derived from the user id — division, charge, and
+a two-colour scheme, all indexed off the same hash.
+
+A roundel rather than a shield, which the first build got wrong: it drew a
+heater shield and every consumer then masked it to a circle, because `Avatar`
+is `rounded-full`. The shoulders came out sliced flat and the point cut off, so
+it read as neither a shield nor a circle. The shape has to be the shape it is
+displayed in — and at 40px a roundel reads as a coin or a wax seal, which suits
+a dungeon anyway.
 
 Three reasons it earns its place over the letter: it is themed on day one with
 no GPU and no setup; it is the fallback whenever generation is unavailable or
@@ -154,9 +161,10 @@ which is one button and is much easier to add now than mid-event.
 
 ## 11. Decisions
 
-1. **Heraldic crest.** Shield, division, charge and two colours, all indexed off
-   a SHA-256 of the user id — 4 divisions x 8 charges x 12 tinctures x 4 metals,
-   which is ample for 200 players and legible at 40px.
+1. **Heraldic roundel.** Division, charge and two colours, all indexed off a
+   SHA-256 of the user id — 4 divisions x 8 charges x 12 tinctures x 4 metals,
+   which is ample for 200 players and legible at 40px. Drawn as a shield first;
+   see §4.
 2. **Visible immediately**, no publish step.
 3. **An accessory survives a class change** — earned is earned.
 
@@ -190,5 +198,9 @@ which is one button and is much easier to add now than mid-event.
   SQL. A best-effort startup seed keeps it in one place.
 - **`Avatar` lost `hasAvatar` entirely**, from six call sites, along with
   `initialsColor` and the whole fallback branch.
+- **The sigil was the wrong shape and had to be redrawn.** A heater shield, in
+  a UI that masks every avatar to a circle. Now a roundel that fills the frame,
+  with a test asserting the opaque area is ~72% of the canvas — the old shield
+  measured 55%, so the test rejects it.
 - **Counts:** 28 accessories authored, 48 avatar tests, backend 1630 passing,
   frontend 680.

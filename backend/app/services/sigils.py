@@ -4,9 +4,9 @@ The default avatar used to be a coloured circle with one letter in it, which
 fails the job it exists for: twenty people whose names begin with S are twenty
 identical circles in a roster.
 
-A crest is **deterministic from the user id** — same id, same bytes, for ever —
+A sigil is **deterministic from the user id** — same id, same bytes, for ever —
 and distinguishable at 40px because it varies in four independent ways at once:
-shield division, charge, and two colours. That is roughly 4 x 8 x 12 x 11
+field division, charge, and two colours. That is roughly 4 x 8 x 12 x 11
 combinations before the field pattern, which is plenty for 200 players.
 
 No GPU, no network, no setup. This is what everybody has on day one, and the
@@ -62,29 +62,34 @@ def _digest(user_id: str) -> list[int]:
     return list(hashlib.sha256(user_id.encode("utf-8")).digest())
 
 
-def _shield(size: int) -> list[tuple[float, float]]:
-    """A heater shield: straight sides, shoulders, and a point at the bottom."""
-    w = h = size
-    top, side = h * 0.06, w * 0.10
-    return [
-        (side, top),
-        (w - side, top),
-        (w - side, h * 0.52),
-        (w * 0.5, h * 0.94),
-        (side, h * 0.52),
-    ]
+def _field(size: int) -> list[float]:
+    """The bounding box of the round field, as ``[x0, y0, x1, y1]``.
+
+    A **roundel**, not a shield. The first version drew a heater shield, which
+    every consumer then masked to a circle (`Avatar` is `rounded-full`): the
+    shoulders were sliced flat and the point cut off, so it read as neither a
+    shield nor a circle. Drawing the shape it is actually displayed in costs
+    nothing and fills the frame.
+
+    A roundel is a real heraldic charge, and at avatar size it reads as a coin
+    or a wax seal — which suits a dungeon better than a shield nobody can see
+    the edges of.
+    """
+    pad = size * 0.02
+    return [pad, pad, size - pad, size - pad]
 
 
 def _charge(size: int, kind: str, colour: tuple[int, int, int]) -> Image.Image:
     """The charge on its own transparent layer, ready to composite.
 
-    A layer rather than drawing straight onto the shield, because the crescent
-    is made by *removing* part of a disc. Punching that hole in the shield
-    itself showed the page through it — a transparent bite, not a crescent.
+    A layer rather than drawing straight onto the field, because the crescent is
+    made by *removing* part of a disc. Punching that hole in the field itself
+    showed the page through it — a transparent bite, not a crescent.
     """
     layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
-    cx, cy = size * 0.5, size * 0.42
+    # Centred. On the old shield it sat high, above the point.
+    cx, cy = size * 0.5, size * 0.5
     r = size * 0.19
 
     if kind == "mullet":
@@ -156,8 +161,8 @@ def render_sigil(user_id: str, size: int = 512) -> bytes:
     canvas = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     draw = ImageDraw.Draw(canvas)
 
-    shield = _shield(big)
-    draw.polygon(shield, fill=field)
+    disc = _field(big)
+    draw.ellipse(disc, fill=field)
 
     if division != "plain":
         half = Image.new("RGBA", (big, big), (0, 0, 0, 0))
@@ -165,12 +170,13 @@ def render_sigil(user_id: str, size: int = 512) -> bytes:
         if division == "per-pale":
             hd.rectangle([big * 0.5, 0, big, big], fill=second)
         elif division == "per-fess":
-            hd.rectangle([0, big * 0.42, big, big], fill=second)
+            # Halfway now, not 0.42: a disc has no point to balance against.
+            hd.rectangle([0, big * 0.5, big, big], fill=second)
         else:  # per-bend
             hd.polygon([(0, 0), (big, big), (0, big)], fill=second)
-        # Masked to the shield so a division never bleeds past the edge.
+        # Masked to the field so a division never bleeds past the edge.
         mask = Image.new("L", (big, big), 0)
-        ImageDraw.Draw(mask).polygon(shield, fill=255)
+        ImageDraw.Draw(mask).ellipse(disc, fill=255)
         canvas.paste(
             half, (0, 0), Image.composite(mask, Image.new("L", (big, big), 0), half.split()[3])
         )
@@ -179,8 +185,10 @@ def render_sigil(user_id: str, size: int = 512) -> bytes:
     canvas.alpha_composite(_charge(big, charge, metal))
     draw = ImageDraw.Draw(canvas)
 
-    # The border last, so it sits over both halves of a division.
-    draw.line(shield + [shield[0]], fill=(28, 28, 32), width=max(2, big // 90), joint="curve")
+    # The rim last, so it sits over both halves of a division — and so the edge
+    # is a deliberate line rather than wherever the consumer's mask happened to
+    # fall.
+    draw.ellipse(disc, outline=(28, 28, 32), width=max(2, big // 70))
 
     out = io.BytesIO()
     canvas.resize((size, size), Image.LANCZOS).save(out, format="PNG", optimize=True)
@@ -196,4 +204,4 @@ def describe_sigil(user_id: str) -> str:
     charge = CHARGES[stream[4] % len(CHARGES)]
     shape = "a plain field" if division == "plain" else division.replace("-", " ")
     article = "an" if metal[0] in "aeiou" else "a"
-    return f"A {field} shield, {shape}, bearing {article} {metal} {charge}."
+    return f"A {field} roundel, {shape}, bearing {article} {metal} {charge}."

@@ -98,7 +98,9 @@ One GPU and 200 players means a request is not a request, it is a **job**.
   pick from. One generation that has to be right is worse than four and a
   choice, and the marginal cost on Turbo is small.
 - Jobs queue with a visible place in line, and the finished grid arrives through
-  the inbox (028/065) so nobody has to sit on the page.
+  the inbox (028/065) so nobody has to sit on the page. **Not built** — see
+  §10. The request runs the generation inline and the player waits on the page.
+  Carried forward in `plan.md`.
 - **Budget:** three generations to start, and more as a loot drop. This caps the
   reroll spiral and feeds the existing economy rather than bolting a limit on.
 - Candidates live in object storage (the `ArtifactStorage` abstraction from 063)
@@ -164,10 +166,13 @@ nothing re-renders against the model.
   jobs that reached the model.
 - **A dark host stops after one attempt, not four.** There is no point asking a
   switched-off box three more times.
-- **Jobs run inline**, not through a worker. One GPU, a hard concurrency limit
-  of one in the client, and a job of a few seconds — a second player gets `busy`
-  back rather than piling onto the card. The seam for a real queue is one
-  function, named in its docstring.
+- **Jobs run inline**, not through a worker, which drops two things §5 promised
+  and the first note did not own: there is **no visible place in line** and
+  **no inbox delivery**. The player waits on the page, and a second player
+  generating at the same time gets `busy` — which the builder currently reports
+  as "that did not come out, try different choices", blaming their choices for
+  contention. Adequate for a few people trying it; wrong for 200 on the first
+  morning. Carried forward in `plan.md` under "Carried forward, not built".
 - **Candidate bytes live in Postgres, not object storage.** They are small,
   short-lived, and always fetched one at a time by the one player who owns them;
   a bucket round trip would have been the slow part of showing the grid.

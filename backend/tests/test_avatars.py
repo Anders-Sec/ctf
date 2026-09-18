@@ -67,6 +67,28 @@ class TestSigils:
         assert seen_charges == set(CHARGES)
         assert seen_divisions == set(DIVISIONS)
 
+    def test_it_fills_the_circle_it_is_displayed_in(self) -> None:
+        """The shape has to match the frame every consumer puts it in.
+
+        The first version drew a heater shield and `Avatar` masked it to a
+        circle (`rounded-full`), so the shoulders were sliced flat and the point
+        cut off — it read as neither.
+
+        The disc is inset 2% so its own rim is not clipped by that mask, giving
+        pi * 0.48**2 ~= 0.72 of the canvas. A shape that loses area to the mask
+        measures well under this.
+        """
+        image = Image.open(io.BytesIO(render_sigil("someone", 128))).convert("RGBA")
+        alpha = image.split()[3]
+        # Histogram rather than getdata(), which Pillow 14 removes.
+        opaque = sum(alpha.histogram()[201:])
+
+        assert 0.69 <= opaque / (128 * 128) <= 0.76
+
+        # And the corners, which a circular mask always throws away, are empty.
+        for corner in [(1, 1), (126, 1), (1, 126), (126, 126)]:
+            assert alpha.getpixel(corner) == 0
+
     def test_the_description_reads_as_english(self) -> None:
         described = describe_sigil("11111111-1111-1111-1111-111111111111")
 
