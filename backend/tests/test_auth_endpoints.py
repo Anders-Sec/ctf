@@ -397,6 +397,45 @@ class TestSessionLifecycle:
         assert (await client.post("/api/auth/logout")).status_code == 200
 
 
+class TestOwnLevel:
+    """The nav chip's payload (spec 064 §3).
+
+    XP is only ever visible to yourself — never another player's, and never on a
+    board (059 §2, as clarified by 064 §7.1). `/auth/me` is the caller's own
+    session payload, which is the definition of their own chrome.
+    """
+
+    async def test_it_reports_level_and_progress(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from app.models.challenge import ScoringMode
+        from tests.factories import make_challenge, record_solve
+
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        await sign_in(client, user)
+        challenge = await make_challenge(db_session, scoring=ScoringMode.STATIC, initial_points=250)
+        await record_solve(db_session, user, challenge)
+
+        body = (await client.get("/api/auth/me")).json()
+
+        assert body["total_xp"] == 250
+        assert body["level"] >= 1
+        # The bar needs both halves to draw itself.
+        assert body["xp_into_level"] + body["xp_to_next"] > 0
+
+    async def test_a_player_with_nothing_reads_as_level_one(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Day one is a full-height chip, not a missing one."""
+        user = await make_user(db_session, status=UserStatus.ACTIVE)
+        await sign_in(client, user)
+
+        body = (await client.get("/api/auth/me")).json()
+
+        assert body["level"] == 1
+        assert body["total_xp"] == 0
+
+
 class TestEntraConfiguration:
     async def test_login_is_unavailable_when_entra_is_not_configured(
         self, client: AsyncClient

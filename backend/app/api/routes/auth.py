@@ -29,7 +29,7 @@ from app.schemas.auth import (
     UpdateThemeRequest,
     UserResponse,
 )
-from app.services import assistant_terms, identity, magic_link, theme_unlocks
+from app.services import assistant_terms, identity, magic_link, scoring, theme_unlocks
 from app.services import entra as entra_service
 from app.services.cookies import (
     ACCESS_COOKIE,
@@ -334,6 +334,12 @@ async def me(
     # than being served (spec 058 §5.1).
     held = await theme_unlocks.held_by(db, current.user.id)
 
+    # Their own level and XP, for the nav chip (spec 064 §3). One scalar sum and
+    # a curve lookup — cheap enough for the call the whole SPA boots on, and it
+    # saves the nav fetching a character sheet on every page to render "Lv 7".
+    total_xp = await scoring.total_xp(db, current.user.id)
+    level, xp_into_level, xp_to_next = scoring.level_progress(total_xp, settings.xp_level_base)
+
     return MeResponse(
         user=_user_response(current.user),
         assistant_available=(
@@ -359,6 +365,10 @@ async def me(
             current.user.theme, event.default_theme if event else None, unlocked=set(held)
         ),
         unlocked_themes=held,
+        level=level,
+        total_xp=total_xp,
+        xp_into_level=xp_into_level,
+        xp_to_next=xp_to_next,
         team=TeamSummary(**team) if team else None,
         capabilities=CapabilitiesResponse(**current.capabilities.to_dict()),
         event=(

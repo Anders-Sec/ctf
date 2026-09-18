@@ -93,6 +93,15 @@ class MeResponse(BaseModel):
     #: Secret themes this player has unlocked (spec 058 §5). Empty for almost
     #: everyone; the settings page offers exactly these and nothing else.
     unlocked_themes: list[str] = []
+    #: Their own level and XP, for the nav chip (spec 064 §3).
+    #:
+    #: XP is only ever visible to yourself — never another player's, and never on
+    #: a board (059 §2, as clarified by 064 §7.1). This is the caller's own
+    #: session payload, which is the definition of their own chrome.
+    level: int = 1
+    total_xp: int = 0
+    xp_into_level: int = 0
+    xp_to_next: int = 0
 
 
 class EventSummary(BaseModel):
