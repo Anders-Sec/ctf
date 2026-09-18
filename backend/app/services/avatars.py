@@ -360,3 +360,15 @@ async def rendered_for(db: AsyncSession, user: User, *, settings: Settings | Non
     user.avatar_blob = composite
     user.avatar_updated_at = datetime.now(UTC)
     return composite
+
+
+async def invalidate_all(db: AsyncSession) -> None:
+    """Drop every cached composite.
+
+    A blunt instrument on purpose. Accessory art changing is rare and
+    setup-time, and working out exactly who was wearing the piece costs more
+    than letting the avatars re-render once, lazily, as they are next asked for.
+    """
+    from sqlalchemy import update
+
+    await db.execute(update(User).values(avatar_blob=None))

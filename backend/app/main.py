@@ -10,6 +10,7 @@ from app.api.routes import (
     admin,
     admin_achievements,
     admin_announcements,
+    admin_avatar,
     admin_challenge_csv,
     admin_challenges,
     admin_classes,
@@ -190,6 +191,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api.include_router(admin_hints.router)
     api.include_router(admin_instances.router)
     api.include_router(admin_announcements.router)
+    api.include_router(admin_avatar.router)
     api.include_router(admin_email.router)
     api.include_router(admin_export.router)
     api.include_router(admin_health.router)

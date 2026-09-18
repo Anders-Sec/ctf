@@ -18,7 +18,7 @@ from app.models.notification import (
     LootBoxType,
     LootRarity,
 )
-from app.models.user import AvatarSource
+from app.models.user import AvatarSource, UserRole
 from app.services import avatars
 from app.services.accessory_roster import authored_roster, seed
 from app.services.sigils import CHARGES, DIVISIONS, describe_sigil, render_sigil
@@ -543,3 +543,133 @@ class TestApi:
 
         assert (await client.get("/api/avatar/me")).status_code == 200
         assert (await client.get("/api/avatar/accessories")).status_code == 200
+
+
+# --------------------------------------------------------------------------
+# Admin
+# --------------------------------------------------------------------------
+
+
+class TestAdmin:
+    async def test_the_roster_is_listed_for_staff(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        await _accessory(db_session, "admin-listed", kind=UnlockKind.ALWAYS)
+        await sign_in(client, admin)
+
+        response = await client.get("/api/admin/avatar/accessories")
+
+        assert response.status_code == 200
+        assert any(row["slug"] == "admin-listed" for row in response.json())
+
+    async def test_a_player_cannot_see_the_admin_roster(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        player = await make_user(db_session)
+        await sign_in(client, player)
+
+        assert (await client.get("/api/admin/avatar/accessories")).status_code == 403
+
+    async def test_creating_an_accessory(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        await sign_in(client, admin)
+
+        response = await client.post(
+            "/api/admin/avatar/accessories",
+            json={"slug": "brand-new-hat", "name": "Brand New Hat", "slot": "head"},
+        )
+
+        assert response.status_code == 201
+        assert response.json()["slug"] == "brand-new-hat"
+
+    async def test_a_slug_has_to_be_kebab_case(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        # Configs name accessories by slug, so a slug is a stable key rather
+        # than a label.
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        await sign_in(client, admin)
+
+        response = await client.post(
+            "/api/admin/avatar/accessories",
+            json={"slug": "Not A Slug", "name": "x", "slot": "head"},
+        )
+
+        assert response.status_code == 422
+
+    async def test_disabling_a_piece_takes_it_off_everybody(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        row = await _accessory(db_session, "admin-pullable", kind=UnlockKind.ALWAYS)
+        await sign_in(client, admin)
+
+        response = await client.patch(
+            f"/api/admin/avatar/accessories/{row.id}", json={"enabled": False}
+        )
+
+        assert response.status_code == 200
+        assert "admin-pullable" not in await avatars.unlocked_slugs(db_session, admin.id)
+
+    async def test_art_has_to_be_a_png(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        # A JPEG has no alpha, so it would composite as an opaque square over
+        # somebody's face rather than as a hat.
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        row = await _accessory(db_session, "admin-art", kind=UnlockKind.ALWAYS)
+        await sign_in(client, admin)
+
+        response = await client.post(
+            f"/api/admin/avatar/accessories/{row.id}/art",
+            files={"file": ("hat.jpg", b"\xff\xd8\xff not a png", "image/jpeg")},
+        )
+
+        assert response.status_code == 415
+
+    async def test_reseeding_adds_what_is_missing_and_nothing_else(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        await sign_in(client, admin)
+
+        first = await client.post("/api/admin/avatar/accessories/reseed")
+        second = await client.post("/api/admin/avatar/accessories/reseed")
+
+        assert first.status_code == 200
+        assert second.json()["message"] == "0 added."
+
+    async def test_resetting_a_player_takes_the_portrait_with_it(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        # A reset that left the offending image one click from being selected
+        # again would not be a reset.
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        player = await make_user(db_session)
+        player.avatar_source = AvatarSource.GENERATED
+        player.avatar_base = b"pretend-portrait"
+        player.avatar_config = {"layers": [{"accessory": "whatever"}]}
+        await db_session.flush()
+        await sign_in(client, admin)
+
+        response = await client.post(f"/api/admin/avatar/users/{player.id}/reset")
+
+        assert response.status_code == 200
+        await db_session.refresh(player)
+        assert player.avatar_source == AvatarSource.SIGIL
+        assert player.avatar_base is None
+        assert player.avatar_config == {}
+
+    async def test_a_player_cannot_reset_somebody_else(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        player = await make_user(db_session)
+        victim = await make_user(db_session)
+        await sign_in(client, player)
+
+        response = await client.post(f"/api/admin/avatar/users/{victim.id}/reset")
+
+        assert response.status_code == 403
