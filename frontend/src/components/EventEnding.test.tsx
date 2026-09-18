@@ -2,20 +2,23 @@ import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import EventEnding from "./EventEnding";
+import type { Me } from "../api/auth";
+import type { MyStanding, PlayerEntry, TeamEntry } from "../api/scoreboard";
+import type { AchievementsResponse } from "../api/notifications";
 import { capabilities, me, renderApp, stubFetch } from "../test/utils";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const TEAMS = [
+const TEAMS: TeamEntry[] = [
   { rank: 1, team_id: "t1", name: "The Mimics", member_count: 4, level: 9, solve_count: 40, last_gain_at: null, stars: [] },
   { rank: 2, team_id: "t2", name: "Kobold Union", member_count: 3, level: 8, solve_count: 30, last_gain_at: null, stars: [] },
   { rank: 3, team_id: "t3", name: "Late Starters", member_count: 2, level: 7, solve_count: 20, last_gain_at: null, stars: [] },
   { rank: 4, team_id: "t4", name: "Also Rans", member_count: 2, level: 6, solve_count: 10, last_gain_at: null, stars: [] },
 ];
 
-function player(overrides: Record<string, unknown> = {}) {
+function player(overrides: Partial<PlayerEntry> = {}): PlayerEntry {
   return {
     rank: 1,
     user_id: "p1",
@@ -40,14 +43,30 @@ const SESSION = me({
   total_xp: 8400,
 });
 
+interface Fixtures {
+  players: PlayerEntry[];
+  teams: TeamEntry[];
+  standing: MyStanding;
+  achievements: AchievementsResponse;
+  sheet: { equipped_title: string | null };
+  session: Me;
+}
+
 function render({
   players = [player({ user_id: SESSION.user.id, display_name: "Grix", rank: 12 })],
   teams = TEAMS,
   standing = { rank: 12, level: 7, player_count: 87, team_rank: 4, team_level: 5, team_count: 21 },
-  achievements = { earned: 12, total: 110, items: [], rarest: [{ id: "a1", name: "First Blood", description: null, earned: true, rarity: 0.021 }] },
+  achievements = {
+    earned: 12,
+    total: 110,
+    items: [],
+    rarest: [
+      { id: "a1", name: "First Blood", description: null, earned: true, rarity: 0.021 },
+    ],
+  },
   sheet = { equipped_title: "the Unbothered" },
   session = SESSION,
-} = {}) {
+}: Partial<Fixtures> = {}) {
   stubFetch((path) => {
     if (path.endsWith("/auth/me")) return { status: 200, body: session };
     if (path.includes("/scoreboard/me")) return { status: 200, body: standing };
