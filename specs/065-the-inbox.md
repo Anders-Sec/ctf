@@ -142,3 +142,28 @@ Signed off 2026-09-18, both as recommended.
 2. **Clearing is offered, per tab, and "Yours" asks first.** Clearing "Event" is
    housekeeping; clearing "Yours" throws away your own record of the event, so
    that one confirms.
+
+## 10. As built
+
+Built 2026-09-18. Two notes.
+
+### Clearing marks read with a `coalesce`, not a blind write
+
+§4 says clearing marks read, because a badge that counts rows the player can no
+longer open is worse than no badge. The obvious implementation — set both stamps
+— would also *rewrite* `read_at` on a row that had been read an hour earlier,
+quietly destroying when it was actually read.
+
+`read_at=coalesce(read_at, now)` sets it only where it was null. A test pins
+that an already-read row keeps its original stamp.
+
+### The kind union is now derived, not duplicated
+
+§1 called out three missing kinds. Rather than adding them to a hand-written
+union that would drift again, `NOTIFICATION_KINDS` is a const array and the type
+is derived from it — so `KIND_META` cannot compile without covering every kind,
+and a test asserts the map's keys and the array match exactly.
+
+That is what makes §6's promise real: a tenth kind needs a line in one map, and
+if somebody forgets, the build stops rather than the kind vanishing from both
+tabs.
