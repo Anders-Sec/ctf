@@ -5,6 +5,7 @@ import {
   getNotifications,
   type AppNotification,
 } from "../api/notifications";
+import { metaFor } from "../components/notificationKinds";
 
 function notificationSocketUrl(): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -18,9 +19,15 @@ function notificationSocketUrl(): string {
  * message arrive while the player is looking at the screen. If the socket never
  * connects the feature still works — it just stops being live.
  *
- * New arrivals are queued as toasts. Only a few show at once: one solve can
- * award an achievement, a level and the zone it opened, and three overlapping
- * popups is the point at which they stop being readable.
+ * New arrivals are queued as toasts — but **only the kinds that earn an
+ * interruption** (spec 065 §5). A boss kill is interesting once and irrelevant
+ * the forty-first time, and at 200 players it is the loudest thing on the
+ * platform and the least about you; it lands in the inbox and bumps the badge
+ * instead. An admin saying "the network is back" still interrupts.
+ *
+ * Only a few show at once: one solve can award an achievement, a level and the
+ * zone it opened, and three overlapping popups is the point at which they stop
+ * being readable.
  */
 const MAX_TOASTS = 3;
 
@@ -56,7 +63,11 @@ export function useNotifications() {
           const message = JSON.parse(event.data) as AppNotification;
           if (seen.current.has(message.id)) return;
           seen.current.add(message.id);
-          setToasts((current) => [...current, message].slice(-MAX_TOASTS));
+          // Marked seen either way: a kind that does not toast must still not
+          // start toasting if the socket redelivers it.
+          if (metaFor(message.kind).toasts) {
+            setToasts((current) => [...current, message].slice(-MAX_TOASTS));
+          }
           // The socket carries the message; the count and backlog still come
           // from the one place that is authoritative.
           queryClient.invalidateQueries({ queryKey: ["notifications"] });
