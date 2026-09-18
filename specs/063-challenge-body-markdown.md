@@ -1,6 +1,6 @@
 # Spec 063 — Markdown and Pictures in a Challenge
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life
 Depends on: 033 (the `Markdown` component this copies), 040 (CSV authoring),
 062 (the overlay the body renders in)
@@ -50,10 +50,13 @@ the thing these descriptions need is a JSON blob that keeps its shape.
 
 ```markdown
 ![A diagram of the network](artifact:topology.png)
+[the packet capture](artifact:dump.pcap)
 ```
 
 The renderer resolves `artifact:` against the challenge's own artifact list, by
-**filename**, and swaps in the real download URL.
+**filename**, and swaps in the real download URL — in an image, which renders the
+picture, or in a link, which offers the file where it is mentioned rather than in
+a list below (§9.1).
 
 **Filename rather than id**, for the reason 059 keys stars on slugs: an author
 types this by hand, into a CSV or a textarea, before any upload exists. A UUID
@@ -143,9 +146,11 @@ implementation notes so they get looked at rather than discovered.
 - **Artifact reordering or renaming.** `display_order` is settable through the
   API and not worth a UI yet.
 
-## 9. Open questions
+## 9. Decisions
 
-1. **Should `artifact:` work for non-images too?** `[the capture](artifact:dump.pcap)`
-   as a download link inside the prose, rather than only in the Files list.
-   Recommend **yes** — it is the same resolver, and "download the file mentioned
-   in this sentence" is a better read than "see the list below".
+Signed off 2026-09-18.
+
+1. **`artifact:` works for any file, not only images.** `![](artifact:x.png)`
+   renders a picture; `[the capture](artifact:dump.pcap)` renders a download
+   link. The same resolver answers both, and "download the file mentioned in
+   this sentence" reads better than "see the list below".
