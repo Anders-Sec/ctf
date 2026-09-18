@@ -1,12 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
 import {
   getCharacter,
-  getClasses,
   getMyCharacter,
-  setMyClass,
   type AbilityScore,
   type CharacterSheet,
   type PublicCharacter,
@@ -14,20 +12,27 @@ import {
 } from "../api/character";
 import { useSession } from "../auth/session";
 import Avatar from "../components/Avatar";
-import AchievementsSection from "../components/AchievementsSection";
-import LootSection from "../components/LootSection";
-import StarsSection from "../components/StarsSection";
 import ErrorMessage from "../components/ErrorMessage";
-import RarityBadge from "../components/RarityBadge";
 import Spinner from "../components/Spinner";
+import AchievementsPanel from "../components/sheet/AchievementsPanel";
+import LootPanel from "../components/sheet/LootPanel";
+import PlayerInfo from "../components/sheet/PlayerInfo";
+import StatsPanel from "../components/sheet/StatsPanel";
 
 /**
- * The character sheet (specs 015, 016, 018). Your level and XP bar, a D&D stat
- * block of ability scores, your skills, and your class.
+ * The character sheet (specs 015, 016, 018; laid out by 060).
+ *
+ * **Own sheet:** identity across the top, stats down the left as on a printed 5e
+ * sheet, and the things the player has collected stacked on the right. Every
+ * panel is a fixed height, which is what makes the page read as a sheet rather
+ * than a feed — nothing moves when a box is opened or a skill is discovered, and
+ * the layout is the same for a level-2 player and a level-15 one.
  *
  * Abilities show a score but never their progress, and skills show a level but
- * never their XP — both deliberate (spec 018). Another player's sheet at
- * /character/:userId shows the same, minus the class picker.
+ * never their XP — both deliberate (spec 018).
+ *
+ * **Somebody else's sheet** at `/character/:userId` is untouched by 060 and is
+ * its own pass.
  */
 export default function CharacterSheetPage() {
   const { userId } = useParams<{ userId?: string }>();
@@ -58,102 +63,26 @@ export default function CharacterSheetPage() {
 
 function OwnSheet({ sheet }: { sheet: CharacterSheet }) {
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <Header
-        userId={sheet.user_id}
-        displayName={sheet.display_name}
-        hasAvatar={sheet.has_avatar}
-        level={sheet.level}
-        className={sheet.character_class?.name ?? null}
-        rank={sheet.rank}
-      />
+    // Wider than the old 2xl column because the whole point is two columns of
+    // content rather than one of everything.
+    <main className="mx-auto max-w-5xl p-4 sm:p-6">
+      <PlayerInfo sheet={sheet} />
 
-      <ClassSection sheet={sheet} />
-
-      <section className="mt-6 rounded border border-border bg-surface-raised p-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">Level {sheet.level}</h2>
-          <span className="text-sm text-content-muted tabular-nums">{sheet.total_xp} XP total</span>
+      {/* One column on a phone, in reading order — the left column lands before
+          the right, so it matches what the eye does on the wide layout
+          (spec 060 §2.2). */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <StatsPanel abilities={sheet.abilities} skills={sheet.skills} />
+        <div className="flex flex-col gap-4">
+          <AchievementsPanel />
+          <LootPanel />
         </div>
-        <XpBar into={sheet.xp_into_level} toNext={sheet.xp_to_next} />
-        <p className="mt-1 text-sm text-content-muted">
-          {sheet.xp_to_next > 0
-            ? `${sheet.xp_to_next} XP to level ${sheet.level + 1}`
-            : "Top of the curve for now"}
-        </p>
-      </section>
-
-      <StatBlock abilities={sheet.abilities} />
-      <StarsSection />
-      <LootSection />
-      <AchievementsSection />
-      <SkillTable skills={sheet.skills} />
+      </div>
     </main>
   );
 }
 
-function ClassSection({ sheet }: { sheet: CharacterSheet }) {
-  const queryClient = useQueryClient();
-  const roster = useQuery({
-    queryKey: ["character", "classes"],
-    queryFn: getClasses,
-    enabled: sheet.class_unlocked,
-  });
-  const choose = useMutation({
-    mutationFn: (classId: string | null) => setMyClass(classId),
-    onSuccess: (updated) => queryClient.setQueryData(["character", "me"], updated),
-  });
-
-  return (
-    <section className="mt-6 rounded border border-border bg-surface-raised p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Class</h2>
-          {sheet.character_class && (
-            <RarityBadge rarity={sheet.character_class.rarity} />
-          )}
-        </div>
-        {sheet.class_unlocked ? (
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-content-muted">Your calling</span>
-            <select
-              aria-label="Class"
-              value={sheet.character_class?.id ?? ""}
-              disabled={choose.isPending || roster.isPending}
-              onChange={(e) => choose.mutate(e.target.value || null)}
-              className="rounded border border-border px-2 py-1 text-sm"
-            >
-              <option value="">Classless</option>
-              {/* Unlocked classes only — the server never sends the rest, so
-                  the roster stays a mystery until a class is earned. */}
-              {(roster.data ?? []).map((klass) => (
-                <option key={klass.id} value={klass.id}>
-                  {klass.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <span className="text-sm text-content-muted">
-            Reach level {sheet.class_unlock_level} to choose a class
-          </span>
-        )}
-      </div>
-
-      {/* The System AI (spec 013) commenting on what it has watched the player
-          do. Server-side template, not a model call — it is the System AI's
-          voice, not its reasoning. */}
-      {sheet.suggested_class_line && (
-        <p className="mt-3 border-l-2 border-accent/50 pl-3 text-sm italic text-content-muted">
-          {sheet.suggested_class_line}
-        </p>
-      )}
-
-      <ErrorMessage error={choose.error} />
-    </section>
-  );
-}
-
+/** Somebody else's sheet. Spec 060 covers the own sheet only; this is next. */
 function PublicSheet({ sheet }: { sheet: PublicCharacter }) {
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -163,7 +92,6 @@ function PublicSheet({ sheet }: { sheet: PublicCharacter }) {
         hasAvatar={sheet.has_avatar}
         level={sheet.level}
         className={sheet.character_class?.name ?? null}
-        rank={null}
       />
 
       <StatBlock abilities={sheet.abilities} />
@@ -215,7 +143,9 @@ function SkillTable({ skills }: { skills: SkillRow[] }) {
   const rows = skills
     .filter((s) => (hideFunny ? s.kind !== "funny" : true))
     // A placeholder has nothing to match, so search only finds discovered ones.
-    .filter((s) => (query ? s.discovered && s.name.toLowerCase().includes(query.toLowerCase()) : true));
+    .filter((s) =>
+      query ? s.discovered && s.name.toLowerCase().includes(query.toLowerCase()) : true,
+    );
 
   const found = skills.filter((s) => s.discovered).length;
 
@@ -270,20 +200,19 @@ function SkillTable({ skills }: { skills: SkillRow[] }) {
   );
 }
 
+/** Unchanged from before spec 060 — the public sheet is its own pass. */
 function Header({
   userId,
   displayName,
   hasAvatar,
   level,
   className,
-  rank,
 }: {
   userId: string;
   displayName: string;
   hasAvatar: boolean;
   level: number;
   className: string | null;
-  rank: number | null;
 }) {
   return (
     <header className="flex items-center gap-4">
@@ -292,26 +221,8 @@ function Header({
         <h1 className="text-2xl font-semibold tracking-tight">{displayName}</h1>
         <p className="text-sm text-content-muted">
           Level {level} {className ?? "Classless"} adventurer
-          {rank !== null ? ` · rank #${rank}` : ""}
         </p>
       </div>
     </header>
-  );
-}
-
-function XpBar({ into, toNext }: { into: number; toNext: number }) {
-  const span = into + toNext;
-  // A level whose next threshold is unknown (top of the curve) reads as full.
-  const pct = span > 0 ? Math.round((into / span) * 100) : 100;
-  return (
-    <div
-      className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-sunken"
-      role="progressbar"
-      aria-valuenow={pct}
-      aria-valuemin={0}
-      aria-valuemax={100}
-    >
-      <div className="h-full rounded-full bg-content" style={{ width: `${pct}%` }} />
-    </div>
   );
 }
