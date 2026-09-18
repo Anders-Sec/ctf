@@ -96,7 +96,6 @@ export default function ProfileMenu({
         <Avatar
           userId={me.user.id}
           displayName={me.user.display_name}
-          hasAvatar={me.user.has_avatar}
           size={28}
         />
         <span aria-hidden className="text-xs text-content-muted">

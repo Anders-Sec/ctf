@@ -104,7 +104,6 @@ export default function PartyPanel({
                         <Avatar
                           userId={member.user_id}
                           displayName={member.display_name}
-                          hasAvatar={member.has_avatar}
                           size={24}
                         />
                         <span className="min-w-0 flex-1">

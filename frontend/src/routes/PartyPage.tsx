@@ -418,7 +418,6 @@ function MyParty({ teamId }: { teamId: string }) {
               <Avatar
                 userId={member.user_id}
                 displayName={member.display_name}
-                hasAvatar={member.has_avatar}
               />
               <span className="flex-1">
                 {member.display_name}

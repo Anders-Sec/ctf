@@ -8,6 +8,7 @@ import {
   updateTheme,
 } from "../api/auth";
 import { useSession } from "../auth/session";
+import AvatarEditor from "../components/AvatarEditor";
 import ErrorMessage from "../components/ErrorMessage";
 import Spinner from "../components/Spinner";
 import { KINDS_IN, metaFor } from "../components/notificationKinds";
@@ -77,10 +78,25 @@ export default function SettingsPage() {
   const held = GRANTABLE_THEMES.filter((theme) => me.unlocked_themes.includes(theme.id));
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
+    // Wider than it was: the avatar editor needs a preview beside its catalogue
+    // and 2xl put them on top of each other on a laptop.
+    <main className="mx-auto max-w-4xl p-6">
       <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
 
       <section className="mt-8">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
+          Your likeness
+        </h2>
+        <p className="mt-1 text-sm text-content-muted">
+          Everyone starts with a crest drawn from their name. What you earn goes
+          on top of it.
+        </p>
+        <div className="mt-3">
+          <AvatarEditor />
+        </div>
+      </section>
+
+      <section className="mt-10 border-t border-border pt-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
           Appearance
         </h2>

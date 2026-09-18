@@ -28,7 +28,6 @@ export default function PublicPlayerInfo({
         <Avatar
           userId={sheet.user_id}
           displayName={sheet.display_name}
-          hasAvatar={sheet.has_avatar}
           size={56}
         />
 

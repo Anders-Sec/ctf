@@ -30,7 +30,6 @@ export default function PlayerInfo({ sheet }: { sheet: CharacterSheet }) {
         <Avatar
           userId={sheet.user_id}
           displayName={sheet.display_name}
-          hasAvatar={sheet.has_avatar}
           size={56}
         />
 

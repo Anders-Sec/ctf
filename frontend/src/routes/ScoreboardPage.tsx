@@ -370,7 +370,6 @@ function PlayerBoard({
                     <Avatar
                       userId={row.user_id}
                       displayName={row.display_name}
-                      hasAvatar={row.has_avatar}
                       size={32}
                     />
                   </Link>
