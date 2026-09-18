@@ -15,9 +15,12 @@ import {
   updateTeam,
   type TeamVisibility,
 } from "../api/teams";
+import { getPartyPanel } from "../api/scoreboard";
 import { useSession } from "../auth/session";
 import Avatar from "../components/Avatar";
+import BossStars from "../components/BossStars";
 import ErrorMessage from "../components/ErrorMessage";
+import PartyCoverage from "../components/PartyCoverage";
 import Spinner from "../components/Spinner";
 
 export default function PartyPage() {
@@ -286,6 +289,11 @@ function MyParty({ teamId }: { teamId: string }) {
   const queryClient = useQueryClient();
 
   const team = useQuery({ queryKey: ["team", teamId], queryFn: () => getTeam(teamId) });
+  // Spec 059 built this and nothing rendered it for your own party.
+  const panel = useQuery({
+    queryKey: ["scoreboard", "party", teamId],
+    queryFn: () => getPartyPanel(teamId),
+  });
   const isLeader = me?.team?.is_leader ?? false;
 
   const requests = useQuery({
@@ -328,7 +336,7 @@ function MyParty({ teamId }: { teamId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-3xl font-semibold tracking-tight">{detail.name}</h1>
           <p className="mt-1 text-content-muted">
             {detail.member_count} / {detail.max_members} adventurers ·{" "}
@@ -338,11 +346,36 @@ function MyParty({ teamId }: { teamId: string }) {
         <button
           onClick={() => leave.mutate()}
           disabled={leave.isPending}
-          className="rounded border border-border px-3 py-1.5 text-sm hover:border-accent"
+          className="shrink-0 rounded border border-border px-3 py-1.5 text-sm hover:border-accent"
         >
           Leave party
         </button>
       </header>
+
+      {/* The standing this page has never shown. Until spec 067 a player could
+          learn more about a stranger's party from the scoreboard than about
+          their own party from here. */}
+      {panel.data && (
+        <section className="rounded-lg border border-border-strong bg-surface-raised p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="flex items-center gap-3">
+              <span className="text-2xl font-semibold tabular-nums">
+                #{panel.data.rank}
+              </span>
+              <span className="text-sm text-content-muted">
+                Level {panel.data.level}
+              </span>
+            </span>
+            <BossStars stars={panel.data.stars} size="lg" />
+          </div>
+          <p className="mt-2 text-sm text-content-muted tabular-nums">
+            {panel.data.solve_count} solved · {panel.data.achievement_count} awards ·
+            founded {new Date(panel.data.founded_at).toLocaleDateString()}
+          </p>
+        </section>
+      )}
+
+      <PartyCoverage teamId={teamId} />
 
       <p className="rounded border border-border bg-surface-raised px-3 py-2 text-sm text-content-muted">
         Your solves are your own — if you leave, your XP goes with you.

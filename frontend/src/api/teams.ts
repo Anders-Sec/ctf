@@ -39,6 +39,27 @@ export interface JoinRequest {
 export const listTeams = () => api.get<TeamListItem[]>("/teams");
 export const getTeam = (id: string) => api.get<TeamDetail>(`/teams/${id}`);
 
+/** What a party has claimed, zone by zone (spec 067 §2.1). */
+export interface ZoneCoverage {
+  name: string;
+  slug: string;
+  /** Distinct challenges any current member cleared — the union rule made
+   *  visible, so the bar moves once however many members solved it. */
+  cleared: number;
+  total: number;
+  sealed: boolean;
+}
+
+export interface PartyProgress {
+  zones: ZoneCoverage[];
+  /** challenge id → the member who got there first. Absent when unclaimed. */
+  solved_by: Record<string, string>;
+}
+
+/** Members only: another party's coverage is reconnaissance (spec 067 §3). */
+export const getTeamProgress = (id: string) =>
+  api.get<PartyProgress>(`/teams/${id}/progress`);
+
 export const createTeam = (input: {
   name: string;
   visibility: TeamVisibility;
