@@ -100,6 +100,12 @@ export interface Me {
   total_xp: number;
   xp_into_level: number;
   xp_to_next: number;
+  /** Kinds turned down (spec 070 §4). A volume control, not a filter: they
+   *  still arrive and still sit in the inbox. */
+  muted_notification_kinds: string[];
+  /** False for a directory account, whose name is rewritten on every sign-in —
+   *  offering the field would be a lie (spec 070 §3). */
+  can_rename: boolean;
 }
 
 export const getMe = () => api.get<Me>("/auth/me");
@@ -122,6 +128,10 @@ export const updateTheme = (theme: ThemeId | null) =>
 /** A second axis, not a theme — see spec 048 §10. */
 export const updateHighContrast = (high_contrast: boolean) =>
   api.patch<{ message: string }>("/auth/me/high-contrast", { high_contrast });
+
+/** The whole set, replacing whatever was there (spec 070 §4). */
+export const updateMutedKinds = (kinds: string[]) =>
+  api.patch<{ message: string }>("/auth/me/notifications", { kinds });
 
 export const avatarUrl = (userId: string) => `/api/users/${userId}/avatar`;
 

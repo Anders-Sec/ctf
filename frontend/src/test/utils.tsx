@@ -58,6 +58,8 @@ export function me(overrides: Partial<Me> = {}): Me {
     total_xp: 0,
     xp_into_level: 0,
     xp_to_next: 100,
+    muted_notification_kinds: [],
+    can_rename: true,
     capabilities: capabilities(),
     event: {
       name: "Autumn Crawl",

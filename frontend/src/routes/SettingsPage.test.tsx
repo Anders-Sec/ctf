@@ -129,3 +129,75 @@ describe("SettingsPage", () => {
     expect(await screen.findByText(/puts back/i)).toHaveTextContent("Dark Dungeon");
   });
 });
+
+
+describe("SettingsPage, the rest of it", () => {
+  it("builds the notification list from the kind map", async () => {
+    signedIn({});
+    renderApp(<SettingsPage />);
+
+    // A tenth kind appears here without this page being touched (070 §4).
+    expect(await screen.findByLabelText("Level up")).toBeInTheDocument();
+    expect(screen.getByLabelText("Boss kill")).toBeInTheDocument();
+    expect(screen.getByLabelText("Announcement")).toBeInTheDocument();
+  });
+
+  it("mutes a kind by sending the whole set", async () => {
+    signedIn({ muted_notification_kinds: ["dispatch"] });
+    const update = vi.spyOn(authApi, "updateMutedKinds").mockResolvedValue({ message: "ok" });
+    renderApp(<SettingsPage />);
+
+    await userEvent.click(await screen.findByLabelText("Boss kill"));
+
+    // The whole set, so nobody has to reason about which call left what state.
+    expect(update).toHaveBeenCalledWith(["dispatch", "boss_kill"]);
+  });
+
+  it("unmutes by sending the set without it", async () => {
+    signedIn({ muted_notification_kinds: ["boss_kill", "dispatch"] });
+    const update = vi.spyOn(authApi, "updateMutedKinds").mockResolvedValue({ message: "ok" });
+    renderApp(<SettingsPage />);
+
+    await userEvent.click(await screen.findByLabelText("Boss kill"));
+
+    expect(update).toHaveBeenCalledWith(["dispatch"]);
+  });
+
+  it("says a muted kind is quieter, never absent", async () => {
+    signedIn({});
+    renderApp(<SettingsPage />);
+
+    expect(
+      await screen.findByText(/still arrives and still sits in your inbox/),
+    ).toBeInTheDocument();
+  });
+
+  it("lets a guest rename themselves", async () => {
+    signedIn({ can_rename: true });
+    const update = vi.spyOn(authApi, "updateDisplayName").mockResolvedValue({} as never);
+    renderApp(<SettingsPage />);
+
+    await userEvent.clear(await screen.findByLabelText("Display name"));
+    await userEvent.type(screen.getByLabelText("Display name"), "Grix the Bold");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(update).toHaveBeenCalledWith("Grix the Bold");
+  });
+
+  it("does not offer a directory account a field it cannot keep", async () => {
+    signedIn({ can_rename: false });
+    renderApp(<SettingsPage />);
+
+    // identity.py rewrites the name on every sign-in, so the field would tell
+    // somebody it saved and then revert them (spec 070 §3).
+    expect(await screen.findByText(/comes from your work account/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Display name")).not.toBeInTheDocument();
+  });
+
+  it("offers the tour again", async () => {
+    signedIn({});
+    renderApp(<SettingsPage />);
+
+    expect(await screen.findByRole("button", { name: "Show the tour" })).toBeInTheDocument();
+  });
+});
