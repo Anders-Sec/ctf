@@ -10,7 +10,13 @@ from app.models.skill import Skill
 from app.models.user import UserStatus
 from app.redis import get_redis
 from app.services import scoreboard_cache
-from tests.factories import make_category, make_challenge, make_user, record_solve
+from tests.factories import (
+    make_category,
+    make_challenge,
+    make_team,
+    make_user,
+    record_solve,
+)
 
 pytestmark = pytest.mark.usefixtures("running_event")
 
@@ -122,6 +128,77 @@ class TestMySheet:
         sheet = (await client.get("/api/character/me")).json()
 
         assert sheet["rank"] == 2
+
+
+class TestIdentity:
+    """The player info block's two new fields (spec 060 §6)."""
+
+    async def test_the_sheet_names_the_party_it_is_in(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """On the sheet rather than left to the session, so it describes the
+        character on its own."""
+        user = await player(db_session, client, sign_in)
+        team = await make_team(db_session, user, name="The Mimics")
+
+        sheet = (await client.get("/api/character/me")).json()
+
+        assert sheet["party"] == {"id": str(team.id), "name": "The Mimics"}
+
+    async def test_a_partyless_player_reports_null(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+
+        assert (await client.get("/api/character/me")).json()["party"] is None
+
+    async def test_a_disbanded_party_does_not_count(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        from datetime import UTC, datetime
+
+        user = await player(db_session, client, sign_in)
+        team = await make_team(db_session, user, name="Gone")
+        team.disbanded_at = datetime.now(UTC).replace(tzinfo=None)
+        await db_session.flush()
+
+        assert (await client.get("/api/character/me")).json()["party"] is None
+
+    async def test_the_sheet_carries_the_worn_title(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """The name plate everybody else sees on the board (059) — its owner
+        could only find it inside the loot inventory before 060."""
+        from app.models.notification import LootItem, LootRarity
+
+        user = await player(db_session, client, sign_in)
+        item = LootItem(pool_key="test", rarity=LootRarity.GOLD, title="the Unbothered")
+        db_session.add(item)
+        await db_session.flush()
+        user.equipped_title_id = item.id
+        await db_session.flush()
+
+        assert (await client.get("/api/character/me")).json()["equipped_title"] == "the Unbothered"
+
+    async def test_wearing_nothing_reports_null(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await player(db_session, client, sign_in)
+
+        assert (await client.get("/api/character/me")).json()["equipped_title"] is None
+
+    async def test_neither_field_reaches_somebody_else_s_sheet(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Spec 060 is the own sheet only; the public one is the next pass."""
+        await player(db_session, client, sign_in)
+        other = await make_user(db_session, status=UserStatus.ACTIVE)
+        await make_team(db_session, other, name="Theirs")
+
+        sheet = (await client.get(f"/api/character/{other.id}")).json()
+
+        assert "party" not in sheet
+        assert "equipped_title" not in sheet
 
 
 class TestPublicSheet:

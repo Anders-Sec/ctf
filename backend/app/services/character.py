@@ -20,8 +20,10 @@ from app.config import get_settings
 from app.errors import AppError, NotFoundError
 from app.models.challenge import Ability
 from app.models.character_class import CharacterClass
+from app.models.notification import LootItem
 from app.models.player_event import PlayerEventKind
 from app.models.skill import Skill
+from app.models.team import Team, TeamMembership
 from app.models.user import User
 from app.services import player_events, scoring
 
@@ -69,6 +71,14 @@ class ClassInfo:
 
 
 @dataclass(frozen=True)
+class PartyBrief:
+    """Just enough to name a party and link to it (spec 060 §6)."""
+
+    id: UUID
+    name: str
+
+
+@dataclass(frozen=True)
 class Sheet:
     user_id: UUID
     display_name: str
@@ -82,6 +92,12 @@ class Sheet:
     character_class: ClassInfo | None
     class_unlocked: bool
     class_unlock_level: int
+    #: The party they are in, so the sheet describes the character without the
+    #: caller stitching two payloads together (spec 060 §6).
+    party: PartyBrief | None
+    #: The worn loot title (038) — the name plate everybody else sees on the
+    #: board. Its owner could only find it inside the loot inventory before 060.
+    equipped_title: str | None
 
 
 async def build_sheet(db: AsyncSession, user: User) -> Sheet:
@@ -130,7 +146,30 @@ async def build_sheet(db: AsyncSession, user: User) -> Sheet:
         character_class=await _class_info(db, user.character_class_id),
         class_unlocked=level >= settings.class_unlock_level,
         class_unlock_level=settings.class_unlock_level,
+        party=await _party_of(db, user.id),
+        equipped_title=await _equipped_title(db, user),
     )
+
+
+async def _party_of(db: AsyncSession, user_id: UUID) -> PartyBrief | None:
+    row = (
+        await db.execute(
+            select(Team.id, Team.name)
+            .join(TeamMembership, TeamMembership.team_id == Team.id)
+            .where(
+                TeamMembership.user_id == user_id,
+                TeamMembership.removed_at.is_(None),
+                Team.disbanded_at.is_(None),
+            )
+        )
+    ).first()
+    return PartyBrief(id=row[0], name=row[1]) if row else None
+
+
+async def _equipped_title(db: AsyncSession, user: User) -> str | None:
+    if user.equipped_title_id is None:
+        return None
+    return await db.scalar(select(LootItem.title).where(LootItem.id == user.equipped_title_id))
 
 
 async def set_class(db: AsyncSession, user: User, class_id: UUID | None) -> ClassInfo | None:

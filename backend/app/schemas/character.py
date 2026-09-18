@@ -41,6 +41,11 @@ class SkillRowResponse(BaseModel):
     discovered: bool
 
 
+class PartyBriefResponse(BaseModel):
+    id: UUID
+    name: str
+
+
 class CharacterSheetResponse(BaseModel):
     """The player's own sheet: full progress detail and board rank."""
 
@@ -57,6 +62,11 @@ class CharacterSheetResponse(BaseModel):
     character_class: ClassResponse | None
     class_unlocked: bool
     class_unlock_level: int
+    #: The party they are in (spec 060 §6). On the sheet rather than left to the
+    #: session, so the sheet describes the character on its own.
+    party: PartyBriefResponse | None = None
+    #: The worn loot title — the name plate everybody else sees on the board.
+    equipped_title: str | None = None
     #: The System AI's read on which class fits, or null. Never names a class
     #: the player has not unlocked.
     suggested_class: ClassResponse | None = None

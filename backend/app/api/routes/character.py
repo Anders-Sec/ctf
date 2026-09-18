@@ -18,6 +18,7 @@ from app.schemas.character import (
     AbilityResponse,
     CharacterSheetResponse,
     ClassResponse,
+    PartyBriefResponse,
     PublicCharacterResponse,
     SetClassRequest,
     SkillRowResponse,
@@ -67,6 +68,10 @@ def _sheet_response(sheet, rank: int | None, suggestion=None) -> CharacterSheetR
         character_class=_class_response(sheet.character_class),
         class_unlocked=sheet.class_unlocked,
         class_unlock_level=sheet.class_unlock_level,
+        party=(
+            PartyBriefResponse(id=sheet.party.id, name=sheet.party.name) if sheet.party else None
+        ),
+        equipped_title=sheet.equipped_title,
         suggested_class=(_class_response(suggestion.character_class) if suggestion else None),
         suggested_class_line=(
             narrator.class_suggestion(suggestion.reason, suggestion.character_class.name)
