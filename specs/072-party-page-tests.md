@@ -1,6 +1,6 @@
 # Spec 072 — Tests for the Party Page
 
-Status: **draft**
+Status: **done**
 Phase: 3 (Polish & Operability) — quality of life
 Depends on: 005 (the union rule), 067 (the party page's standing and coverage)
 Second of two: 071 focus, **072** this.
@@ -61,18 +61,32 @@ Eight components, by what a player actually does:
 
 ## 3. What the reading turned up
 
-One finding, verified end to end rather than inferred:
+**Two dead paths, both the same shape**, verified end to end rather than
+inferred — and one claim of mine that was simply wrong.
 
-**The join-request message is a dead path.** `PartyRow` calls
-`requestToJoin(team.id)` with no second argument. The API client accepts an
-optional `message`, the backend stores it and returns it, and
-`JoinRequestsSection` renders `“{request.message}”` when present — so a leader
-has a quote block that can never contain anything. Someone asking to join a
-private party cannot say who they are, and the leader approves a bare name.
+**1. The join-request message.** `PartyRow` calls `requestToJoin(team.id)` with
+no second argument. The API client accepts an optional `message`, the backend
+stores it and returns it, and `JoinRequestsSection` renders
+`“{request.message}”` when present — so a leader has a quote block that can
+never contain anything. Someone asking to join a private party cannot say who
+they are, and the leader approves a bare name.
 
-This is the same shape as the dead Affinity dropdown found in spec 058: a
-complete path with one missing end, whose test would have passed because it
-asserted the call and not the effect.
+**2. `clear_password`.** Implemented the whole way down — `TeamUpdate` schema,
+route, and `update_team`, which sets `join_password_hash = None` — and typed in
+the frontend client. **No UI has ever sent it.** A leader who sets a password
+cannot remove it while staying private; the only escape is to go public and
+back.
+
+Both are the shape of the dead Affinity dropdown from spec 058: a complete path
+with one missing end, whose test passes because it asserts the call and not the
+effect.
+
+**And one thing I asserted that is false.** An earlier draft of §4 said
+switching a party to public leaves its password stored, so switching back to
+private silently restores it. It does not. `update_team` clears
+`join_password_hash` on the switch to public, with a comment giving that exact
+reason. The claim was made from the frontend’s `join_password: undefined` alone,
+without reading the service it calls.
 
 ## 4. Decision needed: pin, or fix?
 
@@ -90,21 +104,43 @@ rough:
   adding friction is a design decision and the memory note *"admin tools are
   setup tools"* does not obviously extend to a player removing a teammate
   mid-event. Flagged for the user.
-- **Switching a party to public leaves its password stored.** `join_password`
-  is only ever sent when non-blank, so there is no way to clear one. Switching
-  back to private silently restores the old password. Left as is.
+- **Removing a password while staying private** now has a control, because the
+  plumbing was already there and unused (§3.2). Same judgement as the message
+  path: wiring up an existing capability is smaller than writing a paragraph
+  explaining why it is missing.
 
 ## 5. Shape
 
-One file, `routes/__tests__/PartyPage.test.tsx`, following the existing pattern:
+One file, `routes/PartyPage.test.tsx` — colocated, which is what this codebase
+actually does; the `__tests__/` directory in the first draft exists nowhere in
+it. Following the existing pattern:
 `renderWithProviders`, a mocked `api/teams` module, a `useSession` stub for the
 three states that matter (no party, member, leader). Roughly 25–30 tests.
 
 No backend tests: the endpoints have them, and this is about the page.
 
-## 6. Open questions
+## 6. Decisions
 
-1. **Fix the dead message path, or pin it?** Recommend fixing (§4).
-2. **Do Remove and Leave want a confirmation?** Recommend **Remove yes, Leave
-   no** — removing acts on somebody else, and leaving is a decision the person
-   has already made. Not built unless you say so.
+1. **Fix the dead paths, or pin them?** Fixed — both of them (§3, §4).
+2. **Do Remove and Leave want a confirmation?** **Neither was built.** The
+   recommendation stands — Remove yes, Leave no, because removing acts on
+   somebody else while leaving is a decision the person has already made — but
+   it is a design change rather than a test, and 072 was scoped to pin
+   behaviour. Still open, and still one line of work when you want it.
+
+## 7. What the build changed
+
+- **32 tests, not the 25–30 estimated**, in `routes/PartyPage.test.tsx`.
+  Colocated, which is what this codebase does; the `__tests__/` directory in
+  §5's first draft exists nowhere in it.
+- **§4 asserted a bug that does not exist** — see §3. That is the second claim
+  in this spec made from one end of a path without reading the other, after
+  §5's "every existing party test passes untouched". Both were caught by
+  reading the code the claim was about.
+- **Three tests were wrong before the code was**, each from a wrong belief
+  rather than a typo: that `ErrorMessage` echoes the server's prose (it renders
+  our own copy keyed on `error.code`, deliberately); that passing `undefined`
+  omits a value (a destructuring default swallows it, so the "usable without a
+  standing" test was quietly given the standing back and proved nothing); and
+  that a `<section>` without an accessible name is a `region`.
+- **Frontend suite: 668 tests, up from 636.**

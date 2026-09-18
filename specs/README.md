@@ -98,7 +98,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 069 | `069-the-activity-ticker.md` | Phase 3 QoL — recent solves and boss kills on the scoreboard, riding the socket it already holds open; names the zone rather than the challenge, because the challenge is a hint | **done** |
 | 070 | `070-settings.md` | Phase 3 QoL — settings grows notification muting, the tour reset, and a display name for the accounts that can actually keep one | **done** |
 | 071 | `071-dialog-focus.md` | Phase 3 QoL — dialogs move focus in, keep it, and give it back; one hook in place of nine hand-rolled Escape handlers | **done** |
-| 072 | `072-party-page-tests.md` | Phase 3 QoL — the party page's first tests, and the dead join-request message they found | draft |
+| 072 | `072-party-page-tests.md` | Phase 3 QoL — the party page's first tests, and the two dead paths they found | **done** |
 | 073 | `073-avatars-and-accessories.md` | Phase 3 — procedural sigils, class/loot accessory overlays and the fit editor; one Pillow renderer, no GPU | draft |
 | 074 | `074-avatar-generation.md` | Phase 3 — portrait generation from authored trait enums via a local SDXL Turbo host, queued, budgeted and optional | draft |
 
