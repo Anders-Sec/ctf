@@ -52,13 +52,19 @@ class UnlockRequirementResponse(BaseModel):
 class ChallengeListItem(BaseModel):
     """A challenge as it appears on the board.
 
-    A locked challenge carries everything here — title, category, value — and
-    nothing more. The body never reaches the client until it is published.
+    A locked challenge carries its category, difficulty and value — how big and
+    how hard it is, which is the reason to go and unlock it — and **not its
+    title**, which is the content (spec 062 §4.2). The body never reaches the
+    client until it is published, and since 062 neither does the name.
     """
 
     id: UUID
-    title: str
-    slug: str
+    #: Null while the challenge is sealed. Withheld server-side rather than
+    #: hidden by the client, so there is nothing to read in devtools.
+    title: str | None
+    #: Null while sealed too — a slug is the kebab-cased title, so sending it
+    #: would hand over the name in a thin disguise.
+    slug: str | None
     category: CategoryResponse
     difficulty: Difficulty
     state: ChallengeState

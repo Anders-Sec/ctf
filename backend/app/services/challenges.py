@@ -19,6 +19,7 @@ from app.models.challenge import (
     Category,
     Challenge,
     ChallengeState,
+    Difficulty,
     RequirementType,
     UnlockRequirement,
 )
@@ -100,7 +101,6 @@ async def list_for_player(db: AsyncSession, user_id: UUID, now: datetime) -> lis
                 select(Challenge)
                 .options(selectinload(Challenge.category))
                 .where(Challenge.state != ChallengeState.DRAFT)
-                .order_by(Challenge.title)
             )
         )
         .scalars()
@@ -108,7 +108,42 @@ async def list_for_player(db: AsyncSession, user_id: UUID, now: datetime) -> lis
     )
 
     visible = [c for c in challenges if c.effective_state(now) in PLAYER_VISIBLE]
-    return await _decorate(db, visible, user_id, now)
+    return await _decorate(db, sorted(visible, key=_board_order), user_id, now)
+
+
+#: Explicit rather than a dependency on the enum's declaration order, which
+#: somebody could reorder without realising they had moved the whole board.
+_DIFFICULTY_RANK: dict[Difficulty, int] = {
+    Difficulty.VERY_EASY: 0,
+    Difficulty.EASY: 1,
+    Difficulty.MEDIUM: 2,
+    Difficulty.HARD: 3,
+    Difficulty.VERY_HARD: 4,
+    Difficulty.NEARLY_IMPOSSIBLE: 5,
+}
+
+
+def _board_order(challenge: Challenge) -> tuple:
+    """Zone, then difficulty, then authored price, then title (spec 062 §3).
+
+    **Authored price, never the live value.** ``value`` decays as people solve,
+    so ordering on it would reshuffle the board under a player mid-event — the
+    same complaint as losing your scroll position, wearing a different hat. The
+    ladder a player learns on Monday is the one they still see on Friday.
+
+    Sorted here rather than in SQL so the difficulty rank can be an explicit map,
+    and because every row is materialised anyway to compute its value.
+
+    Title last so the order is total: two challenges at the same tier and price
+    must not swap between refreshes.
+    """
+    return (
+        challenge.category.display_order,
+        challenge.category.name,
+        _DIFFICULTY_RANK.get(challenge.difficulty, 99),
+        challenge.initial_points,
+        challenge.title,
+    )
 
 
 async def _decorate(

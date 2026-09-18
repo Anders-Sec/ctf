@@ -1,5 +1,6 @@
 """Challenge visibility and answer submission over HTTP (spec 003)."""
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -9,13 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.challenge import (
     ChallengeState,
+    Difficulty,
     MatchType,
     PreReleaseState,
     ScoringMode,
 )
 from app.models.play import Solve, Submission
 from app.models.user import UserStatus
-from tests.factories import make_challenge, make_user, record_solve
+from tests.factories import make_category, make_challenge, make_user, record_solve
 
 pytestmark = pytest.mark.usefixtures("running_event")
 
@@ -87,22 +89,30 @@ class TestVisibility:
 
         assert (await client.get(f"/api/challenges/{challenge.id}")).status_code == 404
 
-    async def test_a_locked_challenge_shows_its_name_and_value(
+    async def test_a_locked_challenge_shows_its_size_but_not_its_name(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """How big and how hard it is, is the carrot. The name is the content.
+
+        Spec 062 §4.2 changed this: the title used to be sent and hidden by the
+        client, which put it in the payload for anybody who opened devtools.
+        """
         await player(db_session, client, sign_in)
-        await make_challenge(
+        challenge = await make_challenge(
             db_session, title="Coming Tonight", state=ChallengeState.LOCKED, initial_points=300
         )
 
-        row = next(
-            c
-            for c in (await client.get("/api/challenges")).json()
-            if c["title"] == "Coming Tonight"
-        )
+        body = (await client.get("/api/challenges")).json()
+        row = next(c for c in body if c["id"] == str(challenge.id))
 
         assert row["locked"] is True
         assert row["value"] == 300
+        assert row["difficulty"]
+        assert row["title"] is None
+        # The slug is the kebab-cased title, so it goes with it.
+        assert row["slug"] is None
+        assert "Coming Tonight" not in str(body)
+        assert "coming-tonight" not in str(body)
 
     async def test_a_locked_challenge_never_sends_its_body(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -132,6 +142,71 @@ class TestVisibility:
         assert body["body"] == "Find the flag in the pcap."
 
 
+class TestBoardOrder:
+    """Zone, difficulty, authored price, title (spec 062 §3).
+
+    The property that matters is that it never moves: a board that reshuffles
+    mid-event is the same complaint as losing your scroll position, wearing a
+    different hat.
+    """
+
+    async def test_it_runs_easy_and_cheap_first(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        zone = await make_category(db_session, name=f"Zone {uuid.uuid4().hex[:6]}")
+        await player(db_session, client, sign_in)
+
+        made = {}
+        for title, difficulty, points in [
+            ("Hard One", Difficulty.HARD, 300),
+            ("Cheap Easy", Difficulty.EASY, 100),
+            ("Dear Easy", Difficulty.EASY, 250),
+            ("Trivial", Difficulty.VERY_EASY, 50),
+        ]:
+            made[title] = await make_challenge(
+                db_session,
+                category=zone,
+                title=title,
+                difficulty=difficulty,
+                initial_points=points,
+                scoring=ScoringMode.STATIC,
+            )
+
+        body = (await client.get("/api/challenges")).json()
+        ours = [row["title"] for row in body if row["title"] in made]
+
+        assert ours == ["Trivial", "Cheap Easy", "Dear Easy", "Hard One"]
+
+    async def test_a_solve_does_not_move_anything(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Ordering is on the authored price, which no amount of play changes.
+
+        Ordering on the live value would reshuffle the board under a player as
+        the decay ran.
+        """
+        zone = await make_category(db_session, name=f"Zone {uuid.uuid4().hex[:6]}")
+        user = await player(db_session, client, sign_in)
+
+        first = await make_challenge(
+            db_session, category=zone, title="Alpha", difficulty=Difficulty.EASY, initial_points=100
+        )
+        await make_challenge(
+            db_session, category=zone, title="Beta", difficulty=Difficulty.EASY, initial_points=120
+        )
+
+        before = [row["title"] for row in (await client.get("/api/challenges")).json()]
+        # Decay the first one well below the second.
+        for _ in range(5):
+            other = await make_user(db_session, status=UserStatus.ACTIVE)
+            await record_solve(db_session, other, first)
+        await record_solve(db_session, user, first)
+
+        after = [row["title"] for row in (await client.get("/api/challenges")).json()]
+
+        assert after == before
+
+
 class TestScheduledRelease:
     async def test_a_future_release_hides_the_challenge_by_default(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -153,7 +228,7 @@ class TestScheduledRelease:
     ) -> None:
         """A wave can advertise itself without leaking its questions."""
         await player(db_session, client, sign_in)
-        await make_challenge(
+        challenge = await make_challenge(
             db_session,
             title="Tonight",
             state=ChallengeState.PUBLISHED,
@@ -162,10 +237,13 @@ class TestScheduledRelease:
         )
 
         row = next(
-            c for c in (await client.get("/api/challenges")).json() if c["title"] == "Tonight"
+            c for c in (await client.get("/api/challenges")).json() if c["id"] == str(challenge.id)
         )
 
         assert row["locked"] is True
+        # Since spec 062 it does not leak its name either, which is what the
+        # docstring above always claimed.
+        assert row["title"] is None
 
     async def test_a_past_release_opens_the_challenge(
         self, client: AsyncClient, db_session: AsyncSession, sign_in

@@ -69,16 +69,24 @@ def _list_item(
     puzzle_status: PuzzleStatus | None = None,
 ) -> ChallengeListItem:
     challenge = row["challenge"]
+    locked = row["effective_state"] == ChallengeState.LOCKED
     return ChallengeListItem(
         puzzle_kind=puzzle_kind,
         puzzle_status=puzzle_status,
         id=challenge.id,
-        title=challenge.title,
-        slug=challenge.slug,
+        # Withheld while sealed, exactly as `body` is (spec 062 §4.2). Sending it
+        # and hiding it in CSS would be theatre — it would sit in the payload for
+        # anybody who opened devtools. How big and how hard it is stays visible;
+        # that is the carrot. The name is the content.
+        title=None if locked else challenge.title,
+        # And the slug with it: slugs are the kebab-cased title ("Port of Call"
+        # → "port-of-call"), so withholding one and sending the other would hand
+        # over the name in a thin disguise.
+        slug=None if locked else challenge.slug,
         category=CategoryResponse.model_validate(challenge.category, from_attributes=True),
         difficulty=challenge.difficulty,
         state=row["effective_state"],
-        locked=row["effective_state"] == ChallengeState.LOCKED,
+        locked=locked,
         value=row["value"],
         solve_count=row["solve_count"],
         solved=row["solved"],
