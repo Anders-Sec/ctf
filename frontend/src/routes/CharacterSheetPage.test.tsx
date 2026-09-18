@@ -458,24 +458,190 @@ describe("what left the sheet", () => {
 });
 
 describe("somebody else's sheet", () => {
-  it("is untouched by spec 060", async () => {
-    stubFetch((path) => {
+  const SUBJECT = {
+    ...PUBLIC_SHEET,
+    rank: 4,
+    party: { id: "t1", name: "The Mimics" },
+    equipped_title: "the Unbothered",
+    skills_total: 45,
+    solve_count: 12,
+    stars: [
+      { slug: "the-gatekeeper", tier: "city", level: 3, title: "The Gatekeeper" },
+    ],
+    zones: [
+      { zone_name: "Web", solves: 8 },
+      { zone_name: "Crypto", solves: 4 },
+    ],
+  };
+
+  const TROPHIES = {
+    earned: 3,
+    secret_count: 1,
+    items: [
+      { id: "a1", name: "First Blood", rarity: 0.021 },
+      { id: "a2", name: null, rarity: null },
+      { id: "a3", name: "Night Owl", rarity: 0.14 },
+    ],
+    rarest: [
+      { id: "a1", name: "First Blood", rarity: 0.021 },
+      { id: "a3", name: "Night Owl", rarity: 0.14 },
+    ],
+  };
+
+  function renderPublic(sheet: Record<string, unknown> = {}, trophies: unknown = TROPHIES) {
+    const mock = stubFetch((path) => {
       if (path.endsWith("/auth/me")) return { status: 200, body: me() };
-      if (path.includes("/character/22222222")) return { status: 200, body: PUBLIC_SHEET };
+      if (path.includes("/character/22222222") && path.endsWith("/achievements")) {
+        return { status: 200, body: trophies };
+      }
+      if (path.includes("/character/22222222")) {
+        return { status: 200, body: { ...SUBJECT, ...sheet } };
+      }
+      if (path.includes("/scoreboard/teams/")) {
+        return {
+          status: 200,
+          body: {
+            team_id: "t1",
+            name: "The Mimics",
+            rank: 1,
+            level: 5,
+            member_count: 1,
+            solve_count: 8,
+            achievement_count: 4,
+            stars: [],
+            founded_at: "2026-09-01T00:00:00Z",
+            members: [],
+          },
+        };
+      }
       return { status: 200, body: {} };
     });
-
     renderApp(
       <Routes>
         <Route path="/character/:userId" element={<CharacterSheetPage />} />
       </Routes>,
       { route: "/character/22222222-2222-2222-2222-222222222222" },
     );
+    return mock;
+  }
+
+  it("shows what a player shows the room", async () => {
+    renderPublic();
 
     expect(await screen.findByText("Sir Solves")).toBeInTheDocument();
-    expect(screen.getByText(/Level 2 Rogue adventurer/)).toBeInTheDocument();
-    expect(screen.queryByText(/rank #/)).not.toBeInTheDocument();
-    // No class chooser, no loot, no achievements — that pass is next.
-    expect(screen.queryByRole("button", { name: "Classless" })).not.toBeInTheDocument();
+    expect(screen.getByText("the Unbothered")).toBeInTheDocument();
+    expect(screen.getByText("Rogue")).toBeInTheDocument();
+    expect(screen.getByText("#4")).toBeInTheDocument();
+  });
+
+  it("shows no XP, no bar and no total", async () => {
+    renderPublic();
+    await screen.findByText("Sir Solves");
+
+    // The one structural difference from the own sheet's identity block.
+    expect(screen.queryByText(/XP/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("does not offer to change their class", async () => {
+    renderPublic();
+    await screen.findByText("Sir Solves");
+
+    // Somebody else's calling is not yours to change: static text, no dialog.
+    expect(screen.queryByRole("button", { name: "Rogue" })).not.toBeInTheDocument();
+  });
+
+  it("reads as unranked for somebody the board does not hold", async () => {
+    renderPublic({ rank: null });
+
+    expect(await screen.findByText("unranked")).toBeInTheDocument();
+  });
+
+  it("opens the party panel rather than the viewer's own party page", async () => {
+    renderPublic();
+
+    await userEvent.click(await screen.findByRole("button", { name: "The Mimics" }));
+
+    // /party is the *viewer's* party — the wrong destination entirely.
+    expect(await screen.findByRole("dialog", { name: "Party detail" })).toBeInTheDocument();
+  });
+
+  it("drops the Discovered filter, because every row is discovered", async () => {
+    renderPublic();
+    await screen.findByText("Sir Solves");
+
+    expect(screen.queryByLabelText("All skills")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Any kind")).toBeInTheDocument();
+    // The list is pre-filtered, so the total has to come from the payload.
+    expect(screen.getByText("1 of 45 skills discovered")).toBeInTheDocument();
+  });
+
+  it("blurs a secret the viewer has not found, with nothing to read", async () => {
+    renderPublic();
+    // "First Blood" renders twice by design — a rarest card and a row — so the
+    // wait anchors on something that appears once.
+    await screen.findByText("3 earned · 1 secret");
+
+    expect(
+      screen.getByText("A secret achievement you have not found"),
+    ).toBeInTheDocument();
+    // The row is present — their proudest finds should be visibly there — and
+    // carries no name and no percentage, because the server sent neither.
+    const list = screen.getByRole("list", { name: "Achievements" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getByText("3 earned · 1 secret")).toBeInTheDocument();
+  });
+
+  it("keeps a redacted row out of the rarest five", async () => {
+    renderPublic();
+    await screen.findByText("3 earned · 1 secret");
+
+    // A case of five blurred squares brags about nothing.
+    expect(screen.getAllByText("An empty slot for a rare achievement")).toHaveLength(3);
+  });
+
+  it("says nothing about secrets when there are none", async () => {
+    renderPublic({}, { ...TROPHIES, secret_count: 0, items: [TROPHIES.items[0]] });
+
+    expect(await screen.findByText("3 earned")).toBeInTheDocument();
+    expect(screen.queryByText(/secret/)).not.toBeInTheDocument();
+  });
+
+  it("shows no achievement descriptions", async () => {
+    renderPublic();
+    await screen.findByText("3 earned · 1 secret");
+
+    // They are absent from the payload entirely, so there is nothing to render.
+    expect(screen.queryByText("You drew it first.")).not.toBeInTheDocument();
+  });
+
+  it("carries feats where the own sheet carries loot", async () => {
+    renderPublic();
+    await screen.findByText("Sir Solves");
+
+    expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.getByText("1/45")).toBeInTheDocument();
+    // Bosses appear here and nowhere else on this page: you cannot look at
+    // somebody else's challenge list.
+    expect(screen.getByRole("img", { name: "1 boss felled: 1 city" })).toBeInTheDocument();
+    expect(screen.getByText("Web")).toBeInTheDocument();
+  });
+
+  it("shows no loot at all", async () => {
+    renderPublic();
+    await screen.findByText("Sir Solves");
+
+    // A stranger's inventory is not a thing to browse; the worn title is the
+    // only part anybody else is meant to see, and it is in the header.
+    expect(screen.queryByRole("group", { name: "Unopened loot boxes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Titles" })).not.toBeInTheDocument();
+  });
+
+  it("shows hints and attempts nowhere", async () => {
+    renderPublic();
+    await screen.findByText("Sir Solves");
+
+    expect(screen.queryByText(/hint/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/attempt/i)).not.toBeInTheDocument();
   });
 });

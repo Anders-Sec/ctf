@@ -5,19 +5,20 @@ import { useParams } from "react-router-dom";
 import {
   getCharacter,
   getMyCharacter,
-  type AbilityScore,
   type CharacterSheet,
   type PublicCharacter,
-  type SkillRow,
 } from "../api/character";
 import { useSession } from "../auth/session";
-import Avatar from "../components/Avatar";
 import ErrorMessage from "../components/ErrorMessage";
+import PartyPanel from "../components/PartyPanel";
 import Spinner from "../components/Spinner";
 import AchievementsPanel from "../components/sheet/AchievementsPanel";
+import FeatsPanel from "../components/sheet/FeatsPanel";
 import LootPanel from "../components/sheet/LootPanel";
 import PlayerInfo from "../components/sheet/PlayerInfo";
+import PublicPlayerInfo from "../components/sheet/PublicPlayerInfo";
 import StatsPanel from "../components/sheet/StatsPanel";
+import TrophyCasePanel from "../components/sheet/TrophyCasePanel";
 
 /**
  * The character sheet (specs 015, 016, 018; laid out by 060).
@@ -31,8 +32,9 @@ import StatsPanel from "../components/sheet/StatsPanel";
  * Abilities show a score but never their progress, and skills show a level but
  * never their XP — both deliberate (spec 018).
  *
- * **Somebody else's sheet** at `/character/:userId` is untouched by 060 and is
- * its own pass.
+ * **Somebody else's sheet** at `/character/:userId` is the same grid panel for
+ * panel (spec 061), minus the XP bar, minus loot, minus the class dialog — what
+ * a player shows the room, and nothing that is nobody else's business.
  */
 export default function CharacterSheetPage() {
   const { userId } = useParams<{ userId?: string }>();
@@ -82,147 +84,36 @@ function OwnSheet({ sheet }: { sheet: CharacterSheet }) {
   );
 }
 
-/** Somebody else's sheet. Spec 060 covers the own sheet only; this is next. */
+/**
+ * Somebody else's sheet (spec 061).
+ *
+ * The same four blocks as the own sheet, at the same heights and breakpoints, so
+ * the two read as one artifact rather than two designs. Loot's slot carries
+ * Feats instead: a stranger's inventory is not a thing to browse.
+ */
 function PublicSheet({ sheet }: { sheet: PublicCharacter }) {
-  return (
-    <main className="mx-auto max-w-2xl p-6">
-      <Header
-        userId={sheet.user_id}
-        displayName={sheet.display_name}
-        hasAvatar={sheet.has_avatar}
-        level={sheet.level}
-        className={sheet.character_class?.name ?? null}
-      />
-
-      <StatBlock abilities={sheet.abilities} />
-      <SkillTable skills={sheet.skills} />
-    </main>
-  );
-}
-
-const ABILITY_LABEL: Record<string, string> = {
-  str: "Strength",
-  dex: "Dexterity",
-  con: "Constitution",
-  int: "Intelligence",
-  wis: "Wisdom",
-  cha: "Charisma",
-};
-
-/** The D&D stat block. Scores only — how close the next point is stays hidden,
- *  so abilities tick up quietly (spec 018). */
-function StatBlock({ abilities }: { abilities: AbilityScore[] }) {
-  if (abilities.length === 0) return null;
-  return (
-    <section className="mt-8">
-      <h2 className="text-lg font-semibold">Abilities</h2>
-      <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {abilities.map((a) => (
-          <li
-            key={a.ability}
-            className="rounded border border-border bg-surface-raised p-3 text-center"
-          >
-            <div className="text-xs uppercase tracking-wide text-content-muted">
-              {ABILITY_LABEL[a.ability] ?? a.ability}
-            </div>
-            <div className="mt-1 text-3xl font-semibold tabular-nums">{a.score}</div>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/** Name and level, nothing else. Undiscovered skills arrive already redacted
- *  from the server and render blurred, so the shape of what is left to find is
- *  visible without the content. */
-function SkillTable({ skills }: { skills: SkillRow[] }) {
-  const [query, setQuery] = useState("");
-  const [hideFunny, setHideFunny] = useState(false);
-
-  const rows = skills
-    .filter((s) => (hideFunny ? s.kind !== "funny" : true))
-    // A placeholder has nothing to match, so search only finds discovered ones.
-    .filter((s) =>
-      query ? s.discovered && s.name.toLowerCase().includes(query.toLowerCase()) : true,
-    );
-
-  const found = skills.filter((s) => s.discovered).length;
-
-  if (skills.length === 0) return null;
+  const [openParty, setOpenParty] = useState<string | null>(null);
 
   return (
-    <section className="mt-8">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold">Skills</h2>
-        <span className="text-sm text-content-muted">
-          {found} of {skills.length} discovered
-        </span>
-      </div>
+    <main className="mx-auto max-w-5xl p-4 sm:p-6">
+      <PublicPlayerInfo sheet={sheet} onOpenParty={setOpenParty} />
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search skills"
-          aria-label="Search skills"
-          className="flex-1 rounded border border-border px-3 py-1.5 text-sm"
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {/* Every row is discovered, so the panel drops its Discovered filter on
+            its own and nothing is blurred. `skills_total` is what keeps
+            "N of M discovered" true with the rest never sent. */}
+        <StatsPanel
+          abilities={sheet.abilities}
+          skills={sheet.skills}
+          skillsTotal={sheet.skills_total}
         />
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={hideFunny}
-            onChange={(e) => setHideFunny(e.target.checked)}
-          />
-          Hide funny skills
-        </label>
+        <div className="flex flex-col gap-4">
+          <TrophyCasePanel userId={sheet.user_id} />
+          <FeatsPanel sheet={sheet} />
+        </div>
       </div>
 
-      <ul className="mt-3 divide-y divide-stone rounded border border-border bg-surface-raised">
-        {rows.map((skill) => (
-          <li key={skill.skill_id} className="flex items-center justify-between px-4 py-2">
-            <span
-              className={skill.discovered ? "" : "select-none blur-sm"}
-              aria-label={skill.discovered ? undefined : "Undiscovered skill"}
-            >
-              {skill.name}
-              {skill.kind === "funny" && skill.discovered && (
-                <span className="ml-2 text-xs text-content-muted">funny</span>
-              )}
-            </span>
-            <span className="text-sm text-content-muted tabular-nums">
-              {skill.discovered ? `Level ${skill.level}` : "—"}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/** Unchanged from before spec 060 — the public sheet is its own pass. */
-function Header({
-  userId,
-  displayName,
-  hasAvatar,
-  level,
-  className,
-}: {
-  userId: string;
-  displayName: string;
-  hasAvatar: boolean;
-  level: number;
-  className: string | null;
-}) {
-  return (
-    <header className="flex items-center gap-4">
-      <Avatar userId={userId} displayName={displayName} hasAvatar={hasAvatar} size={56} />
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{displayName}</h1>
-        <p className="text-sm text-content-muted">
-          Level {level} {className ?? "Classless"} adventurer
-        </p>
-      </div>
-    </header>
+      {openParty && <PartyPanel teamId={openParty} onClose={() => setOpenParty(null)} />}
+    </main>
   );
 }
