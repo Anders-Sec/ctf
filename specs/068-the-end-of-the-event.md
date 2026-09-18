@@ -1,6 +1,6 @@
 # Spec 068 — The End of the Event
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 059 (final standings), 060 (the figures), 066 (the landing page)
 Second of four: 067 the party, **068** the ending, 069 the ticker, 070 settings.
@@ -114,15 +114,12 @@ early, which is the same rule 066's countdown follows.
 - **Add an admin "close the event" action.** The event ends by its own clock;
   spec 053 owns the event window.
 
-## 7. Open questions
+## 7. Decisions
 
-1. **Should the podium name players at all, or only parties?** Parties are the
-   scoring unit spec 005 built the event around, and a player podium quietly
-   makes the individual board the real one. Recommend **both**, kept to three
-   each — the player board is the one people look at, and pretending otherwise
-   on the final screen would be odd.
-2. **Should a player who joined on day four see "your five days"?** The heading
-   is wrong for them and the numbers are small. Recommend **the same screen,
-   with the heading taken from the event rather than the player** — "The crawl
-   is over" is true for everybody, and a smaller summary is not an embarrassment
-   worth special-casing.
+Signed off 2026-09-18, both as recommended.
+
+1. **Both podiums, three each.** The player board is the one people look at, and
+   pretending otherwise on the final screen would be odd.
+2. **One screen for everybody**, with the heading taken from the event rather
+   than the player. A smaller summary is not an embarrassment worth
+   special-casing.

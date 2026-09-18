@@ -1,6 +1,6 @@
 # Spec 067 — The Party Page
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 005 (the union rule this exists to serve), 059 (the party panel),
 060 (the sheet it mirrors), 062 (board ordering)
@@ -135,12 +135,11 @@ migration.
 - **Touch the party browser's rules.** Capacity, visibility and join passwords
   are spec 006's and are untouched.
 
-## 7. Open questions
+## 7. Decisions
 
-1. **Should coverage count challenges a member cannot see?** A zone sealed for
-   one member and open for another has two honest denominators. Recommend
-   **counting what the party can collectively see** — the union again, applied
-   to visibility, since that is the set the party can actually work on.
-2. **Should `solved_by` name anybody, or just say "claimed"?** Naming is more
-   useful and mildly more exposing inside a party. Recommend **naming**: it is
-   your own party, and "ask Rin how they did it" is the point.
+Signed off 2026-09-18, both as recommended.
+
+1. **Coverage counts what the party can collectively see** — the union rule
+   applied to visibility, since that is the set the party can actually work on.
+2. **`solved_by` names the member.** It is your own party, and "ask Rin how they
+   did it" is the point.

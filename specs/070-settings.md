@@ -1,6 +1,6 @@
 # Spec 070 — Settings
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 048 (theme and contrast), 065 (the kinds), 066 (the tour)
 Fourth of four: 067 the party, 068 the ending, 069 the ticker, **070** settings.
@@ -109,11 +109,13 @@ second list that could drift.
 - **Add account deletion or export.** Not a five-day-event feature, and spec 056
   owns the admin-side export.
 
-## 8. Open questions
+## 8. Decisions
 
-1. **Guests only, a chosen-name flag, or a nickname column?** §3. Recommend
-   **guests only** — it ships now and tells the truth to everybody else.
-2. **Should muting an announcement be allowed?** It is the one kind an organiser
-   might reasonably expect to reach everybody. Recommend **yes** — a mute the
-   platform refuses to honour is a worse lie than a message somebody missed, and
-   the inbox still holds it.
+Signed off 2026-09-18, both as recommended.
+
+1. **Guests only.** It ships now and tells the truth to everybody else: an SSO
+   account's name comes from the directory and would be reverted on the next
+   sign-in.
+2. **Muting an announcement is allowed.** A mute the platform refuses to honour
+   is a worse lie than a message somebody missed, and the inbox still holds
+   it.

@@ -93,10 +93,10 @@ lore, art, a wider tone pass) is intentionally not started.
 | 064 | `064-player-navigation.md` | Phase 3 QoL — the player nav bar: inbox moves left, sign out and settings into a profile menu, plain icons, a level chip, and a bar that survives a narrow window | **done** |
 | 065 | `065-the-inbox.md` | Phase 3 QoL — notifications become an inbox: Yours and Event tabs, a kind filter, soft-dismiss clearing, colour with the kind named, and toasts that are quieter, shorter and unclickable | **done** |
 | 066 | `066-landing-and-getting-started.md` | Phase 3 QoL — the landing page answers "how am I doing" and "what next": a server-offset countdown, where you left off, your standing, a derived first-steps checklist and a one-time tour | **done** |
-| 067 | `067-the-party-page.md` | Phase 3 QoL — the party page as a party sheet: standing and stars it had no access to, plus per-zone coverage and who claimed what, so the union scoring rule stops being invisible | **draft** |
-| 068 | `068-the-end-of-the-event.md` | Phase 3 QoL — an ending worth looking at: a podium and a personal summary of five days, from figures that already exist | **draft** |
-| 069 | `069-the-activity-ticker.md` | Phase 3 QoL — recent solves and boss kills on the scoreboard, riding the socket it already holds open; names the zone rather than the challenge, because the challenge is a hint | **draft** |
-| 070 | `070-settings.md` | Phase 3 QoL — settings grows notification muting, the tour reset, and a display name for the accounts that can actually keep one | **draft** |
+| 067 | `067-the-party-page.md` | Phase 3 QoL — the party page as a party sheet: standing and stars it had no access to, plus per-zone coverage and who claimed what, so the union scoring rule stops being invisible | **approved** (2026-09-18) |
+| 068 | `068-the-end-of-the-event.md` | Phase 3 QoL — an ending worth looking at: a podium and a personal summary of five days, from figures that already exist | **approved** (2026-09-18) |
+| 069 | `069-the-activity-ticker.md` | Phase 3 QoL — recent solves and boss kills on the scoreboard, riding the socket it already holds open; names the zone rather than the challenge, because the challenge is a hint | **approved** (2026-09-18) |
+| 070 | `070-settings.md` | Phase 3 QoL — settings grows notification muting, the tour reset, and a display name for the accounts that can actually keep one | **approved** (2026-09-18) |
 
 ## Phase 3 sequencing
 
@@ -142,7 +142,7 @@ of a manual walkthrough of every surface rather than up front. In progress:
 - **064** — The player nav bar. **Done.**
 - **065** — The inbox. **Done.**
 - **066** — The landing page. **Done.**
-- **067–070** — The party page, the event's ending, an activity ticker and settings. **Drafted**, awaiting sign-off; to be built in order.
+- **067–070** — The party page, the event's ending, an activity ticker and settings. **Approved** (2026-09-18); being built in order.
 
 Still to spec, from the same walkthrough: System AI chat usability on mobile,
 and a pass across every page's mobile view.

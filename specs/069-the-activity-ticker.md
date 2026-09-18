@@ -1,6 +1,6 @@
 # Spec 069 — The Activity Ticker
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 005 (the board), 031/032 (boss kills and their broadcast),
 059 (the scoreboard this sits on)
@@ -105,13 +105,13 @@ No model change and no migration.
 - It is refused without `view_scoreboard`, and opens when the board does.
 - An empty ticker renders its own line rather than collapsing.
 
-## 7. Open questions
+## 7. Decisions
 
-1. **Zone, challenge, or neither?** §3. Recommend **zone**, with boss kills
-   named in full. It is the only option that keeps the energy without handing
-   out a solvable-work list.
-2. **Should a player be able to hide it?** It is decoration on somebody else's
-   competition. Recommend **not a setting** — spec 070 is adding preferences and
-   this would be the first one that is really "I find this distracting", which
-   is what collapsing the ticker is for. Make it collapsible, remembered per
-   browser, and add no server-side preference.
+Signed off 2026-09-18, both as recommended.
+
+1. **The zone, not the challenge**, with boss kills named in full. The only
+   option that keeps the energy without handing out a solvable-work list — and
+   enforced on the server, because a title the client is asked to hide is a
+   title in the payload.
+2. **Collapsible, remembered per browser, and no server-side preference.**
+   "I find this distracting" is what collapsing is for.
