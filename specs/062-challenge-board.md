@@ -222,3 +222,40 @@ Signed off 2026-09-18.
    width**, as a reasonable default rather than a considered mobile design. A
    pass across *every* page's mobile view is queued separately, and this is not
    it.
+
+## 10. As built
+
+Built 2026-09-18. Three notes.
+
+### The slug had to go with the title
+
+§4.2 said to withhold the title. It did not say to withhold the **slug**, and
+that was a hole: slugs are the kebab-cased title — the real challenge CSV has
+`Port of Call` / `port-of-call` on the same row — so sending one while
+withholding the other would have handed over the name in a thin disguise, which
+is exactly the theatre §4.2 claims to refuse.
+
+Both are now null while sealed. Nothing on the player side reads a challenge
+slug, so it cost nothing.
+
+### The hint summary says "opened", not "unlocked"
+
+Every button inside the disclosure is an *"Unlock — 50 XP"*, so a parent control
+named *"… 1 unlocked"* is two controls a word apart. It surfaced as a test
+collision and stayed fixed because it is a real ambiguity to read out loud —
+and "opened" keeps being true once the challenge is solved and hints are free.
+
+### The board column is a landmark
+
+Not in the spec. With the zone sidebar in front of it, a screen reader would
+otherwise walk 21 links before reaching a single challenge. The board column is
+`<section aria-label="Challenge board">` so it can be jumped to — and that is
+also what lets a test address the board rather than the nav, which every
+zone-scoped assertion needed.
+
+### Two tests changed, both for the same reason
+
+`test_a_locked_challenge_shows_its_name_and_value` and the scheduled-release
+test both looked a locked challenge up **by its title**, which is precisely what
+this spec removes. The second one's docstring already claimed a wave could
+advertise itself *"without leaking its questions"* — only true as of now.
