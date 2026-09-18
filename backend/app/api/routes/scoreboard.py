@@ -11,6 +11,8 @@ from app.logging import get_logger
 from app.models.event import EVENT_CONFIG_ID, EventConfig
 from app.redis import get_redis
 from app.schemas.scoreboard import (
+    ActivityItemResponse,
+    ActivityResponse,
     MyStandingResponse,
     PartyPanelResponse,
     PlayerBoardResponse,
@@ -89,6 +91,22 @@ async def my_standing(
         team_rank=party["rank"] if party else None,
         team_level=party["level"] if party else None,
         team_count=len(payload["teams"]),
+    )
+
+
+@router.get("/activity")
+async def activity_ticker(
+    db: DbSession, redis: RedisClient, current: ScoreboardViewer
+) -> ActivityResponse:
+    """Recent solves and boss kills (spec 069).
+
+    Served from the board's own payload, so it costs no extra query and cannot
+    disagree with what the socket is pushing. Gated on `view_scoreboard`, so it
+    opens and closes with the board.
+    """
+    payload = await _payload(db, redis)
+    return ActivityResponse(
+        items=[ActivityItemResponse(**item) for item in payload.get("activity", [])]
     )
 
 

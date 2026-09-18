@@ -78,3 +78,24 @@ class PartyPanelResponse(BaseModel):
     stars: list[BossStarResponse]
     founded_at: str
     members: list[PartyMemberResponse]
+
+
+class ActivityItemResponse(BaseModel):
+    """One line of the ticker (spec 069).
+
+    `challenge_title` and `tier` are null unless `kind` is "boss" — §3's decision
+    enforced on the server, because a title the client is asked to hide is a
+    title in the payload.
+    """
+
+    kind: str
+    display_name: str
+    zone_name: str
+    challenge_title: str | None
+    tier: str | None
+    tier_level: int | None
+    at: str
+
+
+class ActivityResponse(BaseModel):
+    items: list[ActivityItemResponse]

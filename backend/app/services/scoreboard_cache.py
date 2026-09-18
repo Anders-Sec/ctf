@@ -23,7 +23,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logging import get_logger
-from app.services import scoreboard
+from app.services import activity, scoreboard
 
 logger = get_logger(__name__)
 
@@ -42,11 +42,15 @@ LOCK_TTL_SECONDS = 10
 CACHE_TTL_SECONDS = 300
 
 
-def serialise(boards: scoreboard.Boards) -> dict:
+def serialise(boards: scoreboard.Boards, ticker: list | None = None) -> dict:
     return {
         "generated_at": boards.generated_at.isoformat(),
         "players": [_entry(asdict(entry)) for entry in boards.players],
         "teams": [_entry(asdict(entry)) for entry in boards.teams],
+        # The ticker rides the board's recompute (spec 069 §4): computed once
+        # and shared by every client, rather than a query per request, and
+        # protected by the same debounce.
+        "activity": [_entry(asdict(item)) for item in (ticker or [])],
     }
 
 
@@ -72,6 +76,8 @@ def public_view(payload: dict) -> dict:
         **payload,
         "players": [_without_private(row) for row in payload.get("players", [])],
         "teams": [_without_private(row) for row in payload.get("teams", [])],
+        # The ticker carries no XP, so it passes through untouched.
+        "activity": payload.get("activity", []),
     }
 
 
@@ -135,7 +141,10 @@ async def refresh(db: AsyncSession, redis: Redis, *, force: bool = False) -> dic
                 return cached
 
         try:
-            payload = serialise(await scoreboard.compute(db, datetime.now(UTC)))
+            payload = serialise(
+                await scoreboard.compute(db, datetime.now(UTC)),
+                await activity.recent(db),
+            )
 
             await redis.set(CACHE_KEY, json.dumps(payload), ex=CACHE_TTL_SECONDS)
             await redis.delete(DIRTY_KEY)
@@ -152,7 +161,7 @@ async def refresh(db: AsyncSession, redis: Redis, *, force: bool = False) -> dic
     except Exception as exc:
         logger.warning("scoreboard_refresh_degraded", extra={"error_type": type(exc).__name__})
         # Degraded, not broken: straight from Postgres, no cache, no push.
-        return serialise(await scoreboard.compute(db, datetime.now(UTC)))
+        return serialise(await scoreboard.compute(db, datetime.now(UTC)), await activity.recent(db))
 
 
 class ScoreboardBroadcaster:
