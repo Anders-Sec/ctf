@@ -6,6 +6,7 @@ import { logout } from "../api/auth";
 import { getMyStanding } from "../api/scoreboard";
 import { useSession } from "../auth/session";
 import Avatar from "./Avatar";
+import { openTour } from "./Tour";
 
 /**
  * The profile, and everything that used to clutter the bar (spec 064 §2.1).
@@ -140,6 +141,18 @@ export default function ProfileMenu({
             <MenuLink to="/settings" onChoose={() => setOpen(false)}>
               Settings
             </MenuLink>
+            {/* Dismissing the tour is not a one-way door (spec 066 §3.2). */}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                openTour();
+              }}
+              className="rounded px-2 py-1 text-left hover:bg-surface-raised"
+            >
+              Show the tour again
+            </button>
             {isAdmin && (
               // The way in. The way back out is at the foot of the admin
               // sidebar (spec 049 §7), unchanged.
