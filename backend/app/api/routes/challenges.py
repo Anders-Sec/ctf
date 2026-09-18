@@ -346,11 +346,17 @@ async def download_artifact(
 
     artifact = await artifact_service.get_artifact(db, challenge_id, artifact_id)
 
+    # Images are served inline so an <img> in a challenge body renders reliably
+    # and a player can open the picture in its own tab (spec 063 §5). Everything
+    # else stays an attachment, and the Files list keeps its `download`
+    # attribute, which forces a save either way.
+    disposition = "inline" if artifact.content_type.startswith("image/") else "attachment"
+
     return StreamingResponse(
         artifact_service.stream_artifact(settings, artifact),
         media_type=artifact.content_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{artifact.filename}"',
+            "Content-Disposition": f'{disposition}; filename="{artifact.filename}"',
             "Content-Length": str(artifact.size_bytes),
             "X-Checksum-SHA256": artifact.checksum_sha256,
         },

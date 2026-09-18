@@ -447,7 +447,28 @@ class TestArtifacts:
         assert download.status_code == 200
         assert download.content == payload
         assert "handout.zip" in download.headers["content-disposition"]
+        # Not an image, so it still downloads rather than opening (spec 063 §5).
+        assert download.headers["content-disposition"].startswith("attachment")
         assert admin.id is not None
+
+    async def test_an_image_is_served_inline(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, running_event
+    ) -> None:
+        """So an <img> in a challenge body renders, and a player can open the
+        picture in its own tab (spec 063 §5)."""
+        await as_role(db_session, client, sign_in, UserRole.ADMIN)
+        challenge = await make_challenge(db_session)
+
+        upload = await client.post(
+            f"/api/admin/challenges/{challenge.id}/artifacts",
+            files={"file": ("topology.png", b"\x89PNG pretend", "image/png")},
+        )
+        artifact = upload.json()
+
+        download = await client.get(f"/api/challenges/{challenge.id}/artifacts/{artifact['id']}")
+
+        assert download.headers["content-disposition"].startswith("inline")
+        assert "topology.png" in download.headers["content-disposition"]
 
     async def test_a_locked_challenges_files_are_unreachable(
         self, client: AsyncClient, db_session: AsyncSession, sign_in, running_event
