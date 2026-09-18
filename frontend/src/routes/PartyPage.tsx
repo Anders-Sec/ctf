@@ -115,12 +115,19 @@ function PartyRow({
 }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [message, setMessage] = useState("");
+  const [asking, setAsking] = useState(false);
 
   const join = useMutation({
     mutationFn: () => joinTeam(team.id, password || undefined),
     onSuccess: onJoined,
   });
-  const askToJoin = useMutation({ mutationFn: () => requestToJoin(team.id) });
+  // The message was dead until spec 072: the leader's view has always rendered
+  // it, the API has always accepted it, and nothing ever sent one — so every
+  // request arrived as a bare name to approve or decline.
+  const askToJoin = useMutation({
+    mutationFn: () => requestToJoin(team.id, message.trim() || undefined),
+  });
 
   return (
     <li className="rounded-lg border border-border bg-surface-raised p-4">
@@ -144,11 +151,11 @@ function PartyRow({
           </button>
         ) : team.visibility === "private" && !team.requires_password ? (
           <button
-            onClick={() => askToJoin.mutate()}
+            onClick={() => (asking ? askToJoin.mutate() : setAsking(true))}
             disabled={askToJoin.isPending || askToJoin.isSuccess}
             className="rounded border border-content px-3 py-1.5 text-sm disabled:opacity-50"
           >
-            {askToJoin.isSuccess ? "Request sent" : "Ask to join"}
+            {askToJoin.isSuccess ? "Request sent" : asking ? "Send request" : "Ask to join"}
           </button>
         ) : !team.requires_password ? (
           <button
@@ -160,6 +167,23 @@ function PartyRow({
           </button>
         ) : null}
       </div>
+
+      {asking && !askToJoin.isSuccess && (
+        <div className="mt-3">
+          <label htmlFor={`ask-${team.id}`} className="block text-sm">
+            Say something? <span className="text-content-muted">(optional)</span>
+          </label>
+          <textarea
+            id={`ask-${team.id}`}
+            rows={2}
+            maxLength={280}
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="Who you are, or why you want in."
+            className="mt-1 w-full rounded border border-border px-3 py-2 text-sm"
+          />
+        </div>
+      )}
 
       {showPassword && (
         <form
@@ -504,16 +528,21 @@ function PartySettings({
   const [name, setName] = useState(team.name);
   const [visibility, setVisibility] = useState<TeamVisibility>(team.visibility);
   const [password, setPassword] = useState("");
+  const [clearPassword, setClearPassword] = useState(false);
 
   const save = useMutation({
     mutationFn: () =>
       updateTeam(team.id, {
+        // Unchanged fields go as `undefined` rather than as their current
+        // value: the endpoint patches what it is given.
         name: name.trim() === team.name ? undefined : name.trim(),
         visibility: visibility === team.visibility ? undefined : visibility,
         join_password: password ? password : undefined,
+        clear_password: clearPassword || undefined,
       }),
     onSuccess: async () => {
       setPassword("");
+      setClearPassword(false);
       await onSaved();
     },
   });
@@ -557,9 +586,27 @@ function PartySettings({
               minLength={6}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full rounded border border-border px-3 py-2"
+              disabled={clearPassword}
+              className="mt-1 w-full rounded border border-border px-3 py-2 disabled:opacity-50"
               placeholder="Leave blank to keep approving requests yourself"
             />
+          </label>
+        )}
+
+        {/* `clear_password` was implemented all the way down and sent by
+            nothing (spec 072 §3.2). Without it a leader who sets a password is
+            stuck with one until they go public and back. */}
+        {visibility === "private" && team.requires_password && (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={clearPassword}
+              onChange={(event) => {
+                setClearPassword(event.target.checked);
+                if (event.target.checked) setPassword("");
+              }}
+            />
+            Remove the password and approve requests myself
           </label>
         )}
 
