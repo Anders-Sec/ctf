@@ -196,9 +196,21 @@ function Break({ columns }: { columns: number }) {
   );
 }
 
+/**
+ * Padding lives on the outer cells, not on the table.
+ *
+ * The highlight on your own row is a full-width background, so a number with no
+ * padding sits hard against its edge and reads as about to be clipped. These two
+ * give the first and last columns room inside that edge.
+ */
+const EDGE_LEFT = "pl-3 pr-2";
+const EDGE_RIGHT = "pl-2 pr-3";
+
 function Rank({ value }: { value: number }) {
   return (
-    <td className="py-2 text-lg font-semibold tabular-nums text-content-muted">{value}</td>
+    <td className={`py-2 text-lg font-semibold tabular-nums text-content-muted ${EDGE_LEFT}`}>
+      {value}
+    </td>
   );
 }
 
@@ -229,9 +241,14 @@ function TeamBoard({
     <table className="mt-4 w-full text-left">
       <thead className="text-sm text-content-muted">
         <tr>
-          <th className="w-12 py-2">#</th>
+          <th className={`w-14 py-2 ${EDGE_LEFT}`}>#</th>
           <th className="py-2">Party</th>
-          <th className="py-2 text-right">Level</th>
+          {/* The party's size and progress, given their own column rather than
+              left under the name — it fills the gap between a short party name
+              and the Level column with something worth reading. */}
+          <th className="hidden py-2 text-right sm:table-cell">Party size</th>
+          <th className="hidden py-2 text-right sm:table-cell">Solved</th>
+          <th className={`py-2 text-right ${EDGE_RIGHT}`}>Level</th>
         </tr>
       </thead>
       <tbody>
@@ -239,7 +256,7 @@ function TeamBoard({
           // The fragment carries the key, because the break and the row are two
           // siblings produced by one iteration.
           <Fragment key={row.team_id}>
-            {breakBeforeLast && index === framed.length - 1 && <Break columns={3} />}
+            {breakBeforeLast && index === framed.length - 1 && <Break columns={5} />}
             <tr
               className={`border-t border-border ${
                 row.team_id === myTeamId ? "bg-accent/10 font-medium" : ""
@@ -262,12 +279,22 @@ function TeamBoard({
                     <span className="text-xs text-accent-strong">you</span>
                   )}
                 </span>
-                <span className="mt-0.5 block text-xs text-content-muted">
+                {/* Narrow screens have no room for the two columns, so the
+                    same two facts ride under the name there instead. */}
+                <span className="mt-0.5 block text-xs text-content-muted sm:hidden">
                   {row.member_count} {row.member_count === 1 ? "adventurer" : "adventurers"} ·{" "}
                   {row.solve_count} solved
                 </span>
               </td>
-              <td className="py-2 text-right text-lg tabular-nums">{row.level}</td>
+              <td className="hidden py-2 text-right text-sm tabular-nums text-content-muted sm:table-cell">
+                {row.member_count}
+              </td>
+              <td className="hidden py-2 text-right text-sm tabular-nums text-content-muted sm:table-cell">
+                {row.solve_count}
+              </td>
+              <td className={`py-2 text-right text-lg tabular-nums ${EDGE_RIGHT}`}>
+                {row.level}
+              </td>
             </tr>
           </Fragment>
         ))}
@@ -303,16 +330,17 @@ function PlayerBoard({
     <table className="mt-4 w-full text-left">
       <thead className="text-sm text-content-muted">
         <tr>
-          <th className="w-12 py-2">#</th>
+          <th className={`w-14 py-2 ${EDGE_LEFT}`}>#</th>
           <th className="py-2">Player</th>
           <th className="hidden py-2 sm:table-cell">Party</th>
-          <th className="py-2 text-right">Level</th>
+          <th className="hidden py-2 text-right sm:table-cell">Solved</th>
+          <th className={`py-2 text-right ${EDGE_RIGHT}`}>Level</th>
         </tr>
       </thead>
       <tbody>
         {framed.map((row, index) => (
           <Fragment key={row.user_id}>
-            {breakBeforeLast && index === framed.length - 1 && <Break columns={4} />}
+            {breakBeforeLast && index === framed.length - 1 && <Break columns={5} />}
             <tr
               className={`border-t border-border ${
                 row.user_id === myUserId ? "bg-accent/10 font-medium" : ""
@@ -377,7 +405,12 @@ function PlayerBoard({
                   "—"
                 )}
               </td>
-              <td className="py-2 text-right text-lg tabular-nums">{row.level}</td>
+              <td className="hidden py-2 text-right text-sm tabular-nums text-content-muted sm:table-cell">
+                {row.solve_count}
+              </td>
+              <td className={`py-2 text-right text-lg tabular-nums ${EDGE_RIGHT}`}>
+                {row.level}
+              </td>
             </tr>
           </Fragment>
         ))}

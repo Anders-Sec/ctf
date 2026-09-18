@@ -498,6 +498,16 @@ describe("ScoreboardPage", () => {
     expect(await screen.findByText(/no parties have taken the field yet/i)).toBeInTheDocument();
   });
 
+  it("gives party size and solves their own columns", async () => {
+    render({ players: [], teams: [team({ member_count: 3, solve_count: 8 })] });
+    await screen.findByText("The Mimics");
+
+    // They fill the gap between a short party name and the Level column, which
+    // was otherwise dead width.
+    expect(screen.getByRole("columnheader", { name: "Party size" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Solved" })).toBeInTheDocument();
+  });
+
   it("shows how many adventurers are in each party", async () => {
     render({ players: [], teams: [team({ member_count: 1 })] });
 
