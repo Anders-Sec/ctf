@@ -40,11 +40,13 @@ export default function NotificationCentre() {
       <button
         onClick={() => setOpen((was) => !was)}
         aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
-        className="relative rounded border border-border px-2 py-1 text-sm hover:bg-surface-raised"
+        // A plain icon with its count beside it (spec 064 §2). The box made an
+        // incidental control look like a primary one.
+        className="flex shrink-0 items-center gap-1 rounded p-1 text-base leading-none text-content-muted hover:bg-surface-sunken hover:text-content"
       >
         <span aria-hidden>✉</span>
         {unread > 0 && (
-          <span className="ml-1 rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-content tabular-nums">
+          <span className="rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-content tabular-nums">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
@@ -54,7 +56,9 @@ export default function NotificationCentre() {
         <div
           role="dialog"
           aria-label="Notifications"
-          className="absolute right-4 top-14 z-40 max-h-[70vh] w-96 overflow-y-auto rounded border border-border bg-surface p-3 shadow-xl"
+          // Anchored left since spec 064: on the right it opened over the
+          // assistant panel and the rest of the busy corner.
+          className="absolute left-4 top-14 z-40 max-h-[70vh] w-96 max-w-[calc(100vw-2rem)] overflow-y-auto rounded border border-border bg-surface p-3 shadow-xl"
         >
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">

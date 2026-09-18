@@ -47,7 +47,9 @@ export default function ThemeToggle() {
       // announcing its own state reads as a claim about the page.
       aria-label={dark ? "Switch to the light theme" : "Switch to the dark theme"}
       title={dark ? "Light theme" : "Dark theme"}
-      className="rounded border border-border px-2 py-1 text-xs hover:bg-surface-sunken"
+      // A plain icon since spec 064: a bordered box made an incidental control
+      // look like a primary one.
+      className="rounded p-1 text-base leading-none text-content-muted hover:bg-surface-sunken hover:text-content"
     >
       <span aria-hidden>{dark ? "☀" : "☾"}</span>
     </button>
