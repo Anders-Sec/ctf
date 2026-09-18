@@ -92,7 +92,7 @@ lore, art, a wider tone pass) is intentionally not started.
 | 063 | `063-challenge-body-markdown.md` | Phase 3 QoL — challenge descriptions render as markdown with code blocks, `artifact:` references resolve to uploaded pictures, and the challenge editor grows a Files panel over the upload endpoint that already existed | **done** |
 | 064 | `064-player-navigation.md` | Phase 3 QoL — the player nav bar: inbox moves left, sign out and settings into a profile menu, plain icons, a level chip, and a bar that survives a narrow window | **done** |
 | 065 | `065-the-inbox.md` | Phase 3 QoL — notifications become an inbox: Yours and Event tabs, a kind filter, soft-dismiss clearing, colour with the kind named, and toasts that are quieter, shorter and unclickable | **done** |
-| 066 | `066-landing-and-getting-started.md` | Phase 3 QoL — the landing page answers "how am I doing" and "what next": a server-offset countdown, where you left off, your standing, a derived first-steps checklist and a one-time tour | **draft** |
+| 066 | `066-landing-and-getting-started.md` | Phase 3 QoL — the landing page answers "how am I doing" and "what next": a server-offset countdown, where you left off, your standing, a derived first-steps checklist and a one-time tour | **approved** (2026-09-18) |
 
 ## Phase 3 sequencing
 
@@ -137,7 +137,7 @@ of a manual walkthrough of every surface rather than up front. In progress:
 - **063** — Markdown and pictures in a challenge. **Done.**
 - **064** — The player nav bar. **Done.**
 - **065** — The inbox. **Done.**
-- **066** — The landing page. **Drafted**, awaiting sign-off.
+- **066** — The landing page. **Approved**, in build.
 
 Still to spec, from the same walkthrough: System AI chat usability on mobile,
 and a pass across every page's mobile view.

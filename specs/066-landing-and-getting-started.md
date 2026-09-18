@@ -1,6 +1,6 @@
 # Spec 066 — The Landing Page and Getting Started
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 017 (capabilities and gates), 059 (`/scoreboard/me`), 062 (board
 ordering), 064 (the nav this points at)
@@ -165,12 +165,12 @@ rather than trusted to the browser.
   inbox (065) is where event news lives, and duplicating the newest one on the
   landing page gives it two homes and two read states.
 
-## 7. Open questions
+## 7. Decisions
 
-1. **Should the checklist reappear if a step is undone?** A player who leaves
-   their party after finishing all five would see the panel return. Recommend
-   **no** — once complete, gone for good, stored per browser. A checklist that
-   comes back reads as an accusation.
-2. **Four tour steps or five?** The party page is the one arguably-missing
-   stop. Recommend **four**, leaving the party to the checklist, which already
-   links there and does it better.
+Signed off 2026-09-18, both as recommended.
+
+1. **The checklist does not come back.** Once all five are done it is gone for
+   good, remembered per browser. A checklist that reappears because somebody
+   left a party reads as an accusation.
+2. **Four tour steps.** The party is left to the checklist, which already links
+   there and does it better.
