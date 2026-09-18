@@ -15,6 +15,7 @@ import {
 import { avatarUrl } from "../api/auth";
 import { useSession } from "../auth/session";
 import ErrorMessage from "./ErrorMessage";
+import PortraitBuilder from "./PortraitBuilder";
 import Spinner from "./Spinner";
 import { RARITY_TEXT } from "./classRarity";
 
@@ -137,7 +138,8 @@ export default function AvatarEditor() {
   };
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 lg:flex-row">
       <section className="lg:w-[300px]">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
           Preview
@@ -251,6 +253,12 @@ export default function AvatarEditor() {
           })}
         </div>
       </section>
+      </div>
+
+      {/* Full width: eight axes do not fit in a 300px column. Only rendered
+          when the generation host is up — spec 073 stands on its own without
+          it (spec 074 §7). */}
+      <PortraitBuilder />
     </div>
   );
 }
