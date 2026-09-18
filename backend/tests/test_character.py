@@ -187,18 +187,19 @@ class TestIdentity:
 
         assert (await client.get("/api/character/me")).json()["equipped_title"] is None
 
-    async def test_neither_field_reaches_somebody_else_s_sheet(
+    async def test_both_fields_reach_somebody_else_s_sheet_too(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        """Spec 060 is the own sheet only; the public one is the next pass."""
+        """Added for the own sheet by spec 060, and carried to the public one by
+        061 — a party and a worn title are what a player shows the room."""
         await player(db_session, client, sign_in)
         other = await make_user(db_session, status=UserStatus.ACTIVE)
-        await make_team(db_session, other, name="Theirs")
+        team = await make_team(db_session, other, name="Theirs")
 
         sheet = (await client.get(f"/api/character/{other.id}")).json()
 
-        assert "party" not in sheet
-        assert "equipped_title" not in sheet
+        assert sheet["party"] == {"id": str(team.id), "name": "Theirs"}
+        assert sheet["equipped_title"] is None
 
 
 class TestPublicSheet:
@@ -234,16 +235,19 @@ class TestPublicSheet:
         }
         assert all(row["discovered"] for row in sheet["skills"])
 
-    async def test_a_public_sheet_omits_rank_and_progress(
+    async def test_a_public_sheet_omits_every_form_of_xp(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
+        """Rank arrives with spec 061 — XP never does, on any surface but the
+        player's own sheet (spec 059 §2)."""
         await player(db_session, client, sign_in)
         other = await make_user(db_session, status=UserStatus.ACTIVE)
 
         sheet = (await client.get(f"/api/character/{other.id}")).json()
 
-        assert "rank" not in sheet
-        assert "total_xp" not in sheet
+        assert "rank" in sheet
+        assert not any("xp" in key for key in sheet)
+        assert "score" not in sheet
 
     async def test_an_unknown_player_is_a_404(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
