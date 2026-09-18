@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter
 
-from app.api.deps import DbSession, Player, RedisClient
+from app.api.deps import DbSession, Player, RedisClient, ScoreboardViewer
 from app.errors import NotFoundError
 from app.models.user import User, UserStatus
 from app.schemas.character import (
@@ -37,6 +37,17 @@ from app.services import classes as class_service
 from app.services import narrator, scoreboard_cache
 
 router = APIRouter(prefix="/character", tags=["character"])
+
+# Reading a sheet is gated on `ScoreboardViewer`, not `Player`.
+#
+# `require_play` goes false the moment the event ends, which took the character
+# sheet — and with it spec 068's ending, which reads this very endpoint — down
+# at the buzzer. `require_scoreboard` already makes the argument this needs:
+# "once the event ends, play is closed but the scoreboard stays readable — the
+# final standings are the point of the whole exercise and must not vanish."
+#
+# A player's own record of their five days is the same kind of thing. The one
+# *write* here, choosing a class, stays on `Player`.
 
 
 async def _rank_of(db: DbSession, redis: RedisClient, user_id: UUID) -> int | None:
@@ -86,7 +97,7 @@ def _sheet_response(sheet, rank: int | None, suggestion=None) -> CharacterSheetR
 
 @router.get("/me")
 async def my_character(
-    db: DbSession, redis: RedisClient, current: Player
+    db: DbSession, redis: RedisClient, current: ScoreboardViewer
 ) -> CharacterSheetResponse:
     sheet = await character_service.build_sheet(db, current.user)
     return _sheet_response(
@@ -114,7 +125,7 @@ async def set_my_class(
 
 
 @router.get("/classes")
-async def list_classes(db: DbSession, current: Player) -> list[ClassResponse]:
+async def list_classes(db: DbSession, current: ScoreboardViewer) -> list[ClassResponse]:
     """The roster this player may pick from — **unlocked classes only**.
 
     A class they have not earned is absent entirely, not greyed and not counted:
@@ -124,7 +135,7 @@ async def list_classes(db: DbSession, current: Player) -> list[ClassResponse]:
 
 
 @router.get("/achievements")
-async def my_achievements(db: DbSession, current: Player) -> AchievementsResponse:
+async def my_achievements(db: DbSession, current: ScoreboardViewer) -> AchievementsResponse:
     """The full roster, unearned ones redacted, plus the rarest this player holds."""
     rows = await achievement_service.roster_for(db, current.user.id)
     rarest = await achievement_service.rarest_held(db, current.user.id)
@@ -137,7 +148,7 @@ async def my_achievements(db: DbSession, current: Player) -> AchievementsRespons
 
 
 @router.get("/stars")
-async def my_stars(db: DbSession, current: Player) -> list[StarResponse]:
+async def my_stars(db: DbSession, current: ScoreboardViewer) -> list[StarResponse]:
     """Bosses this player has beaten, biggest fight first."""
     return [
         StarResponse(**vars(star))
@@ -147,7 +158,7 @@ async def my_stars(db: DbSession, current: Player) -> list[StarResponse]:
 
 @router.get("/{user_id}/achievements")
 async def public_achievements(
-    user_id: UUID, db: DbSession, current: Player
+    user_id: UUID, db: DbSession, current: ScoreboardViewer
 ) -> PublicAchievementsResponse:
     """Somebody else's trophy case (spec 061 §4).
 
@@ -170,7 +181,7 @@ async def public_achievements(
 
 @router.get("/{user_id}")
 async def public_character(
-    user_id: UUID, db: DbSession, redis: RedisClient, current: Player
+    user_id: UUID, db: DbSession, redis: RedisClient, current: ScoreboardViewer
 ) -> PublicCharacterResponse:
     user = await db.get(User, user_id)
     if user is None or user.status != UserStatus.ACTIVE:

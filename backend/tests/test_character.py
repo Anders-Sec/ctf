@@ -257,3 +257,64 @@ class TestPublicSheet:
         await player(db_session, client, sign_in)
 
         assert (await client.get(f"/api/character/{uuid.uuid4()}")).status_code == 404
+
+
+class TestAfterTheEvent:
+    """A player's record of their five days must not vanish at the buzzer.
+
+    Every character route was gated on `require_play`, which goes false the
+    moment the event ends — so the sheet 403'd exactly when spec 068's ending
+    wanted to render, and the ending reads this endpoint itself.
+    """
+
+    @pytest.fixture
+    async def ended_event(self, db_session):
+        from datetime import UTC, datetime, timedelta
+
+        from app.models.event import EVENT_CONFIG_ID, EventConfig
+
+        # Aware, like the `running_event` fixture: EventConfig compares against
+        # an aware "now".
+        event = await db_session.get(EventConfig, EVENT_CONFIG_ID)
+        now = datetime.now(UTC)
+        event.starts_at = now - timedelta(days=5)
+        event.ends_at = now - timedelta(hours=1)
+        await db_session.flush()
+        return event
+
+    async def test_the_sheet_still_loads(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, ended_event
+    ) -> None:
+        await player(db_session, client, sign_in)
+
+        response = await client.get("/api/character/me")
+
+        assert response.status_code == 200
+        assert response.json()["level"] >= 1
+
+    async def test_achievements_and_stars_still_load(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, ended_event
+    ) -> None:
+        """Spec 068's ending reads both of these to show the rarest award."""
+        await player(db_session, client, sign_in)
+
+        assert (await client.get("/api/character/achievements")).status_code == 200
+        assert (await client.get("/api/character/stars")).status_code == 200
+
+    async def test_somebody_else_s_sheet_still_loads(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, ended_event
+    ) -> None:
+        await player(db_session, client, sign_in)
+        other = await make_user(db_session, status=UserStatus.ACTIVE)
+
+        assert (await client.get(f"/api/character/{other.id}")).status_code == 200
+
+    async def test_choosing_a_class_is_still_closed(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in, ended_event
+    ) -> None:
+        """Reads reopen; writes do not. Play closed at the buzzer."""
+        await player(db_session, client, sign_in)
+
+        response = await client.put("/api/character/class", json={"class_id": None})
+
+        assert response.status_code == 403
