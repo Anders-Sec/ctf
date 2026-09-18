@@ -77,3 +77,21 @@ class JoinRequestResponse(BaseModel):
     status: JoinRequestStatus
     message: str | None
     created_at: datetime
+
+
+class ZoneCoverageResponse(BaseModel):
+    """What a party has claimed in one zone (spec 067 §2.1)."""
+
+    name: str
+    slug: str
+    #: Distinct challenges any current member has cleared — the union rule made
+    #: visible, so the bar moves once however many members solved it.
+    cleared: int
+    total: int
+    sealed: bool
+
+
+class PartyProgressResponse(BaseModel):
+    zones: list[ZoneCoverageResponse]
+    #: challenge id → the member who got there first. Absent when unclaimed.
+    solved_by: dict[str, str]

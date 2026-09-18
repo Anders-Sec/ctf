@@ -4,6 +4,7 @@ Gated on `PartyMember` rather than `ActiveUser`: an unapproved guest may pick or
 form a party the night before the event. Only gameplay waits on approval.
 """
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Request, status
@@ -11,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, PartyMember, RedisClient
+from app.errors import NotFoundError
 from app.models.team import (
     JoinRequestStatus,
     Team,
@@ -24,13 +26,16 @@ from app.schemas.teams import (
     CreateTeamRequest,
     JoinRequestResponse,
     JoinTeamRequest,
+    PartyProgressResponse,
     TeamDetailResponse,
     TeamListItem,
     TeamMemberResponse,
     TransferLeadershipRequest,
     UpdateTeamRequest,
+    ZoneCoverageResponse,
 )
 from app.services import achievements as achievement_service
+from app.services import party_progress
 from app.services import teams as team_service
 from app.services.scoreboard_cache import mark_dirty
 from app.services.user_cache import invalidate
@@ -107,6 +112,29 @@ async def create_team(
 async def get_team(team_id: UUID, db: DbSession, current: PartyMember) -> TeamDetailResponse:
     team = await team_service.get_team(db, team_id)
     return await _detail(db, team)
+
+
+@router.get("/{team_id}/progress")
+async def team_progress(
+    team_id: UUID, db: DbSession, current: PartyMember
+) -> PartyProgressResponse:
+    """What this party has claimed, zone by zone (spec 067 §2.1).
+
+    **Members only.** Another party's coverage is not a view, it is
+    reconnaissance — it would name the zones a rival has not touched and exactly
+    which challenges nobody has claimed. A 404 rather than a 403, so the refusal
+    does not confirm the party exists to somebody probing for it.
+
+    Staff get the same answer: this is about membership, not rank.
+    """
+    if not await party_progress.is_member(db, team_id, current.user.id):
+        raise NotFoundError("No such party.")
+
+    progress = await party_progress.for_team(db, team_id, datetime.now(UTC))
+    return PartyProgressResponse(
+        zones=[ZoneCoverageResponse(**vars(zone)) for zone in progress.zones],
+        solved_by=progress.solved_by,
+    )
 
 
 @router.patch("/{team_id}")
