@@ -115,3 +115,20 @@ Signed off 2026-09-18, both as recommended.
    title in the payload.
 2. **Collapsible, remembered per browser, and no server-side preference.**
    "I find this distracting" is what collapsing is for.
+
+## 8. As built
+
+Built 2026-09-18. One note.
+
+### It rides the board's payload rather than its own query
+
+§4 described `GET /activity` and a socket key as though they were two paths. They
+are one: the ticker is computed inside `scoreboard_cache.serialise`, so it costs
+nothing per request, cannot disagree with what the socket is pushing, and is
+protected by the debounce that already guards the board.
+
+`/activity` is a thin read of that payload, which is what makes the REST fallback
+and the live push identical by construction rather than by care.
+
+`public_view` passes it through untouched, and a test says so — there is no XP in
+it, but the assertion is what stops that being an assumption later.

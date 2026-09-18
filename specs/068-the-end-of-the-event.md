@@ -123,3 +123,24 @@ Signed off 2026-09-18, both as recommended.
 2. **One screen for everybody**, with the heading taken from the event rather
    than the player. A smaller summary is not an embarrassment worth
    special-casing.
+
+## 8. As built
+
+Built 2026-09-18. Two notes.
+
+### The podium filters on rank, it does not take three
+
+`rows.slice(0, 3)` would have broken §2.1's promise about ties the first time
+two parties finished level. The podium takes `rank <= 3`, so a shared second
+shows two seconds and no third — which is what spec 059 §4.1 decided and what
+the shared ranks in the payload already express.
+
+### A typecheck failure reached a commit
+
+The ending's test fixtures inferred their types from their default values, so an
+override passing `null` for an unranked player was rejected. The commit went
+through anyway because the verification and the commit were joined with `;`
+rather than `&&`.
+
+Same shape as the lint miss earlier in this project, same lesson: a check that
+does not gate the commit is not a check. Fixed in the commit after.

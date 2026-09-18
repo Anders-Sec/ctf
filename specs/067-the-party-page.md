@@ -143,3 +143,20 @@ Signed off 2026-09-18, both as recommended.
    applied to visibility, since that is the set the party can actually work on.
 2. **`solved_by` names the member.** It is your own party, and "ask Rin how they
    did it" is the point.
+
+## 8. As built
+
+Built 2026-09-18. One note, and it is a gap rather than a deviation.
+
+### §5 assumed tests that do not exist
+
+The testing section says *"every existing party test — browse, create, join,
+request, kick, promote, leave, settings — passes untouched."*
+
+**There are none.** `PartyPage.tsx` is 544 lines with no test file at all, and
+the claim was written from the assumption that a page this central would have
+some. The new coverage component is tested; the surface it sits beside is not.
+
+That is a real risk for a live event and this spec did not close it. Writing
+those tests is its own piece of work, and naming it here is better than leaving
+the spec's sentence standing as though it were true.

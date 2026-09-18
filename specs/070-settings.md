@@ -119,3 +119,27 @@ Signed off 2026-09-18, both as recommended.
 2. **Muting an announcement is allowed.** A mute the platform refuses to honour
    is a worse lie than a message somebody missed, and the inbox still holds
    it.
+
+## 9. As built
+
+Built 2026-09-18. Two notes.
+
+### Clearing marks read; muting does not
+
+Worth stating together, because they look alike and are not. **Clearing** a
+notification marks it read, because the row becomes unreachable and a badge
+counting unreachable rows is a badge that lies (065 §4). **Muting** a kind does
+not touch `read_at` at all — the rows stay unread and stay in the inbox, and the
+count simply stops including them.
+
+The difference is that clearing is an action on a row and muting is a standing
+preference. Unmuting restores the count exactly, with nothing re-sent, and a test
+pins that.
+
+### `can_rename` is on the session, not inferred by the client
+
+The client could have checked `user.source === "guest"` itself. It does not,
+because the reason the field exists is a server-side behaviour — `identity.py`
+rewriting `display_name` on every sign-in — and the day somebody adds a third
+account source, the rule should change in one place rather than in whichever
+components happened to guess.
