@@ -1,6 +1,6 @@
 # Spec 062 — The Challenge Board
 
-Status: **draft**
+Status: **approved** (2026-09-18)
 Phase: 3 (Polish & Operability) — quality of life, player-facing
 Depends on: 017 (unlock requirements), 019 (zone progression), 040 (authored XP),
 044 (puzzles), 049 (the sticky sidebar this copies)
@@ -211,14 +211,14 @@ title.
 - **Rebuild the puzzle, instance or report panels.** They move into the overlay
   as they are.
 
-## 9. Open questions
+## 9. Decisions
 
-1. **Should a solved challenge stay in place, or sink?** Sinking solved rows to
-   the bottom of their zone keeps the working set at the top, but moves a row the
-   moment you solve it — which is the thing §3 exists to stop. Recommend
-   **staying in place**, with the existing *Hide solved* toggle for players who
-   want them gone.
-2. **Does the overlay need its own mobile treatment?** At phone width an overlay
-   covering the list is indistinguishable from a page, which is fine, but it
-   makes the back button the only way out. Recommend **a full-screen sheet with
-   an explicit close**, since a player mid-challenge should not have to guess.
+Signed off 2026-09-18.
+
+1. **A solved challenge stays exactly where it is.** Nothing moves during the
+   event — which is §3's whole argument, applied to the one case where the
+   movement would have looked like a reward.
+2. **The overlay gets a full-screen sheet with an explicit close at phone
+   width**, as a reasonable default rather than a considered mobile design. A
+   pass across *every* page's mobile view is queued separately, and this is not
+   it.
