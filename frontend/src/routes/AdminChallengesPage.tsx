@@ -1,6 +1,6 @@
 import { BOSS_TIERS, BOSS_TIER_LABEL, type BossTier } from "../api/bosses";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 import {
   addAnswer,
@@ -40,6 +40,8 @@ import {
 import BulkToolbar from "../components/BulkToolbar";
 import ChallengeCsvPanel from "../components/ChallengeCsvPanel";
 import ChallengeTable from "../components/ChallengeTable";
+import ChallengeBody from "../components/ChallengeBody";
+import ChallengeFiles from "../components/ChallengeFiles";
 import ErrorMessage from "../components/ErrorMessage";
 import PuzzleEditor from "../components/PuzzleEditor";
 import SkillPicker from "../components/SkillPicker";
@@ -970,6 +972,35 @@ function ChallengeSettingsForm({
     },
   });
 
+  const [preview, setPreview] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  /**
+   * Drops a file reference where the caret is (spec 063 §4).
+   *
+   * Appending would be simpler and usually wrong — a picture belongs beside the
+   * sentence that mentions it. With the preview open there is no caret, so it
+   * falls back to the end rather than doing nothing.
+   */
+  const insertReference = (reference: string) => {
+    const field = bodyRef.current;
+    const body = form.body ?? "";
+    if (!field) {
+      set("body", body ? `${body}\n\n${reference}` : reference);
+      return;
+    }
+    const start = field.selectionStart ?? body.length;
+    const end = field.selectionEnd ?? start;
+    set("body", `${body.slice(0, start)}${reference}${body.slice(end)}`);
+    // Put the caret after what was just inserted, so typing continues from
+    // there rather than from wherever the click left it.
+    window.setTimeout(() => {
+      field.focus();
+      const at = start + reference.length;
+      field.setSelectionRange(at, at);
+    }, 0);
+  };
+
   return (
     <form
       className="mt-4 rounded border border-border bg-surface-raised p-4"
@@ -982,16 +1013,42 @@ function ChallengeSettingsForm({
         Settings
       </h3>
 
-      <label className="mt-3 block text-sm">
-        Description / task
-        <textarea
-          value={form.body ?? ""}
-          onChange={(e) => set("body", e.target.value)}
-          rows={4}
-          placeholder="What should the player do?"
-          className="mt-1 w-full rounded border border-border px-3 py-2"
-        />
-      </label>
+      <div className="mt-3 text-sm">
+        <div className="flex items-baseline justify-between gap-2">
+          <label htmlFor={`body-${challenge.id}`}>Description / task</label>
+          {/* Authoring markdown blind is how you ship a broken fence. */}
+          <button
+            type="button"
+            onClick={() => setPreview((was) => !was)}
+            className="text-xs underline"
+          >
+            {preview ? "Edit" : "Preview"}
+          </button>
+        </div>
+        {preview ? (
+          <div className="mt-1 min-h-24 rounded border border-border bg-surface px-3 py-2">
+            <ChallengeBody artifacts={challenge.artifacts} urlFor={() => ""}>
+              {form.body ?? ""}
+            </ChallengeBody>
+          </div>
+        ) : (
+          <textarea
+            id={`body-${challenge.id}`}
+            ref={bodyRef}
+            value={form.body ?? ""}
+            onChange={(e) => set("body", e.target.value)}
+            rows={6}
+            placeholder="What should the player do? Markdown, including code fences."
+            className="mt-1 w-full rounded border border-border px-3 py-2 font-mono"
+          />
+        )}
+      </div>
+
+      <ChallengeFiles
+        challengeId={challenge.id}
+        artifacts={challenge.artifacts}
+        onInsert={insertReference}
+      />
 
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <label className="text-sm">

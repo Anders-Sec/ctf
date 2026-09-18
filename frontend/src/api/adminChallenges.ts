@@ -329,6 +329,24 @@ export const removePrerequisite = (
   );
 
 /** Deletes the challenge, and prunes its category if that leaves it empty. */
+/**
+ * Files on a challenge (spec 063 §4).
+ *
+ * Both endpoints already existed; there was simply no UI in front of them.
+ */
+export const uploadArtifact = (challengeId: string, file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  // The client sends FormData through without stringifying it or setting a
+  // content type, so the browser can write its own multipart boundary.
+  return api.post<Artifact>(`/admin/challenges/${challengeId}/artifacts`, form);
+};
+
+export const deleteArtifact = (challengeId: string, artifactId: string) =>
+  api.delete<{ message: string }>(
+    `/admin/challenges/${challengeId}/artifacts/${artifactId}`,
+  );
+
 export const deleteChallenge = (id: string) =>
   api.delete<{ message: string }>(`/admin/challenges/${id}`);
 
