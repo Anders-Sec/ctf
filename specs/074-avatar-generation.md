@@ -234,3 +234,35 @@ An admin testing the feature ran out, which is the wrong failure. Admins are
 **exempt**, shown as unlimited rather than as a number. Separately, every player
 gains a `portrait_grant` an admin can raise from the user page, so somebody who
 lost four portraits to a bad afternoon can be topped up without a deploy.
+
+### 11.4 An unseeded roster must not reshape the form
+
+Reported from the running app: the builder showed **one axis** — Class, empty —
+and no way to choose anything else.
+
+Two separate faults, and the second was mine in §11.2:
+
+- **The trait table was never seeded.** The startup seed runs exactly once, is
+  best-effort, and logged only the exception *type*. A boot that raced its own
+  migration, or hit one transient error, left the feature empty for good.
+- **The axis list was derived from the rows**, filtered on "this axis has
+  options". With an empty table the only key present was the one written
+  unconditionally, so the response collapsed to `class_look` alone.
+
+Fixed at three levels, because one was clearly not enough:
+
+- The axis list comes from **the authored roster**, not the table. An unseeded
+  database now leaves the form empty rather than reshaping it. Retired axes
+  still drop out, which is what that filter was for.
+- The builder **reseeds itself** when it finds no traits. This is authored
+  content with no operator decision in it, so there is nothing to lose by
+  making it self-healing, and the alternative is a feature that stays broken
+  until somebody restarts a pod.
+- The startup seed logs the **message**, and the admin reseed now covers traits
+  as well as accessories — it did only accessories, which was no use at all in
+  the one situation anybody would reach for it.
+
+An empty Class axis also distinguishes *"you have unlocked none"* from *"the
+roster is missing"*, since those call for completely different actions, and the
+level-gate note is scoped to the Class axis rather than shown under every empty
+one.

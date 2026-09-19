@@ -23,11 +23,12 @@ from app.schemas.avatar import (
     CreateAccessoryRequest,
     UpdateAccessoryRequest,
 )
-from app.services.accessory_roster import seed
+from app.services.accessory_roster import seed as seed_accessories
 from app.services.artifacts import ArtifactTooLarge
 from app.services.avatars import invalidate, invalidate_all
 from app.services.identity import record_audit
 from app.services.storage import get_storage
+from app.services.trait_roster import seed as seed_traits
 
 router = APIRouter(prefix="/admin/avatar", tags=["admin-avatar"])
 
@@ -175,11 +176,18 @@ async def upload_art(
 
 @router.post("/accessories/reseed", response_model=MessageResponse)
 async def reseed(request: Request, db: DbSession, current: Admin) -> MessageResponse:
-    """Re-run the authored roster, adding anything missing.
+    """Re-run both authored rosters, adding anything missing.
 
-    Never overwrites: an anchor tuned during setup survives.
+    Accessories keep anchors tuned during setup. Portrait traits take their
+    labels and fragments from the roster, so this is also how a reworded option
+    reaches a running instance.
+
+    **Covers traits as well as accessories** since spec 074 §11: the version
+    that did only accessories was no use at all when the symptom was an empty
+    trait table, which is precisely when somebody reaches for this.
     """
-    added = await seed(db)
+    added = await seed_accessories(db)
+    added += await seed_traits(db)
     await record_audit(
         db,
         action="avatar.roster.reseed",

@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from app.api.deps import ActiveUser, DbSession
 from app.errors import NotFoundError
+from app.logging import get_logger
 from app.models.avatar_trait import AvatarCandidate, AvatarJob, AvatarTrait, JobState, TraitAxis
 from app.models.character_class import CharacterClass
 from app.models.user import User
@@ -28,9 +29,25 @@ from app.schemas.portraits import (
 )
 from app.services import character as character_service
 from app.services import classes as class_service
-from app.services import image_client, portraits
+from app.services import image_client, portraits, trait_roster
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/portraits", tags=["portraits"])
+
+
+async def _enabled_traits(db: DbSession) -> list[AvatarTrait]:
+    return list(
+        (
+            await db.execute(
+                select(AvatarTrait)
+                .where(AvatarTrait.enabled.is_(True))
+                .order_by(AvatarTrait.display_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
 
 async def _current(db: DbSession, current: ActiveUser) -> User:
@@ -49,17 +66,18 @@ async def builder(request: Request, db: DbSession, current: ActiveUser) -> Build
     """
     settings = request.app.state.settings
 
-    rows = (
-        (
-            await db.execute(
-                select(AvatarTrait)
-                .where(AvatarTrait.enabled.is_(True))
-                .order_by(AvatarTrait.display_order)
-            )
-        )
-        .scalars()
-        .all()
-    )
+    rows = await _enabled_traits(db)
+    if not rows:
+        # **Self-healing.** The roster is authored content with no operator
+        # decision in it, and the startup seed runs exactly once — so a boot
+        # that raced its own migration, or hit a transient database error, left
+        # the feature permanently empty behind a warning in a log nobody reads.
+        # Seeding here is idempotent, and costs one extra count on a table that
+        # is normally already full.
+        logger.warning("portrait_traits_empty_reseeding")
+        await trait_roster.seed(db)
+        await db.commit()
+        rows = await _enabled_traits(db)
 
     by_axis: dict[str, list[TraitOut]] = {}
     for row in rows:
@@ -89,7 +107,11 @@ async def builder(request: Request, db: DbSession, current: ActiveUser) -> Build
             TraitOut(key=row.key, label=row.label) for row in offered
         ]
         if not offered:
-            class_note = "No classes unlocked yet."
+            class_note = (
+                "No classes unlocked yet."
+                if class_rows
+                else "The class list is unavailable — an admin can reseed it."
+            )
         if user.character_class_id:
             name = (
                 await db.execute(
@@ -111,10 +133,14 @@ async def builder(request: Request, db: DbSession, current: ActiveUser) -> Build
         # Only axes that are still authored. A retired one is disabled in the
         # table, so it arrives here empty and would render as a dropdown with
         # nothing in it.
+        # **Every authored axis, always.** This filtered on "has rows in the
+        # table", which meant an unseeded database returned exactly one axis —
+        # Class, the only key written unconditionally — and no way to pick
+        # anything else at all. Retired axes drop out because they are not
+        # authored, which is what the filter was actually for.
         axes=[
-            AxisOut(axis=axis.value, options=by_axis[axis.value])
-            for axis in TraitAxis
-            if axis.value in by_axis
+            AxisOut(axis=axis.value, options=by_axis.get(axis.value, []))
+            for axis in trait_roster.AUTHORED_AXES
         ],
     )
 

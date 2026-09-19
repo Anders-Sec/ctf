@@ -114,7 +114,12 @@ export default function PortraitBuilder() {
             <div key={axis.axis} className="text-sm">
               {AXIS_LABEL[axis.axis as TraitAxis] ?? axis.axis}
               <p className="mt-1 rounded border border-border bg-surface px-2 py-1.5 text-xs text-content-muted">
-                {data.class_locked_note ?? "Nothing available yet."}
+                {/* The note explains the *class* gate specifically, so it only
+                    belongs on that axis — putting it under every empty one
+                    would tell somebody their Colours were level-locked. */}
+                {axis.axis === "class_look"
+                  ? (data.class_locked_note ?? "Nothing available yet.")
+                  : "Nothing available yet."}
               </p>
             </div>
           ) : (

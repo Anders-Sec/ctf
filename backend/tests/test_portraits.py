@@ -13,7 +13,7 @@ import httpx
 import pytest
 from httpx import AsyncClient
 from PIL import Image
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
@@ -22,7 +22,13 @@ from app.models.notification import Achievement, LootBox, LootBoxType, LootRarit
 from app.models.user import AvatarSource, UserRole
 from app.services import image_client, portraits
 from app.services.scoring import xp_for_level
-from app.services.trait_roster import ALL_AXES, STYLE_SUFFIX, assemble_prompt, authored_traits
+from app.services.trait_roster import (
+    ALL_AXES,
+    AUTHORED_AXES,
+    STYLE_SUFFIX,
+    assemble_prompt,
+    authored_traits,
+)
 from app.services.trait_roster import seed as seed_traits
 from tests.factories import make_category, make_challenge, make_user, record_solve
 
@@ -846,3 +852,97 @@ class TestBudget:
         )
 
         assert response.status_code == 403
+
+
+class TestAnEmptyRoster:
+    """What the builder does when nothing has been seeded.
+
+    This is the state an operator actually hit: the startup seed runs once, it
+    had failed, and the builder returned **one axis** — Class, empty — with no
+    way to choose anything else at all.
+    """
+
+    async def test_every_authored_axis_is_offered_even_with_no_rows(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await db_session.execute(delete(AvatarTrait))
+        await db_session.flush()
+        user = await make_user(db_session)
+        await sign_in(client, user)
+
+        body = (await client.get("/api/portraits/builder")).json()
+
+        # Seven, not one. The shape of the form is a fact about the roster, not
+        # about whether the table happens to be populated.
+        assert {row["axis"] for row in body["axes"]} == {axis.value for axis in AUTHORED_AXES}
+
+    async def test_it_reseeds_itself_rather_than_staying_broken(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        # The seed runs once at boot. A boot that raced its migration used to
+        # leave this permanently empty behind a warning nobody reads.
+        await db_session.execute(delete(AvatarTrait))
+        await db_session.flush()
+        user = await make_user(db_session)
+        await sign_in(client, user)
+
+        body = (await client.get("/api/portraits/builder")).json()
+
+        ancestry = next(row for row in body["axes"] if row["axis"] == "ancestry")
+        assert len(ancestry["options"]) == 10
+
+    async def test_the_axis_list_does_not_depend_on_the_rows(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        """Isolates the axis-list fix from the self-heal.
+
+        Disabled rows still exist, so seeding will not re-add or re-enable them
+        — `enabled` is the operator's lever and is never overwritten. That
+        leaves the builder with genuinely no options and nothing it can do
+        about it, which is the case the old code turned into a one-axis form.
+        """
+        await seed_traits(db_session)
+        await db_session.execute(update(AvatarTrait).values(enabled=False))
+        await db_session.flush()
+        user = await make_user(db_session)
+        await sign_in(client, user)
+
+        body = (await client.get("/api/portraits/builder")).json()
+
+        assert {row["axis"] for row in body["axes"]} == {a.value for a in AUTHORED_AXES}
+        assert all(row["options"] == [] for row in body["axes"])
+
+    async def test_a_lower_level_player_still_gets_every_other_axis(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        # Below the class gate, Class is shut — and nothing else is.
+        await seed_traits(db_session)
+        user = await make_user(db_session)
+        await sign_in(client, user)
+
+        body = (await client.get("/api/portraits/builder")).json()
+
+        by_axis = {row["axis"]: row["options"] for row in body["axes"]}
+        assert by_axis["class_look"] == []
+        for axis in ("ancestry", "presentation", "garb", "expression", "palette", "art_style"):
+            assert by_axis[axis], f"{axis} should still be choosable"
+
+    async def test_an_empty_class_list_says_which_problem_it_is(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        # "You have unlocked none" and "the roster is missing" need different
+        # actions, so they cannot share a sentence.
+        await seed_traits(db_session)
+        await db_session.execute(
+            delete(AvatarTrait).where(AvatarTrait.axis == TraitAxis.CLASS_LOOK)
+        )
+        await db_session.flush()
+        user = await make_user(db_session)
+        zone = await make_category(db_session, name=f"Z{user.id.hex[:6]}")
+        challenge = await make_challenge(db_session, category=zone)
+        await record_solve(db_session, user, challenge, xp=xp_for_level(8))
+        await sign_in(client, user)
+
+        body = (await client.get("/api/portraits/builder")).json()
+
+        assert "reseed" in body["class_locked_note"]

@@ -107,7 +107,16 @@ async def _seed_avatar_rosters(settings: Settings) -> None:
         if added:
             logger.info("avatar_rosters_seeded", extra={"added": added})
     except Exception as exc:  # noqa: BLE001 - cosmetics must never block boot
-        logger.warning("avatar_roster_seed_failed", extra={"error_type": type(exc).__name__})
+        # The message, not just the type. The first version logged the type
+        # alone, which told an operator that *something* went wrong and
+        # nothing about what — and since this runs once per boot, a single
+        # failure left the builder empty until the next restart. The builder
+        # reseeds itself when it finds nothing, so this is a diagnostic now
+        # rather than the only line of defence.
+        logger.warning(
+            "avatar_roster_seed_failed",
+            extra={"error_type": type(exc).__name__, "error": str(exc)},
+        )
 
 
 @asynccontextmanager

@@ -226,6 +226,12 @@ ALL_AXES: list[list[Trait]] = [
 ]
 
 
+#: The axes the builder offers, in order. Derived from the roster rather
+#: than from whatever happens to be in the table: an unseeded database
+#: should not change the *shape* of the form, only leave it empty.
+AUTHORED_AXES: list[TraitAxis] = [axis[0].axis for axis in ALL_AXES]
+
+
 def authored_traits() -> list[Trait]:
     return [trait for axis in ALL_AXES for trait in axis]
 
