@@ -33,11 +33,16 @@ class BuilderOut(BaseModel):
     #: frontend hides the whole feature behind this rather than offering a
     #: button that fails (spec 074 §7).
     available: bool
-    remaining: int
+    #: Null means **unlimited** — an admin, who is exempt (spec 074 §11.3). A
+    #: very large number in the UI reads as a bug, so it is not one.
+    remaining: int | None
     candidates_per_job: int
     #: The player's real class, pre-selected — what ties a portrait to
     #: progression rather than to a costume box.
     default_class_look: str | None
+    #: Set when the Class axis is empty because they have not reached the level
+    #: that unlocks classes. Shown in place of the dropdown.
+    class_locked_note: str | None
     axes: list[AxisOut]
 
 
@@ -62,3 +67,6 @@ class JobOut(BaseModel):
     #: A coarse reason from the image client, or null.
     error: str | None
     candidates: list[CandidateOut]
+    #: Which candidate is currently the avatar, so the grid can mark it and
+    #: picking a different one stays possible (spec 074 §11.1).
+    chosen_candidate_id: UUID | None = None

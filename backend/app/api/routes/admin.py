@@ -23,6 +23,7 @@ from app.schemas.admin import (
     DisableUserRequest,
     EnableUserRequest,
     EventConfigResponse,
+    PortraitGrantRequest,
     SetRoleRequest,
     ThemeGrantRequest,
     UpdateEventConfigRequest,
@@ -387,6 +388,41 @@ async def enable_user(
     )
     await db.flush()
     logger.info("user_enabled", extra={"user_id": str(user.id)})
+    return _summary(user)
+
+
+@router.post("/users/{user_id}/portrait-grant")
+async def set_portrait_grant(
+    user_id: UUID,
+    payload: PortraitGrantRequest,
+    request: Request,
+    db: DbSession,
+    current: Admin,
+) -> UserSummary:
+    """Top up one player's portrait budget (spec 074 §11.3).
+
+    Absolute rather than a delta, so setting it twice by accident lands on the
+    number that was typed. Admins do not need this for themselves — they are
+    exempt from the budget entirely — but an ordinary player who lost an
+    afternoon to a wedged host should not have to wait for a deploy.
+    """
+    user = await db.get(User, user_id)
+    if user is None:
+        raise NotFoundError("No such user.")
+
+    user.portrait_grant = payload.grant
+    await record_audit(
+        db,
+        action="user.portrait_grant",
+        target_type="user",
+        target_id=user.id,
+        actor_user_id=current.user.id,
+        reason=payload.reason,
+        meta={"grant": payload.grant},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    await db.commit()
+    await db.refresh(user)
     return _summary(user)
 
 

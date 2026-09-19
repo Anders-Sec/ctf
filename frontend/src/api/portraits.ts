@@ -9,12 +9,11 @@ import { api } from "./client";
  */
 export type TraitAxis =
   | "ancestry"
+  | "presentation"
   | "class_look"
   | "garb"
-  | "headwear"
   | "expression"
   | "palette"
-  | "setting"
   | "art_style";
 
 export interface TraitOption {
@@ -30,10 +29,13 @@ export interface Axis {
 export interface Builder {
   /** False when the host is off, unconfigured, or its breaker is open. */
   available: boolean;
-  remaining: number;
+  /** Null means unlimited — an admin, who is exempt from the budget. */
+  remaining: number | null;
   candidates_per_job: number;
   /** The player's real class, pre-selected. */
   default_class_look: string | null;
+  /** Why the Class axis is empty, when it is. */
+  class_locked_note: string | null;
   axes: Axis[];
 }
 
@@ -49,17 +51,18 @@ export interface Job {
   state: JobState;
   error: string | null;
   candidates: Candidate[];
+  /** Which one is currently the avatar. The rest stay selectable. */
+  chosen_candidate_id: string | null;
 }
 
 /** Human words for each axis. The server sends keys; naming is a UI decision. */
 export const AXIS_LABEL: Record<TraitAxis, string> = {
   ancestry: "Ancestry",
+  presentation: "Presentation",
   class_look: "Class",
   garb: "Clothing",
-  headwear: "Headwear",
   expression: "Expression",
   palette: "Colours",
-  setting: "Background",
   art_style: "Style",
 };
 

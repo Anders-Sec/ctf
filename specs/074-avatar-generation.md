@@ -1,6 +1,6 @@
 # Spec 074 — Avatar Generation
 
-Status: **done**
+Status: **done**, amended by §11
 Phase: 3 (Polish & Operability) — feature
 Depends on: 073 (the renderer, storage and accessory layers), 010 (the model-client pattern)
 Second of two: 073 the parts that need no GPU, **074** this.
@@ -180,3 +180,57 @@ nothing re-renders against the model.
   inferred from the endpoint — the endpoint test would pass whatever the schema
   did, since no host is configured in CI.
 - **Counts:** 8 axes, 118 authored options, 37 backend tests, 12 frontend tests.
+
+---
+
+## 11. Amendment — the vocabulary, the grid, and the budget
+
+From using it. Three things were wrong and one was missing.
+
+### 11.1 The grid has to stay put
+
+Choosing a candidate **deleted the other three** and cleared the grid, so a
+second thought was impossible: the portrait you preferred was already gone. That
+was written as a storage saving and it is not worth the cost.
+
+- All candidates from the most recent job **stay** until the next job replaces
+  them. Choosing is now reversible as many times as you like.
+- The job records `chosen_candidate_id`, so the grid can mark which one is live
+  and survive a reload knowing it.
+- Generating again clears the previous job's candidates — one grid at a time,
+  which is what "until more images are generated" means.
+
+### 11.2 The seven axes
+
+Headwear and Background are retired; Clothing covers the first and the house
+style covers the second. **Presentation** is added. The authored lists are
+replaced wholesale, so seeding must now *retire* options that are no longer
+authored rather than leaving them alongside the new ones.
+
+| Axis | Options |
+| --- | --- |
+| Ancestry | Human, Elf, Dwarf, Halfling, Orc, Tiefling, Dragonborn, Gnome, Celestial, Fiendish |
+| Class | **The player's own unlocked classes**, and only at level 5 or above |
+| Clothing | Heavy Plate Mail, Leather Scouting Gear, Flowing Sorcerer Robes, Elegant Noble Attire, Tattered Rogue Hoods |
+| Colours | Warm, Cool, Earthy, Shadow, Radiant |
+| Expression | Determined, Confident, Serene, Fierce, Weary, Amused, Watchful |
+| Presentation | Masculine-presenting, Feminine-presenting, Androgynous-presenting |
+| Art Style | oil, ink, woodcut, illuminated, watercolour, charcoal, stained glass, storybook |
+
+**Class is not a static list.** The fragments for all 48 stay in the table, but
+the builder offers only what `available_classes()` returns for that player, and
+nothing at all below `class_unlock_level` (5) — the same rule that already gates
+choosing a class, reused rather than reinvented.
+
+**Presentation is optional and stays optional.** "Any" is the default on every
+axis and means the axis is simply left out of the prompt; on this one that is
+the point, not an oversight. The three options describe *how a portrait looks*,
+not who anybody is, which is why the wording is "-presenting" and why there is
+no fourth "prefer not to say" — leaving it unset already is that.
+
+### 11.3 The budget does not apply to admins
+
+An admin testing the feature ran out, which is the wrong failure. Admins are
+**exempt**, shown as unlimited rather than as a number. Separately, every player
+gains a `portrait_grant` an admin can raise from the user page, so somebody who
+lost four portraits to a bad afternoon can be topped up without a deploy.

@@ -18,13 +18,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.models.avatar_trait import AvatarCandidate, AvatarJob, AvatarTrait, JobState, TraitAxis
-from app.models.character_class import CharacterClass, Rarity
 from app.models.notification import Achievement, LootBox, LootBoxType, LootRarity
-from app.models.user import AvatarSource
+from app.models.user import AvatarSource, UserRole
 from app.services import image_client, portraits
+from app.services.scoring import xp_for_level
 from app.services.trait_roster import ALL_AXES, STYLE_SUFFIX, assemble_prompt, authored_traits
 from app.services.trait_roster import seed as seed_traits
-from tests.factories import make_user
+from tests.factories import make_category, make_challenge, make_user, record_solve
 
 
 def png_bytes(colour: tuple[int, int, int] = (10, 20, 30)) -> bytes:
@@ -72,7 +72,67 @@ def always(status_code: int = 200, content: bytes | None = None):
 class TestTraitRoster:
     def test_every_axis_has_options(self) -> None:
         for axis in ALL_AXES:
-            assert len(axis) >= 8, f"{axis[0].axis} is too thin to be a choice"
+            assert len(axis) >= 3, f"{axis[0].axis} is too thin to be a choice"
+
+    def test_the_authored_axes_are_the_seven(self) -> None:
+        # Headwear and Background were retired by §11.2 and Presentation added.
+        assert {axis[0].axis for axis in ALL_AXES} == {
+            TraitAxis.ANCESTRY,
+            TraitAxis.PRESENTATION,
+            TraitAxis.CLASS_LOOK,
+            TraitAxis.GARB,
+            TraitAxis.EXPRESSION,
+            TraitAxis.PALETTE,
+            TraitAxis.ART_STYLE,
+        }
+
+    def test_presentation_is_about_the_picture_not_the_person(self) -> None:
+        # The wording is load-bearing: these describe how a portrait reads, so
+        # every label says "-presenting" and none of them names a person.
+        labels = [t.label for t in authored_traits() if t.axis == TraitAxis.PRESENTATION]
+
+        assert labels == [
+            "Masculine-presenting",
+            "Feminine-presenting",
+            "Androgynous-presenting",
+        ]
+
+    async def test_retired_options_are_disabled_not_left_lying_around(
+        self, db_session: AsyncSession
+    ) -> None:
+        # Seeding over an older vocabulary must not leave both on offer.
+        db_session.add(
+            AvatarTrait(
+                axis=TraitAxis.HEADWEAR,
+                key="wide-hat",
+                label="Wide Hat",
+                prompt_fragment="a wide-brimmed hat",
+                enabled=True,
+            )
+        )
+        await db_session.flush()
+
+        await seed_traits(db_session)
+
+        row = (
+            await db_session.execute(select(AvatarTrait).where(AvatarTrait.key == "wide-hat"))
+        ).scalar_one()
+        assert row.enabled is False
+
+    async def test_reseeding_updates_a_reworded_option(self, db_session: AsyncSession) -> None:
+        # The authored list is the source of truth for label and fragment, or a
+        # deploy that rewords an option would not actually reword it.
+        await seed_traits(db_session)
+        row = (
+            await db_session.execute(select(AvatarTrait).where(AvatarTrait.key == "plate"))
+        ).scalar_one()
+        row.label = "Stale Label"
+        await db_session.flush()
+
+        await seed_traits(db_session)
+        await db_session.refresh(row)
+
+        assert row.label == "Heavy Plate Mail"
 
     def test_keys_are_unique_within_an_axis(self) -> None:
         for axis in ALL_AXES:
@@ -258,12 +318,12 @@ class TestJobs:
         config = image_settings(settings)
         await seed_traits(db_session)
         user = await make_user(db_session)
-        before = await portraits.remaining(db_session, config, user.id)
+        before = await portraits.remaining(db_session, config, user)
 
         job = await portraits.start(db_session, config, user, {"ancestry": "elf"})
         await portraits.run(db_session, config, job)
 
-        assert await portraits.remaining(db_session, config, user.id) == before
+        assert await portraits.remaining(db_session, config, user) == before
 
     async def test_the_budget_runs_out(self, db_session: AsyncSession, settings: Settings) -> None:
         install(always())
@@ -305,7 +365,7 @@ class TestJobs:
         await db_session.flush()
 
         # The reroll spiral gets a tap rather than a wall.
-        assert await portraits.remaining(db_session, config, user.id) == 1
+        assert await portraits.remaining(db_session, config, user) == 1
 
     async def test_only_one_job_at_a_time(
         self, db_session: AsyncSession, settings: Settings
@@ -319,7 +379,7 @@ class TestJobs:
         with pytest.raises(portraits.JobInFlight):
             await portraits.start(db_session, config, user, {"ancestry": "orc"})
 
-    async def test_choosing_adopts_the_base_and_drops_the_rest(
+    async def test_choosing_adopts_the_base_and_keeps_the_grid(
         self, db_session: AsyncSession, settings: Settings
     ) -> None:
         install(always())
@@ -342,6 +402,10 @@ class TestJobs:
 
         assert user.avatar_source == AvatarSource.GENERATED
         assert user.avatar_base == rows[0].image
+        assert job.chosen_candidate_id == rows[0].id
+
+        # **All of them stay.** Deleting the siblings made a second thought
+        # impossible — the one you preferred was already gone (spec 074 §11.1).
         left = (
             (
                 await db_session.execute(
@@ -351,7 +415,58 @@ class TestJobs:
             .scalars()
             .all()
         )
-        assert len(left) == 1
+        assert len(left) == 3
+
+    async def test_a_second_thought_is_possible(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        install(always())
+        config = image_settings(settings, image_candidates=3)
+        await seed_traits(db_session)
+        user = await make_user(db_session)
+        job = await portraits.start(db_session, config, user, {"ancestry": "elf"})
+        await portraits.run(db_session, config, job)
+        rows = (
+            (
+                await db_session.execute(
+                    select(AvatarCandidate).where(AvatarCandidate.job_id == job.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        await portraits.choose(db_session, user, job, rows[0].id)
+        await portraits.choose(db_session, user, job, rows[2].id)
+        await portraits.choose(db_session, user, job, rows[0].id)
+
+        assert user.avatar_base == rows[0].image
+        assert job.chosen_candidate_id == rows[0].id
+
+    async def test_generating_again_replaces_the_grid(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        # "Stable until more images are generated" — this is the "until".
+        install(always())
+        config = image_settings(settings, image_candidates=2)
+        await seed_traits(db_session)
+        user = await make_user(db_session)
+        first = await portraits.start(db_session, config, user, {"ancestry": "elf"})
+        await portraits.run(db_session, config, first)
+
+        second = await portraits.start(db_session, config, user, {"ancestry": "orc"})
+        await portraits.run(db_session, config, second)
+
+        old = (
+            (
+                await db_session.execute(
+                    select(AvatarCandidate).where(AvatarCandidate.job_id == first.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert old == []
 
     async def test_choosing_clears_the_rendered_cache(
         self, db_session: AsyncSession, settings: Settings
@@ -470,7 +585,7 @@ class TestApi:
             assert trait.fragment not in body
         assert "prompt_fragment" not in body
 
-    async def test_the_builder_offers_every_axis(
+    async def test_the_builder_offers_every_authored_axis(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
         await seed_traits(db_session)
@@ -480,26 +595,45 @@ class TestApi:
         response = await client.get("/api/portraits/builder")
 
         axes = {row["axis"] for row in response.json()["axes"]}
-        assert axes == {axis.value for axis in TraitAxis}
+        # The seven that are authored. A retired axis arrives empty and is left
+        # out rather than rendering as a dropdown with nothing in it.
+        assert axes == {axis[0].axis.value for axis in ALL_AXES}
 
-    async def test_the_builder_preselects_your_own_class(
+    async def test_the_class_axis_is_shut_until_you_reach_the_level(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
     ) -> None:
-        # What ties a portrait to progression rather than to a costume box.
+        # The same gate that already governs choosing a class, reused rather
+        # than reinvented (spec 074 §11.2).
         await seed_traits(db_session)
         user = await make_user(db_session)
-        wizard = (
-            await db_session.execute(select(CharacterClass).where(CharacterClass.name == "Wizard"))
-        ).scalar_one_or_none() or CharacterClass(name="Wizard", rarity=Rarity.COMMON)
-        db_session.add(wizard)
-        await db_session.flush()
-        user.character_class_id = wizard.id
-        await db_session.flush()
         await sign_in(client, user)
 
-        response = await client.get("/api/portraits/builder")
+        body = (await client.get("/api/portraits/builder")).json()
 
-        assert response.json()["default_class_look"] == "wizard"
+        classes = next(row for row in body["axes"] if row["axis"] == "class_look")
+        assert classes["options"] == []
+        assert "level" in body["class_locked_note"]
+
+    async def test_above_the_level_it_offers_what_you_unlocked(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        await seed_traits(db_session)
+        user = await make_user(db_session)
+        zone = await make_category(db_session, name=f"Z{user.id.hex[:6]}")
+        challenge = await make_challenge(db_session, category=zone)
+        # Enough banked XP to clear class_unlock_level.
+        await record_solve(db_session, user, challenge, xp=xp_for_level(8))
+        await sign_in(client, user)
+
+        body = (await client.get("/api/portraits/builder")).json()
+
+        classes = next(row for row in body["axes"] if row["axis"] == "class_look")
+        labels = {option["label"] for option in classes["options"]}
+        # The common classes carry no skill requirements, so they open at the
+        # level gate; the ones with requirements do not.
+        assert "Wizard" in labels
+        assert "Cryptomancer" not in labels
+        assert body["class_locked_note"] is None
 
     async def test_a_dark_host_means_the_feature_is_not_offered(
         self, client: AsyncClient, db_session: AsyncSession, sign_in
@@ -611,3 +745,104 @@ class TestApi:
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/png"
+
+
+class TestBudget:
+    """Who pays for portraits, and who does not (spec 074 §11.3)."""
+
+    async def test_an_admin_is_not_on_a_budget(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        # An admin running out while testing is the wrong failure: they are the
+        # one person who has to generate repeatedly, and the budget exists to
+        # protect one GPU from 200 players, not from its operator.
+        await seed_traits(db_session)
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        await sign_in(client, admin)
+
+        body = (await client.get("/api/portraits/builder")).json()
+
+        # Null, not a very large number — which in the UI would read as a bug.
+        assert body["remaining"] is None
+
+    async def test_an_admin_keeps_going_past_the_budget(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        install(always())
+        config = image_settings(settings, image_budget=1)
+        await seed_traits(db_session)
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+
+        for _ in range(3):
+            job = await portraits.start(db_session, config, admin, {"ancestry": "elf"})
+            await portraits.run(db_session, config, job)
+
+        assert await portraits.remaining(db_session, config, admin) == portraits.UNLIMITED
+
+    async def test_a_player_still_runs_out(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        install(always())
+        config = image_settings(settings, image_budget=1)
+        await seed_traits(db_session)
+        user = await make_user(db_session)
+        job = await portraits.start(db_session, config, user, {"ancestry": "elf"})
+        await portraits.run(db_session, config, job)
+
+        assert await portraits.remaining(db_session, config, user) == 0
+
+    async def test_a_grant_tops_a_player_up(
+        self, db_session: AsyncSession, settings: Settings
+    ) -> None:
+        install(always())
+        config = image_settings(settings, image_budget=1)
+        await seed_traits(db_session)
+        user = await make_user(db_session)
+        job = await portraits.start(db_session, config, user, {"ancestry": "elf"})
+        await portraits.run(db_session, config, job)
+
+        user.portrait_grant = 2
+        await db_session.flush()
+
+        assert await portraits.remaining(db_session, config, user) == 2
+
+    async def test_an_admin_can_set_the_grant(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        player = await make_user(db_session)
+        await sign_in(client, admin)
+
+        response = await client.post(
+            f"/api/admin/users/{player.id}/portrait-grant", json={"grant": 5}
+        )
+
+        assert response.status_code == 200
+        await db_session.refresh(player)
+        assert player.portrait_grant == 5
+
+    async def test_the_grant_is_absolute_not_a_delta(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        # Setting it twice by accident should land on the number typed.
+        admin = await make_user(db_session, role=UserRole.ADMIN)
+        player = await make_user(db_session)
+        await sign_in(client, admin)
+
+        await client.post(f"/api/admin/users/{player.id}/portrait-grant", json={"grant": 5})
+        await client.post(f"/api/admin/users/{player.id}/portrait-grant", json={"grant": 5})
+
+        await db_session.refresh(player)
+        assert player.portrait_grant == 5
+
+    async def test_a_player_cannot_grant_themselves_portraits(
+        self, client: AsyncClient, db_session: AsyncSession, sign_in
+    ) -> None:
+        player = await make_user(db_session)
+        await sign_in(client, player)
+
+        response = await client.post(
+            f"/api/admin/users/{player.id}/portrait-grant", json={"grant": 99}
+        )
+
+        assert response.status_code == 403

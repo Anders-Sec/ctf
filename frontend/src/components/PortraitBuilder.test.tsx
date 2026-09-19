@@ -40,6 +40,7 @@ function builder(overrides: Partial<Builder> = {}): Builder {
     remaining: 3,
     candidates_per_job: 2,
     default_class_look: null,
+    class_locked_note: null,
     axes: AXES,
     ...overrides,
   };
@@ -49,6 +50,7 @@ const JOB = {
   id: "j1",
   state: "done",
   error: null,
+  chosen_candidate_id: null,
   candidates: [
     { id: "c1", seed: 111 },
     { id: "c2", seed: 222 },
@@ -59,10 +61,15 @@ function render({
   config = builder(),
   jobs = [] as unknown[],
   job = JOB as unknown,
+  chosen = null as unknown,
 }: Record<string, unknown> = {}) {
   const mock = stubFetch((path, init) => {
     if (path.includes("/auth/me")) return { status: 200, body: me() };
     if (path.includes("/portraits/builder")) return { status: 200, body: config };
+    // Choosing returns the whole grid with the pick marked, not just the pick.
+    if (init?.method === "POST" && path.includes("/choose")) {
+      return { status: 200, body: chosen ?? job };
+    }
     if (init?.method === "POST") return { status: 202, body: job };
     if (path.includes("/portraits/jobs")) return { status: 200, body: jobs };
     return { status: 200, body: {} };
@@ -197,5 +204,71 @@ describe("PortraitBuilder", () => {
     render({ jobs: [JOB] });
 
     expect(await screen.findByRole("button", { name: "Use portrait 111" })).toBeInTheDocument();
+  });
+});
+
+describe("PortraitBuilder — the grid stays (spec 074 §11.1)", () => {
+  it("keeps all four after you pick one", async () => {
+    // It used to clear the grid the moment you chose, so changing your mind
+    // cost another generation.
+    render({
+      job: { ...JOB, chosen_candidate_id: null },
+      chosen: { ...JOB, chosen_candidate_id: "c1" },
+    });
+    await screen.findByLabelText("Ancestry");
+    await userEvent.click(screen.getByRole("button", { name: "Paint it" }));
+    await screen.findByRole("button", { name: "Use portrait 111" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Use portrait 111" }));
+
+    expect(
+      await screen.findByRole("button", { name: "Portrait 111, currently yours" }),
+    ).toBeInTheDocument();
+    // The other one is still there to change to.
+    expect(screen.getByRole("button", { name: "Use portrait 222" })).toBeInTheDocument();
+  });
+
+  it("marks the live one in words, not only with a border", async () => {
+    render({
+      job: { ...JOB, chosen_candidate_id: null },
+      chosen: { ...JOB, chosen_candidate_id: "c2" },
+    });
+    await screen.findByLabelText("Ancestry");
+    await userEvent.click(screen.getByRole("button", { name: "Paint it" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Use portrait 222" }),
+    );
+
+    const live = await screen.findByRole("button", {
+      name: "Portrait 222, currently yours",
+    });
+    expect(live).toHaveAttribute("aria-pressed", "true");
+    expect(live).toHaveTextContent("Yours");
+  });
+});
+
+describe("PortraitBuilder — budget and gating", () => {
+  it("says Unlimited for an admin rather than a number", async () => {
+    render({ config: builder({ remaining: null }) });
+
+    expect(await screen.findByText(/Unlimited/)).toBeInTheDocument();
+  });
+
+  it("still lets an admin paint", async () => {
+    render({ config: builder({ remaining: null }) });
+
+    expect(await screen.findByRole("button", { name: "Paint it" })).toBeEnabled();
+  });
+
+  it("explains an empty Class axis instead of showing a dead dropdown", async () => {
+    render({
+      config: builder({
+        axes: [{ axis: "class_look" as const, options: [] }],
+        class_locked_note: "Reach level 5 to choose a class.",
+      }),
+    });
+
+    expect(await screen.findByText("Reach level 5 to choose a class.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Class")).not.toBeInTheDocument();
   });
 });

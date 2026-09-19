@@ -9,6 +9,7 @@ import {
   getUser,
   resendMagicLink,
   setAssistantBlock,
+  setPortraitGrant,
   setThemeGrant,
   setUserRole,
 } from "../api/admin";
@@ -83,6 +84,13 @@ export default function UserDetailDrawer({
   });
   const block = useMutation({
     mutationFn: (blocked: boolean) => setAssistantBlock(userId, blocked, reason || undefined),
+    onSuccess: refresh,
+  });
+
+  // Absolute rather than a delta, matching the endpoint: an admin who
+  // saves twice by accident lands on the number they typed.
+  const grant = useMutation({
+    mutationFn: (value: number) => setPortraitGrant(userId, value, reason || undefined),
     onSuccess: refresh,
   });
   const resend = useMutation({
@@ -166,6 +174,7 @@ export default function UserDetailDrawer({
               <Fact label="Level" value={String(data.level)} />
               <Fact label="Class" value={data.class_name ?? "Classless"} />
               <Fact label="Hints used" value={String(data.hints_used)} />
+              <Fact label="Portraits" value={String(data.portraits_used)} />
               <Fact label="Achievements" value={String(data.achievement_count)} />
               {/* The single most useful field when someone is stuck. */}
               <Fact label="Current wall" value={data.current_wall ?? "—"} />
@@ -263,6 +272,39 @@ export default function UserDetailDrawer({
                     {data.assistant_blocked ? "Unblock System AI" : "Block System AI"}
                   </Action>
                 </div>
+
+                {/* Spec 074 §11.3. Admins are exempt from the budget entirely,
+                    so this is for players — somebody who lost an afternoon of
+                    portraits to a wedged host should not wait for a deploy. */}
+                <form
+                  className="mt-3 flex items-end gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const value = Number(
+                      new FormData(event.currentTarget).get("portrait-grant"),
+                    );
+                    if (Number.isFinite(value) && value >= 0) grant.mutate(value);
+                  }}
+                >
+                  <label className="text-xs text-content-muted">
+                    Extra portraits
+                    <input
+                      name="portrait-grant"
+                      type="number"
+                      min={0}
+                      max={500}
+                      defaultValue={data.portrait_grant}
+                      className="mt-1 w-24 rounded border border-border bg-surface px-2 py-1 text-sm"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={grant.isPending}
+                    className="rounded border border-border px-3 py-1.5 text-sm disabled:opacity-50"
+                  >
+                    {grant.isPending ? "Saving…" : "Grant"}
+                  </button>
+                </form>
 
                 <label className="mt-3 block text-sm">
                   <span className="mb-1 block text-content-muted">Role</span>

@@ -35,6 +35,8 @@ function detail(overrides: Partial<UserDetail> = {}): UserDetail {
     approved_by_name: "Dungeon Master",
     disabled_reason: null,
     assistant_blocked: false,
+  portraits_used: 0,
+  portrait_grant: 0,
     level: 3,
     hints_used: 2,
     achievement_count: 5,

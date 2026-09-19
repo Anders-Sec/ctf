@@ -75,6 +75,11 @@ class UserDetailResponse(BaseModel):
     approved_by_name: str | None
     disabled_reason: str | None
     assistant_blocked: bool
+    #: Portraits generated, and the admin top-up on their budget
+    #: (spec 074 §11.3). Both shown so a grant is an informed decision
+    #: rather than a number typed into a vacuum.
+    portraits_used: int
+    portrait_grant: int
     level: int
     hints_used: int
     achievement_count: int
@@ -87,6 +92,17 @@ class UserDetailResponse(BaseModel):
     #: The challenge they have most recently attempted without solving — the
     #: single most useful field when someone is stuck (spec 050 §5).
     current_wall: str | None
+
+
+class PortraitGrantRequest(BaseModel):
+    """Extra generations on top of the standard budget.
+
+    Absolute, not a delta: an admin setting this twice by accident
+    should land on the number they typed, not double it.
+    """
+
+    grant: int = Field(ge=0, le=500)
+    reason: str | None = Field(default=None, max_length=500)
 
 
 class UserListResponse(BaseModel):

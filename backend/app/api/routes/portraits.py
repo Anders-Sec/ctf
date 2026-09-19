@@ -16,6 +16,7 @@ from sqlalchemy import select
 from app.api.deps import ActiveUser, DbSession
 from app.errors import NotFoundError
 from app.models.avatar_trait import AvatarCandidate, AvatarJob, AvatarTrait, JobState, TraitAxis
+from app.models.character_class import CharacterClass
 from app.models.user import User
 from app.schemas.portraits import (
     AxisOut,
@@ -25,6 +26,8 @@ from app.schemas.portraits import (
     StartJobRequest,
     TraitOut,
 )
+from app.services import character as character_service
+from app.services import classes as class_service
 from app.services import image_client, portraits
 
 router = APIRouter(prefix="/portraits", tags=["portraits"])
@@ -65,29 +68,54 @@ async def builder(request: Request, db: DbSession, current: ActiveUser) -> Build
         by_axis.setdefault(row.axis.value, []).append(TraitOut(key=row.key, label=row.label))
 
     user = await _current(db, current)
-    # Defaults this axis to the player's real class, which is what ties a
-    # portrait to progression rather than to a costume box.
+
+    # **The Class axis is not a static list** (spec 074 §11.2). It offers the
+    # classes this player has actually unlocked, and nothing at all below the
+    # level that unlocks classes — the same gate that already governs choosing
+    # one, reused rather than reinvented. Every fragment stays in the table, so
+    # the lookup keeps working whichever class they end up earning.
+    sheet = await character_service.build_sheet(db, user)
+    class_note: str | None = None
     default_class: str | None = None
-    if user.character_class_id:
-        from app.models.character_class import CharacterClass
+    class_rows = [row for row in rows if row.axis == TraitAxis.CLASS_LOOK]
 
-        name = (
-            await db.execute(
-                select(CharacterClass.name).where(CharacterClass.id == user.character_class_id)
-            )
-        ).scalar_one_or_none()
-        if name:
-            default_class = next(
-                (row.key for row in rows if row.axis == TraitAxis.CLASS_LOOK and row.label == name),
-                None,
-            )
+    if sheet.level < settings.class_unlock_level:
+        by_axis[TraitAxis.CLASS_LOOK.value] = []
+        class_note = f"Reach level {settings.class_unlock_level} to choose a class."
+    else:
+        unlocked = {c.name.lower() for c in await class_service.available_classes(db, user.id)}
+        offered = [row for row in class_rows if row.label.lower() in unlocked]
+        by_axis[TraitAxis.CLASS_LOOK.value] = [
+            TraitOut(key=row.key, label=row.label) for row in offered
+        ]
+        if not offered:
+            class_note = "No classes unlocked yet."
+        if user.character_class_id:
+            name = (
+                await db.execute(
+                    select(CharacterClass.name).where(CharacterClass.id == user.character_class_id)
+                )
+            ).scalar_one_or_none()
+            if name:
+                default_class = next(
+                    (row.key for row in offered if row.label.lower() == name.lower()), None
+                )
 
+    left = await portraits.remaining(db, settings, user)
     return BuilderOut(
         available=image_client.available(settings),
-        remaining=await portraits.remaining(db, settings, user.id),
+        remaining=None if left == portraits.UNLIMITED else left,
         candidates_per_job=settings.image_candidates,
         default_class_look=default_class,
-        axes=[AxisOut(axis=axis.value, options=by_axis.get(axis.value, [])) for axis in TraitAxis],
+        class_locked_note=class_note,
+        # Only axes that are still authored. A retired one is disabled in the
+        # table, so it arrives here empty and would render as a dropdown with
+        # nothing in it.
+        axes=[
+            AxisOut(axis=axis.value, options=by_axis[axis.value])
+            for axis in TraitAxis
+            if axis.value in by_axis
+        ],
     )
 
 
@@ -97,6 +125,7 @@ def _job_out(job: AvatarJob, candidates: list[AvatarCandidate]) -> JobOut:
         state=job.state,
         error=job.error,
         candidates=[CandidateOut(id=row.id, seed=row.seed) for row in candidates],
+        chosen_candidate_id=job.chosen_candidate_id,
     )
 
 
@@ -182,7 +211,14 @@ async def choose_candidate(candidate_id: UUID, db: DbSession, current: ActiveUse
     await portraits.choose(db, user, job, candidate_id)
     await db.commit()
 
-    return _job_out(job, [candidate])
+    # The whole grid comes back, not only the one picked: it stays
+    # selectable so a second thought is possible (spec 074 §11.1).
+    rows = (
+        (await db.execute(select(AvatarCandidate).where(AvatarCandidate.job_id == job.id)))
+        .scalars()
+        .all()
+    )
+    return _job_out(job, list(rows))
 
 
 @router.get("/jobs", response_model=list[JobOut])

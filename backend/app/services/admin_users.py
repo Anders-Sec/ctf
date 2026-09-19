@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.models.avatar_trait import AvatarJob, JobState
 from app.models.challenge import Challenge
 from app.models.character_class import CharacterClass
 from app.models.hint import HintUnlock
@@ -175,6 +176,18 @@ async def detail(db: AsyncSession, user: User) -> dict[str, Any]:
         ),
         "disabled_reason": user.disabled_reason,
         "assistant_blocked": user.assistant_blocked,
+        # Jobs that reached the model, so a refused or unreachable one
+        # does not read as a portrait they spent.
+        "portraits_used": int(
+            (
+                await db.execute(
+                    select(func.count())
+                    .select_from(AvatarJob)
+                    .where(AvatarJob.user_id == user.id, AvatarJob.state != JobState.FAILED)
+                )
+            ).scalar_one()
+        ),
+        "portrait_grant": user.portrait_grant,
         "level": level_for_xp(xp, get_settings().xp_level_base),
         "hints_used": hints_used,
         "achievement_count": achievements,

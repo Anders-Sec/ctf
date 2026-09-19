@@ -22,7 +22,7 @@ from app.config import Settings
 from app.errors import AppError
 from app.logging import get_logger
 from app.models.avatar_trait import AvatarCandidate, AvatarJob, AvatarTrait, JobState, TraitAxis
-from app.models.user import AvatarSource, User
+from app.models.user import AvatarSource, User, UserRole
 from app.services import image_client
 from app.services.avatars import invalidate
 from app.services.trait_roster import assemble_prompt
@@ -67,11 +67,10 @@ class Resolved:
 #: reads to a person.
 _ORDER = [
     TraitAxis.ANCESTRY,
+    TraitAxis.PRESENTATION,
     TraitAxis.CLASS_LOOK,
     TraitAxis.GARB,
-    TraitAxis.HEADWEAR,
     TraitAxis.EXPRESSION,
-    TraitAxis.SETTING,
     TraitAxis.PALETTE,
     TraitAxis.ART_STYLE,
 ]
@@ -136,23 +135,42 @@ async def generations_used(db: AsyncSession, user_id: UUID) -> int:
     ).scalar_one()
 
 
-async def remaining(db: AsyncSession, settings: Settings, user_id: UUID) -> int:
-    """How many portraits this player has left.
+#: What `remaining` returns for somebody who is not on a budget at all. The API
+#: turns it into "unlimited" rather than a number, because a very large integer
+#: in the UI reads as a bug.
+UNLIMITED = -1
 
-    Budget plus grants. A reroll of the same traits costs one, otherwise the
-    grid is a slot machine.
+
+def is_exempt(user: User) -> bool:
+    """Admins do not spend portraits (spec 074 §11.3).
+
+    An admin testing the feature running out is the wrong failure: they are the
+    one person who has to generate repeatedly, and the budget exists to protect
+    one GPU from 200 players, not from its operator.
+    """
+    return user.role == UserRole.ADMIN
+
+
+async def remaining(db: AsyncSession, settings: Settings, user: User) -> int:
+    """How many portraits this player has left, or ``UNLIMITED``.
+
+    Budget, plus one per loot box, plus whatever an admin has granted them. A
+    reroll of the same traits costs one, otherwise the grid is a slot machine.
     """
     from app.models.notification import LootBox
 
+    if is_exempt(user):
+        return UNLIMITED
+
     granted = (
         await db.execute(
-            select(func.count()).select_from(LootBox).where(LootBox.user_id == user_id)
+            select(func.count()).select_from(LootBox).where(LootBox.user_id == user.id)
         )
     ).scalar_one()
     # Loot is the tap: every box opened is one more portrait, on top of the
-    # starting allowance.
-    allowance = settings.image_budget + int(granted)
-    return max(0, allowance - await generations_used(db, user_id))
+    # starting allowance and anything an admin topped them up with.
+    allowance = settings.image_budget + int(granted) + user.portrait_grant
+    return max(0, allowance - await generations_used(db, user.id))
 
 
 async def start(
@@ -175,10 +193,22 @@ async def start(
     if in_flight:
         raise JobInFlight()
 
-    if await remaining(db, settings, user.id) <= 0:
+    left = await remaining(db, settings, user)
+    if left != UNLIMITED and left <= 0:
         raise OutOfGenerations()
 
     resolved = await resolve_traits(db, chosen)
+
+    # One grid at a time. The previous job's candidates go now rather than when
+    # something is picked from them — "stable until more images are generated"
+    # is exactly this line. The jobs themselves stay: they are the record of
+    # what was asked for.
+    await db.execute(
+        delete(AvatarCandidate).where(
+            AvatarCandidate.job_id.in_(select(AvatarJob.id).where(AvatarJob.user_id == user.id))
+        )
+    )
+
     job = AvatarJob(user_id=user.id, traits=resolved.keys, state=JobState.QUEUED)
     db.add(job)
     await db.flush()
@@ -247,13 +277,11 @@ async def choose(
     user.avatar_source = AvatarSource.GENERATED
     await invalidate(user)
 
-    # The rest of the grid goes: storing every rejected portrait of every player
-    # for five days buys nothing (spec 074 §9.4).
-    await db.execute(
-        delete(AvatarCandidate).where(
-            AvatarCandidate.job_id == job.id, AvatarCandidate.id != candidate.id
-        )
-    )
+    # **The rest of the grid stays** (spec 074 §11.1). Deleting it saved a
+    # little storage and made a second thought impossible: the portrait you
+    # preferred was already gone. Recording which one is live lets the grid mark
+    # it, and lets a reload still know.
+    job.chosen_candidate_id = candidate.id
     await db.flush()
     return candidate
 

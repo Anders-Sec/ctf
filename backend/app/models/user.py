@@ -117,6 +117,13 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: Null for a sigil, which is regenerated from the id rather than stored.
     avatar_base: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
+    #: Extra portrait generations an admin has granted this player on top of
+    #: the standard budget (spec 074 §11.3). Lets somebody who lost an
+    #: afternoon's worth to bad luck be topped up without a deploy.
+    portrait_grant: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
     #: Which base the renderer starts from (spec 073 §3).
     avatar_source: Mapped[AvatarSource] = mapped_column(
         Enum(AvatarSource, name="avatar_source", values_callable=lambda e: [m.value for m in e]),

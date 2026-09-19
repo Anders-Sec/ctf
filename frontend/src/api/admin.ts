@@ -74,6 +74,9 @@ export interface UserDetail {
   approved_by_name: string | null;
   disabled_reason: string | null;
   assistant_blocked: boolean;
+  /** Portraits generated, and the admin top-up on their budget. */
+  portraits_used: number;
+  portrait_grant: number;
   level: number;
   hints_used: number;
   achievement_count: number;
@@ -95,6 +98,13 @@ export const enableUser = (userId: string, reason: string) =>
 
 export const setUserRole = (userId: string, role: UserRole, reason?: string) =>
   api.post<AdminUser>(`/admin/users/${userId}/role`, { role, reason: reason ?? null });
+
+/** Absolute, not a delta: setting it twice lands on the number typed. */
+export const setPortraitGrant = (userId: string, grant: number, reason?: string) =>
+  api.post<AdminUser>(`/admin/users/${userId}/portrait-grant`, {
+    grant,
+    reason: reason ?? null,
+  });
 
 export const setAssistantBlock = (userId: string, blocked: boolean, reason?: string) =>
   api.post<AdminUser>(`/admin/users/${userId}/assistant-block`, {

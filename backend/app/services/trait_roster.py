@@ -1,19 +1,19 @@
-"""The authored trait vocabulary (spec 074 §2).
+"""The authored trait vocabulary (spec 074 §2, rewritten by §11.2).
 
-Eight axes. Players pick keys from these; the server turns the keys into a
+Seven axes. Players pick keys from these; the server turns the keys into a
 prompt. **No player ever writes prompt text**, which is the single largest
 decision in spec 074 and pays three times over: it removes NSFW prompts, slurs
-and prompt injection outright rather than mitigating them; eight fragments tuned
-once beat two hundred first attempts at prompt engineering; and the vocabulary
-is the game's own, so a portrait looks like it came from this event.
+and prompt injection outright rather than mitigating them; fragments tuned once
+beat two hundred first attempts at prompt engineering; and the vocabulary is the
+game's own, so a portrait looks like it came from this event.
 
 It matters more here than it would elsewhere because **SDXL Turbo runs at
 guidance_scale=0.0 and ignores negative prompts**, so the usual lever is not
 available. The input vocabulary is the filter.
 
-Seeded at boot like the accessory roster, and for the same reason: migrations in
-this repo never import from ``app``, so a migration would mean a second copy of
-this list in SQL.
+Seeded at boot, for the same reason the accessory roster is: migrations in this
+repo never import from ``app``, so a migration would mean a second copy of this
+list in SQL.
 """
 
 from dataclasses import dataclass
@@ -55,24 +55,22 @@ ANCESTRY = _traits(
     [
         ("human", "Human", "a human"),
         ("elf", "Elf", "a slender elf with long pointed ears"),
-        ("half-elf", "Half-Elf", "a half-elf with faintly pointed ears"),
-        ("dwarf", "Dwarf", "a stout dwarf with a heavy braided beard"),
+        ("dwarf", "Dwarf", "a stout dwarf, broad-shouldered, hair worked into braids"),
         ("halfling", "Halfling", "a small bright-eyed halfling"),
-        ("gnome", "Gnome", "a small gnome with wild hair"),
         ("orc", "Orc", "a broad orc with tusks and green-grey skin"),
-        ("half-orc", "Half-Orc", "a half-orc with small tusks"),
         ("tiefling", "Tiefling", "a tiefling with curling horns and ember eyes"),
         ("dragonborn", "Dragonborn", "a dragonborn with scaled draconic features"),
-        ("goliath", "Goliath", "a towering goliath with stone-grey skin markings"),
-        ("aasimar", "Aasimar", "an aasimar with faintly luminous skin"),
-        ("firbolg", "Firbolg", "a tall firbolg with a long nose and kind eyes"),
-        ("construct", "Construct", "a clockwork construct with a brass faceplate"),
+        ("gnome", "Gnome", "a small gnome with wild hair and bright eyes"),
+        ("celestial", "Celestial", "an aasimar with faintly luminous skin and pale gold eyes"),
+        ("fiendish", "Fiendish", "a fiend-touched figure, skin like banked coals"),
     ],
 )
 
-#: One fragment per real class. The heaviest-lifting axis, and the one that ties
-#: a portrait to progression rather than to a costume box — which is why the
-#: builder defaults it to the player's actual class.
+#: One fragment per class in the 48-roster. **Not all of these are offered.**
+#: The builder shows only the classes a player has unlocked, and nothing at all
+#: below `class_unlock_level` — the same gate that already governs choosing a
+#: class, reused rather than reinvented (spec 074 §11.2). Every fragment stays
+#: in the table so the lookup works whichever class they end up earning.
 CLASS_LOOK = _traits(
     TraitAxis.CLASS_LOOK,
     [
@@ -123,11 +121,7 @@ CLASS_LOOK = _traits(
         ("researcher", "Researcher", "a researcher surrounded by pinned notes and string"),
         ("archivist", "Archivist", "an archivist in dust-grey with a ring of brass keys"),
         ("triage-nurse", "Triage Nurse", "a triage nurse in stained whites, sleeves rolled"),
-        ("script-kiddie", "Script Kiddie", "a hooded teenager surrounded by borrowed glyphs"),
-        # The four mythic labels are the class names **exactly** as migration
-        # 0027 spells them, because the builder defaults this axis to the
-        # player's real class by matching on the name. Shortened labels here
-        # meant four classes silently fell through to the default.
+        ("script-kiddie", "Script Kiddie", "a hooded figure surrounded by borrowed glyphs"),
         (
             "architect-crypt-covenant",
             "Architect of the Unbreakable Crypt-Covenant",
@@ -154,80 +148,52 @@ CLASS_LOOK = _traits(
 GARB = _traits(
     TraitAxis.GARB,
     [
-        ("robes", "Robes", "flowing layered robes"),
-        ("plate", "Plate", "heavy articulated plate armour"),
-        ("leather", "Leather", "worn practical leather armour"),
-        ("chain", "Chain", "fine chain mail under a surcoat"),
-        ("rags", "Rags", "patched travelling rags"),
-        ("finery", "Finery", "embroidered courtly finery"),
-        ("scholar", "Scholar's Coat", "a long scholar's coat with ink-stained cuffs"),
-        ("furs", "Furs", "thick furs and leather straps"),
-        ("vestments", "Vestments", "ceremonial vestments with metal thread"),
-        ("workwear", "Workwear", "a heavy canvas apron over practical clothes"),
-    ],
-)
-
-HEADWEAR = _traits(
-    TraitAxis.HEADWEAR,
-    [
-        ("bare", "Bare", "bare-headed"),
-        ("hood", "Hood", "a deep drawn hood"),
-        ("helm", "Helm", "a battered steel helm"),
-        ("circlet", "Circlet", "a thin silver circlet"),
-        ("wide-hat", "Wide Hat", "a wide-brimmed pointed hat"),
-        ("crown", "Crown", "a heavy iron crown"),
-        ("bandana", "Bandana", "a knotted bandana"),
-        ("veil", "Veil", "a fine drifting veil"),
-        ("goggles", "Goggles", "brass goggles pushed up on the forehead"),
-        ("laurel", "Laurel", "a laurel of dry leaves"),
+        ("plate", "Heavy Plate Mail", "heavy articulated plate mail, dented and field-repaired"),
+        ("scouting", "Leather Scouting Gear", "oiled leather scouting gear with buckled straps"),
+        (
+            "robes",
+            "Flowing Sorcerer Robes",
+            "long flowing sorcerous robes, layered and embroidered",
+        ),
+        ("noble", "Elegant Noble Attire", "elegant noble attire in fine cloth with metal thread"),
+        ("hood", "Tattered Rogue Hoods", "a tattered layered hood and travel-worn wraps"),
     ],
 )
 
 EXPRESSION = _traits(
     TraitAxis.EXPRESSION,
     [
-        ("stoic", "Stoic", "a calm unreadable expression"),
-        ("grim", "Grim", "a grim set jaw"),
-        ("weary", "Weary", "a tired patient expression"),
-        ("fierce", "Fierce", "a fierce defiant stare"),
-        ("amused", "Amused", "a faint knowing smile"),
-        ("serene", "Serene", "a serene untroubled expression"),
-        ("wary", "Wary", "a wary sidelong look"),
-        ("delighted", "Delighted", "an open delighted grin"),
+        ("determined", "Determined", "a determined, focused expression"),
+        ("confident", "Confident", "a confident half-smirk"),
+        ("serene", "Serene", "a serene, untroubled expression"),
+        ("fierce", "Fierce", "a fierce, gritty stare"),
+        ("weary", "Weary", "a weary, patient expression"),
+        ("amused", "Amused", "a quietly amused expression"),
+        ("watchful", "Watchful", "a watchful, guarded look"),
     ],
 )
 
-#: Drawn from the theme-invariant ladders (spec 048), so a portrait sits
-#: deliberately on either ground rather than only on the one it was made for.
 PALETTE = _traits(
     TraitAxis.PALETTE,
     [
-        ("ember", "Ember", "a warm ember palette of rust, amber and deep red"),
-        ("frost", "Frost", "a cold palette of pale blue, white and steel"),
-        ("moss", "Moss", "an earthy palette of moss green, bark and ochre"),
-        ("dusk", "Dusk", "a dusk palette of violet, indigo and faded rose"),
-        ("bone", "Bone", "a bleached palette of bone, sand and grey"),
-        ("ink", "Ink", "a near-monochrome palette of black, slate and paper white"),
-        ("brass", "Brass", "a warm metallic palette of brass, copper and oiled leather"),
-        ("verdigris", "Verdigris", "a palette of oxidised copper green and weathered stone"),
-        ("wine", "Wine", "a rich palette of wine red, gold and shadow"),
-        ("storm", "Storm", "a storm palette of grey, white and sudden pale blue"),
+        ("warm", "Warm — Crimson & Gold", "a warm palette of crimson and gold"),
+        ("cool", "Cool — Arctic Blue & Silver", "a cool palette of arctic blue and silver"),
+        ("earthy", "Earthy — Forest Green & Brown", "an earthy palette of forest green and brown"),
+        ("shadow", "Shadow — Obsidian & Purple", "a shadowed palette of obsidian and deep purple"),
+        ("radiant", "Radiant — White & Gold", "a radiant palette of white and gold"),
     ],
 )
 
-SETTING = _traits(
-    TraitAxis.SETTING,
+#: How the portrait **reads**, not who the player is — which is why every label
+#: says "-presenting", and why there is no fourth "prefer not to say": leaving
+#: the axis on "Any" already is that, and Any is the default on every axis
+#: (spec 074 §11.2). These fragments are art direction and describe nobody.
+PRESENTATION = _traits(
+    TraitAxis.PRESENTATION,
     [
-        ("plain", "Plain", "a plain neutral background"),
-        ("dungeon", "Dungeon", "a dark stone dungeon corridor behind them"),
-        ("forest", "Forest", "a deep misted forest behind them"),
-        ("tavern", "Tavern", "a warm crowded tavern behind them"),
-        ("library", "Library", "towering shelves of scrolls behind them"),
-        ("arcane", "Arcane", "a circle of drifting arcane glyphs behind them"),
-        ("void", "Void", "an empty starless void behind them"),
-        ("forge", "Forge", "a glowing forge behind them"),
-        ("battlement", "Battlement", "a windswept castle battlement behind them"),
-        ("server-crypt", "Server Crypt", "racks of humming machines behind them, lit from below"),
+        ("masculine", "Masculine-presenting", "masculine-presenting features"),
+        ("feminine", "Feminine-presenting", "feminine-presenting features"),
+        ("androgynous", "Androgynous-presenting", "androgynous features"),
     ],
 )
 
@@ -245,14 +211,17 @@ ART_STYLE = _traits(
     ],
 )
 
+#: Order matters twice: it is the order the axes appear in the builder, and the
+#: order their fragments are joined into the prompt. Subject first, then what
+#: they wear and how they look, then how it is painted — which reads to the
+#: model roughly the way it reads to a person.
 ALL_AXES: list[list[Trait]] = [
     ANCESTRY,
+    PRESENTATION,
     CLASS_LOOK,
     GARB,
-    HEADWEAR,
     EXPRESSION,
     PALETTE,
-    SETTING,
     ART_STYLE,
 ]
 
@@ -271,37 +240,43 @@ def assemble_prompt(fragments: list[str]) -> str:
     return ", ".join([*fragments, STYLE_SUFFIX])
 
 
-async def seed(db: AsyncSession, *, overwrite: bool = False) -> int:
-    """Insert anything missing. Returns how many rows were added.
+async def seed(db: AsyncSession) -> int:
+    """Make the table match the roster. Returns how many rows were added.
 
-    Idempotent on (axis, key). Existing rows are left alone unless `overwrite`,
-    so an operator who retuned a fragment during setup keeps it.
+    **The authored list is the source of truth for label and fragment**, so a
+    deploy that rewords an option actually rewords it. That is a change from the
+    first version, which skipped rows that already existed — and would have left
+    spec 074 §11.2's new vocabulary sitting underneath the old one, invisible.
+
+    The operator's lever is `enabled`, which is never overwritten here: pull a
+    fragment that is producing bad portraits and it stays pulled.
+
+    Anything no longer authored is **disabled, not deleted**. Retired options
+    must stop being offered, but a job that recorded one still has to be
+    explicable months later.
     """
-    existing = {
-        (axis, key)
-        for axis, key in (await db.execute(select(AvatarTrait.axis, AvatarTrait.key))).all()
-    }
+    rows = (await db.execute(select(AvatarTrait))).scalars().all()
+    by_pair = {(row.axis, row.key): row for row in rows}
+    authored = authored_traits()
 
     added = 0
-    for order, trait in enumerate(authored_traits()):
-        if (trait.axis, trait.key) in existing and not overwrite:
-            continue
-        if (trait.axis, trait.key) in existing:
-            row = (
-                await db.execute(
-                    select(AvatarTrait).where(
-                        AvatarTrait.axis == trait.axis, AvatarTrait.key == trait.key
-                    )
-                )
-            ).scalar_one()
-        else:
-            row = AvatarTrait(axis=trait.axis, key=trait.key)
+    for order, trait in enumerate(authored):
+        row = by_pair.get((trait.axis, trait.key))
+        if row is None:
+            row = AvatarTrait(axis=trait.axis, key=trait.key, enabled=True)
             db.add(row)
             added += 1
         row.label = trait.label
         row.prompt_fragment = trait.fragment
         row.display_order = order
 
+    wanted = {(trait.axis, trait.key) for trait in authored}
+    retired = 0
+    for (axis, key), row in by_pair.items():
+        if (axis, key) not in wanted and row.enabled:
+            row.enabled = False
+            retired += 1
+
     await db.flush()
-    logger.info("trait_roster.seeded", extra={"added": added})
+    logger.info("trait_roster.seeded", extra={"added": added, "retired": retired})
     return added

@@ -31,11 +31,19 @@ class TraitAxis(enum.StrEnum):
     ANCESTRY = "ancestry"
     CLASS_LOOK = "class_look"
     GARB = "garb"
-    HEADWEAR = "headwear"
     EXPRESSION = "expression"
     PALETTE = "palette"
-    SETTING = "setting"
     ART_STYLE = "art_style"
+    #: How the portrait reads, not who anybody is — hence "-presenting", and
+    #: hence no fourth "prefer not to say": leaving it unset already is that
+    #: (spec 074 §11.2).
+    PRESENTATION = "presentation"
+
+    #: Retired by spec 074 §11.2. Kept on the enum because the database type
+    #: still carries the values and rows may still reference them; the roster no
+    #: longer authors any, so seeding disables what is left.
+    HEADWEAR = "headwear"
+    SETTING = "setting"
 
 
 class JobState(enum.StrEnum):
@@ -102,6 +110,14 @@ class AvatarJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     #: Coarse reason from ``image_client`` when this failed.
     error: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+    #: Which candidate is currently the player's avatar, so the grid can mark it
+    #: and a reload still knows. Not a foreign key: the candidates go when the
+    #: next job replaces the grid, and a FK would either block that or null this
+    #: out, losing the record of what was chosen (spec 074 §11.1).
+    chosen_candidate_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), nullable=True
+    )
 
 
 class AvatarCandidate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
